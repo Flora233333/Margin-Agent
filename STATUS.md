@@ -40,5 +40,6 @@
 
 - 语料路径在 `.env`，默认指向 `D:/competition/finetune/data/`（只读使用）。
 - BM25 缓存在 `.cache/bm25/`（不进仓库），语料变化时删除重建。
-- WSL 里的 Docker 已安装并在运行，但用户 `flora` 不在 `docker` 组，`docker ps` 报 permission denied。
-  M1 之前由作者执行：`wsl -d Ubuntu-22.04 -- sudo usermod -aG docker flora`，再 `wsl --shutdown`。
+- WSL Docker 可用（2026-10-03 验证：`flora` 已在 docker 组；Windows 经 localhost 能连到 WSL 容器端口）。
+  注意：WSL 空闲时会自动关机，容器随之停止。M1 起 PG/Redis 时要保持一个 WSL 终端开着，
+  或在 `%UserProfile%\.wslconfig` 里调大 `vmIdleTimeout`。
