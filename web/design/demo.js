@@ -186,6 +186,8 @@ async function play() {
       el.classList.remove("is-hidden");
       if (el.classList.contains("step")) markCurrent(el);
       for (const counter of el.querySelectorAll("[data-count]")) countUp(counter);
+      // 等旁注展开、滑到位之后再画线
+      if (el.classList.contains("margin-item")) setTimeout(() => announceSource(el), 550);
     }
     scheduleLayout();
     followBottom();
@@ -312,11 +314,12 @@ function layoutMargin() {
   for (const { item, target } of placed) {
     const top = Math.max(target, floor);
     if (!item.dataset.placed) {
-      // 第一次出现：直接放到位，不从顶部滑下来
-      item.style.transition = "none";
+      // 第一次出现：直接放到位，不从页面顶部滑下来。
+      // 只关掉 top 的过渡（.is-placing），淡入和展开的过渡照常进行，否则卡片会突然跳出来
+      item.classList.add("is-placing");
       item.style.top = `${top}px`;
       void item.offsetWidth;
-      item.style.transition = "";
+      item.classList.remove("is-placing");
       item.dataset.placed = "1";
     } else {
       item.style.top = `${top}px`;
@@ -343,20 +346,15 @@ for (const item of marginItems) resizeWatcher.observe(item);
 window.addEventListener("resize", scheduleLayout);
 
 /*
- * 连线：从引用编号所在那一行的正文右边缘，画一条曲线到旁注左边；用 dashoffset 做“画出来”的效果。
- * 起点放在正文右边缘而不是引用编号本身，线就只穿过空白，不会像删除线一样压在文字上。
+ * 连线：从起点那一行的正文（或过程区）右边缘，画一条曲线到旁注左边；用 dashoffset 做“画出来”的效果。
+ * 起点放在右边缘而不是引用编号本身，线就只穿过空白，不会像删除线一样压在文字上。
  */
-function showConnector(src) {
-  if (!marginEnabled()) return;
-  const cite = document.querySelector(`.answer .cite[data-src="${src}"]`);
-  const card = document.querySelector(`.source[data-src="${src}"]`);
-  if (!cite || !isShown(cite) || !isShown(card)) return;
-
+function drawConnector(from, card) {
   // 坐标换算成 .app 内容里的位置（.app 是滚动容器，连线跟着内容一起滚动）
   const base = app.getBoundingClientRect();
-  const a = cite.getBoundingClientRect();
+  const a = from.getBoundingClientRect();
   const b = card.getBoundingClientRect();
-  const textRight = cite.closest(".answer").getBoundingClientRect().right;
+  const textRight = from.closest(".answer, .work").getBoundingClientRect().right;
   const x1 = textRight - base.left + 12;
   const y1 = a.top + a.height / 2 - base.top + app.scrollTop;
   const x2 = b.left - base.left - 4;
@@ -369,6 +367,25 @@ function showConnector(src) {
   void connectorPath.getBoundingClientRect();
   connectorPath.classList.add("is-on");
 }
+
+/* 悬停引用编号或旁注时：连接正文里的 [n] 和对应旁注 */
+function showConnector(src) {
+  if (!marginEnabled()) return;
+  const cite = document.querySelector(`.answer .cite[data-src="${src}"]`);
+  const card = document.querySelector(`.source[data-src="${src}"]`);
+  if (!cite || !isShown(cite) || !isShown(card)) return;
+  drawConnector(cite, card);
+}
+
+/* 回放中新来源出现时：从过程区里引用它的那一步画一条线过去，1.5 秒后收回，表示“这条证据从这里来” */
+function announceSource(item) {
+  const card = item.querySelector(".source");
+  const anchor = anchorOf(item);
+  if (!marginEnabled() || !card || !anchor) return;
+  drawConnector(anchor.querySelector(".step-row") ?? anchor, card);
+  setTimeout(hideConnector, 1500);
+}
+
 function hideConnector() {
   connectorPath.classList.remove("is-on");
 }

@@ -252,6 +252,15 @@
     opacity 0.45s var(--ease) 0.08s,
     transform 0.5s var(--ease);
 }
+/* 旁注出现时从左侧（正文方向）轻轻滑出，而不是从上方 */
+:root[data-style="clean"] .margin-item.is-hidden { transform: translateX(-12px); }
+/* 第一次定位的那一刻：去掉 top 的过渡（直接到位），其余过渡保留 */
+:root[data-style="clean"] .margin-item.is-placing {
+  transition:
+    grid-template-rows 0.5s var(--ease),
+    opacity 0.45s var(--ease) 0.08s,
+    transform 0.5s var(--ease);
+}
 :root[data-style="clean"] .source {
   --card-bg: var(--paper);
   border: 0;
