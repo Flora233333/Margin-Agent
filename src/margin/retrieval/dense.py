@@ -3,8 +3,10 @@
 BM25 只认字面，"营收增长" 和 "营业收入同比增加" 字面重合少；向量检索能补上这类语义相近的情况。
 
 需要两样东西：
-    1. embedding 服务：OpenAI 兼容的 /v1/embeddings 接口（本地 LM Studio / llama.cpp 都行）
+    1. embedding 服务：llama.cpp llama-server 的 /v1/embeddings（OpenAI 兼容）
     2. 已建好的 Chroma 向量库：每个 block 一个向量，id = block_id，metadata 里有 doc_id
+两者都要和 RC6-C 当前用的索引 rc6-local-qwen3emb06b-q8_0-v2 一致：同一个 Q8_0 GGUF、
+last-token 池化、L2 归一化；查询格式见 embed_query。
 没有配置时，HybridRetriever 会自动跳过这一路。
 """
 
@@ -13,6 +15,8 @@ from __future__ import annotations
 import httpx
 
 # Qwen3-Embedding 要求查询带指令前缀（文档侧不带），否则召回质量明显下降。
+# 拼接方式照抄 RC6-C（afacpt.harness.local_embedding）：指令 + 一个空格 + 查询。
+# 少一个空格，token 序列就不同，向量会和训练环境有细微偏差。
 QUERY_INSTRUCTION = (
     "Instruct: Given a web search query, retrieve relevant passages that answer the query\nQuery:"
 )
@@ -25,7 +29,7 @@ class EmbeddingClient:
 
     def embed_query(self, query: str) -> list[float]:
         response = self.http.post(
-            "/embeddings", json={"model": self.model, "input": [QUERY_INSTRUCTION + query]}
+            "/embeddings", json={"model": self.model, "input": [f"{QUERY_INSTRUCTION} {query}"]}
         )
         response.raise_for_status()
         return response.json()["data"][0]["embedding"]
