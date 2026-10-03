@@ -2,8 +2,9 @@
  * 简洁风「批注版式」：只在 <html data-style="clean"> 时生效，叠加在 base.css 之上。
  *
  * 思路：Margin = 页边批注。页面像一份带页边批注的研究稿，而不是聊天窗口。
- *   1. 不对称版面：正文栏偏左，右侧是一条宽“页边”。来源以旁注形式出现在引用它的那句话旁边，
- *      悬停时用一根细线把正文里的 [1] 和旁注连起来（对齐与连线由 demo.js 计算）。
+ *   1. 不对称的“跨页”：正文栏 + 右侧一条较窄的“页边”紧挨在一起，作为一个整体在页面居中，
+ *      多出的宽度分给左右两侧外边（像书页的外白边），中间不留空洞。
+ *      来源以旁注形式出现在引用它的那句话旁边，悬停时用一根细线把 [1] 和旁注连起来（由 demo.js 计算）。
  *   2. 提问不再是气泡，而是这一页的大标题，下面一道主色短线。
  *   3. 回答开头是“结论行”：大号数字 + 一行口径说明；运行信息变成回答底部的一行账目。
  *   4. 左栏收成 56px 图标栏，悬停时展开成完整的历史列表（浮在内容上方，不挤压版面）。
@@ -14,8 +15,10 @@
 
 :root[data-style="clean"] {
   --rail: 56px;
-  --margin-w: clamp(280px, 26vw, 380px);
-  --offset: clamp(24px, 6.5vw, 104px);    /* 正文栏距左侧的留白，制造不对称 */
+  --body-w: 720px;                         /* 正文一行的最大宽度，再宽就不好读了 */
+  --gutter: 48px;                          /* 正文与页边旁注之间的固定间距 */
+  --margin-w: clamp(280px, 24vw, 360px);
+  --offset: 0px;                           /* 正文左侧内边距：宽屏由网格居中，不需要；窄屏见末尾 */
   --cite: #b5381f;                         /* 朱批红 */
   --cite-wash: #f8e2da;
 }
@@ -27,12 +30,32 @@
 /* 衬线版：只换“阅读字体”变量，界面部件仍是无衬线 */
 :root[data-style="clean"][data-font="serif"] { --font-reading: var(--font-serif); }
 
-/* ================================ 骨架：整页滚动 ================================ */
+/* ================================ 骨架：整页滚动 + 居中的跨页 ================================ */
+/*
+ * 五列：图标栏 | 左外白边 | 正文栏 | 页边旁注 | 右外白边
+ * 两个外白边都是 1fr，平分多出的宽度；正文栏和旁注之间只隔固定的 --gutter。
+ */
 :root[data-style="clean"] .app {
-  grid-template-columns: var(--rail) minmax(0, 1fr) var(--margin-w);
+  grid-template-columns:
+    var(--rail)
+    minmax(0, 1fr)
+    minmax(0, calc(var(--body-w) + var(--gutter)))
+    var(--margin-w)
+    minmax(0, 1fr);
   overflow-y: auto;
 }
-:root[data-style="clean"] .app.is-sources-closed { grid-template-columns: var(--rail) minmax(0, 1fr) 44px; }
+/* 收起来源：页边列变成 44px 的竖排标签，跨页整体随之平滑回到居中 */
+:root[data-style="clean"] .app.is-sources-closed {
+  grid-template-columns:
+    var(--rail)
+    minmax(0, 1fr)
+    minmax(0, calc(var(--body-w) + var(--gutter)))
+    44px
+    minmax(0, 1fr);
+}
+:root[data-style="clean"] .sidebar { grid-column: 1; }
+:root[data-style="clean"] .main { grid-column: 3; }
+:root[data-style="clean"] .side-panel { grid-column: 4; }
 :root[data-style="clean"] .main,
 :root[data-style="clean"] .side-panel { overflow: visible; }
 :root[data-style="clean"] .main { min-height: 100vh; }
@@ -109,9 +132,9 @@
 :root[data-style="clean"] .main-title { font-weight: 400; font-size: var(--text-sm); color: var(--ink-faint); }
 
 :root[data-style="clean"] .thread {
-  max-width: calc(720px + var(--offset));
+  max-width: calc(var(--body-w) + var(--gutter) + var(--offset));
   margin: 0;
-  padding: var(--space-7) var(--space-5) var(--space-5) var(--offset);
+  padding: var(--space-7) var(--gutter) var(--space-5) var(--offset);
   gap: var(--space-6);
 }
 
@@ -192,7 +215,8 @@
   display: flex;
   flex-wrap: wrap;
   gap: 2px var(--space-2);
-  margin-right: auto;
+  flex-basis: 100%;               /* 账目独占一行，操作按钮在下一行，不会被挤得零散换行 */
+  margin-bottom: var(--space-1);
   font-family: var(--font-mono);
   color: var(--ink-faint);
 }
@@ -200,12 +224,12 @@
 :root[data-style="clean"] .facts-section { display: none; }
 
 /* 输入框与正文栏左对齐 */
-:root[data-style="clean"] .composer-wrap { padding-left: var(--offset); }
-:root[data-style="clean"] .composer { max-width: 720px; margin: 0; }
+:root[data-style="clean"] .composer-wrap { padding-left: var(--offset); padding-right: var(--gutter); }
+:root[data-style="clean"] .composer { max-width: var(--body-w); margin: 0; }
 
 /* ================================ 右：页边旁注 ================================ */
 :root[data-style="clean"] .side-panel { border-left: 0; }
-:root[data-style="clean"] .panel-body { display: block; padding: 0 var(--space-5) var(--space-7) var(--space-2); }
+:root[data-style="clean"] .panel-body { display: block; padding: 0 var(--space-5) var(--space-7) 0; }
 :root[data-style="clean"] .panel-head {
   position: sticky;
   top: 0;
@@ -270,8 +294,11 @@
   /* 页边放到正文下方，旁注改为普通列表，不再对齐和连线 */
   :root[data-style="clean"] .app,
   :root[data-style="clean"] .app.is-sources-closed { grid-template-columns: var(--rail) minmax(0, 1fr); overflow: visible; }
+  :root[data-style="clean"] { --offset: clamp(24px, 6.5vw, 104px); }   /* 窄屏没有页边列：正文偏左，保留不对称 */
+  :root[data-style="clean"] .main,
+  :root[data-style="clean"] .side-panel { grid-column: 2; }
   :root[data-style="clean"] .main { min-height: 0; }
-  :root[data-style="clean"] .panel-body { padding-left: var(--offset); max-width: calc(720px + var(--offset)); }
+  :root[data-style="clean"] .panel-body { padding-left: var(--offset); max-width: calc(var(--body-w) + var(--offset)); }
   :root[data-style="clean"] .margin-track { display: grid; gap: var(--space-5); }
   :root[data-style="clean"] .margin-item { position: static; }
   :root[data-style="clean"] .connector { display: none; }
