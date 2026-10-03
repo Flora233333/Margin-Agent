@@ -16,7 +16,7 @@
 :root[data-style="clean"] {
   --rail: 56px;
   --body-w: 720px;                         /* 正文一行的最大宽度，再宽就不好读了 */
-  --gutter: 48px;                          /* 正文与页边旁注之间的固定间距 */
+  --gutter: clamp(64px, 6vw, 96px);        /* 正文与页边旁注之间的间距：随屏宽略增，1440 宽时约 86px */
   --margin-w: clamp(280px, 24vw, 360px);
   --offset: 0px;                           /* 正文左侧内边距：宽屏由网格居中，不需要；窄屏见末尾 */
   --cite: #b5381f;                         /* 朱批红 */
