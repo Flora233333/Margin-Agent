@@ -3,7 +3,8 @@
 三路：
     block_bm25          BM25 在 block 级打分，每个文档取得分最高的 block 代表它
     exact_entity        查询里出现了文档的实体别名（公司名/证券代码……）
-    chroma_dense_block  向量相似度（可选）
+    chroma_dense_block  向量相似度（可选）。现在存在 PG 里，但沿用 RC6-C 的路名：
+                        它会出现在 search_docs 的结果里给模型看，改名等于改模型接口
 
 RRF（Reciprocal Rank Fusion，倒数排名融合）：
     文档得分 = Σ_各路 1 / (60 + 该文档在这一路的名次)

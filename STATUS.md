@@ -2,7 +2,7 @@
 
 更新：2026-10-04
 
-## 所在阶段：M0.5 基本完成（向量检索待部署），下一步 M1
+## 所在阶段：M0.5 完成，下一步 M1
 
 计划全文见 [docs/PLAN.md](docs/PLAN.md)。
 
@@ -15,7 +15,7 @@
 - 检索（`src/margin/retrieval/`）：BM25（scipy 稀疏矩阵）+ 实体别名 + 可选向量，RRF 融合。
   在真实语料上验证：17,596 个 block，首次建索引约 100 秒，缓存 41MB，之后加载 1.3 秒。
 - OpenAI 兼容模型客户端（`src/margin/llm/`），统一 reasoning_content / reasoning 字段。
-- 47 个测试全部通过（`conda run -n margin pytest`），ruff 无报错。
+- 49 个测试（48 个单元 + 1 个连真实 PG 的集成测试）全部通过（`conda run -n margin pytest`），ruff 无报错。
 - 前端设计稿第三版 `web/design/`，只在本地打开 `preview.html`：
   - 三种风格：简洁「批注版式」（`clean.css`，含衬线开关）、手绘（`sketch.css`，作者已认可，外观不再改）、
     瑞士 + 扁平矢量（`swiss.css`）；公共结构与动效在 `base.css`。
@@ -47,19 +47,30 @@
    - 结论：DeepSeek 主用不变；M1 的重试策略要区分“网关失败”（换模型重跑）和“答错”（不自动重跑）。
 3. ~~LLM 客户端流式输出~~（完成）：`chat(..., on_delta=回调)` 走 SSE，思考逐字回调，工具参数分片拼接，
    最后一块取 usage；`run_episode(on_delta=...)` 给每个片段带上轮次。脚本加 `--stream` 可直接看效果。
-4. 向量检索（方案待作者审核）：必须对齐 RC6-C 当前用的索引 `rc6-local-qwen3emb06b-q8_0-v2`
-   （RL 环境服务 `rc6c_env_server.py` 和 E80 都用它），不用旧的 `h1.1.0-rc`（LM Studio 建的）。
-   - v2 只在实验室服务器上（`indexes/rc6-local-qwen3emb06b-q8_0-v2`），本机没有，需要拷回来。
-   - 本机 GGUF 的 sha256 与 v2 记录一致（06507c7b…）；llama.cpp 固定提交 a25c9865；
-     服务参数 `--pooling last --embd-normalize 2 -b 8192 -ub 8192`，模型名 / 端口照 v2（18082）。
-   - 查询格式已对齐 v2：指令 + 空格 + 查询（之前少一个空格）。
-5. 进入 M1：FastAPI + PostgreSQL + Celery/Redis 最小闭环。
+4. ~~向量检索~~（2026-10-04 完成，D15 / D16）：对齐 RC6-C 当前索引 `rc6-local-qwen3emb06b-q8_0-v2`
+   （从实验室服务器拷回，7 个文件 sha256 一致），向量导入 PG（pgvector，精确检索）；查询向量由本机 CPU 上的
+   llama.cpp（`scripts/start_embedding.ps1`，端口 18082）计算。本机重算与 v2 余弦最低 0.99947；
+   E80 80 题 search_docs 结果与 Chroma 完全相同 76/80。查询格式修正为“指令 + 空格 + 查询”。
+5. ~~E80 全量~~（2026-10-04 完成）：margin Harness + 三路检索，官方评分器（与服务器 sha256 一致，
+   重判历史 560/560 复现）。结果在 `.cache/e80_20261004/`（不进仓库）：
+
+   | 模型 | 答对 | 有效提交 | 平均调用 | 平均耗时 | 每题输入 token |
+   |---|---|---|---|---|---|
+   | DeepSeek | **66/80** | 79 | 15.1 | 104s | 36 万 |
+   | GLM | 57/80 | 65（15 题用完 30 轮） | 21.0 | 132s | 35 万 |
+   | 参照：RC6-C 自训 4B 最好 / 27B（服务器，完整 RC6-C） | 48 / 59 | | | | |
+
+   - DeepSeek 错的 14 题里 11 题是多选少选 / 多选；GLM 主要失败是轮数用完不提交。
+   - 两个模型都对 54 题，至少一个对 69 题。160 次运行网关没有出错。
+6. 进入 M1：FastAPI + PostgreSQL + Celery/Redis 最小闭环。
 
 ## 未决问题
 
 1. ~~DeepSeek 是否拒绝历史里的 `reasoning_content`~~：学校网关上不拒绝（2026-10-04 实测）。
    若以后接 DeepSeek 官方 API 再验证一次。
-2. 向量检索未在真实环境验证：需要本地 embedding 服务 + `artifacts/indexes/chroma/h1.1.0-rc` 索引。
+2. ~~向量检索未在真实环境验证~~：已验证（见上）。
+4. M1 的 worker 跑在 WSL 的容器里，连不到 Windows 上的 llama.cpp（127.0.0.1:18082）：
+   embedding 服务要么也进 compose（官方 llama.cpp 镜像），要么改监听地址。待作者决定。
 3. 文档身份 / 表格上下文两类结果增强未移植，先观察自训模型在缺少它们时的表现。
 
 ## 本地环境备忘

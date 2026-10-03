@@ -7,6 +7,7 @@
         # 只测检索，不调模型
     ... --model GLM        # 临时换模型（默认读 MARGIN_LLM_MODEL）
     ... --stream           # 流式调用，思考逐字打印
+    ... --json-out x.json  # 另存一份结构化结果（答案、停止原因、每轮耗时和 token），批量评测用
 
 配置从 .env 读取（见 .env.example）。首次运行会构建 BM25 索引（几分钟），之后从缓存加载。
 
@@ -46,10 +47,10 @@ def build_retriever() -> tuple[Corpus, HybridRetriever]:
                          Path(os.environ["MARGIN_MANIFEST_PATH"]))
     aliases = AliasCatalog.load(Path(os.environ["MARGIN_ALIAS_PATH"]))
     dense = None
-    if os.environ.get("MARGIN_CHROMA_PATH"):
+    if os.environ.get("MARGIN_EMBEDDING_BASE_URL"):  # 配了 embedding 服务才开向量检索
         embedder = EmbeddingClient(os.environ["MARGIN_EMBEDDING_BASE_URL"],
                                    os.environ["MARGIN_EMBEDDING_MODEL"])
-        dense = DenseSearcher(os.environ["MARGIN_CHROMA_PATH"], embedder)
+        dense = DenseSearcher(os.environ["MARGIN_DATABASE_URL"], embedder)
     cache = Path(os.environ.get("MARGIN_CACHE_DIR", ".cache")) / "bm25"
     retriever = HybridRetriever.create(corpus, cache_dir=cache, aliases=aliases, dense=dense)
     print(f"[检索器就绪] {len(corpus.blocks)} 个 block，{len(corpus.by_doc)} 个文档，"
@@ -65,6 +66,7 @@ def main() -> None:
     parser.add_argument("--search-only", action="store_true")
     parser.add_argument("--model", help="模型名，如 DeepSeek / GLM；不填则用 MARGIN_LLM_MODEL")
     parser.add_argument("--stream", action="store_true", help="流式调用，边生成边打印思考")
+    parser.add_argument("--json-out", type=Path, help="把结果另存为 JSON")
     args = parser.parse_args()
     load_dotenv()
     model = args.model or os.environ.get("MARGIN_LLM_MODEL")
@@ -109,6 +111,16 @@ def main() -> None:
     print(f"统计：{len(trace.usage)} 次模型调用，总耗时 {total_seconds:.1f}s"
           f"（模型 {sum(s.llm_seconds for s in trace.steps):.1f}s），"
           f"输入 {prompt_tokens} token，输出 {completion_tokens} token")
+    if args.json_out:
+        args.json_out.write_text(json.dumps({
+            "model": model, "final": trace.final, "violation": trace.violation,
+            "total_seconds": round(total_seconds, 1),
+            # 完整保存每一步的参数和结果：评分时要回放第一次有效的 finalize（与 E80 官方评分一致）
+            "steps": [{"turn": s.turn, "tool": s.tool_name, "arguments": s.arguments,
+                       "result": s.result, "llm_seconds": round(s.llm_seconds, 1)}
+                      for s in trace.steps],
+            "usage": trace.usage,
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

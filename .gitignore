@@ -21,3 +21,7 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+
+# 本地运行时：llama.cpp 程序和 GGUF 模型（大文件，不进仓库）
+/bin/
+/models/

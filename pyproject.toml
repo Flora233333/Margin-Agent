@@ -14,10 +14,14 @@ dependencies = [
     # BM25 打分用的稀疏矩阵运算
     "numpy>=1.26",
     "scipy>=1.11",
+    # PostgreSQL 驱动（psycopg 3；binary 版自带 libpq，Windows 上不用另装客户端）
+    "psycopg[binary]>=3.2",
+    # 让 psycopg 认识 pgvector 的 vector 类型（numpy 数组 <-> vector 列）
+    "pgvector>=0.4",
 ]
 
 [project.optional-dependencies]
-# 向量检索是可选的第三路：没有 embedding 服务时只用 BM25 + 别名两路。
+# 只在一次性导入向量时用：从 RC6-C 的 Chroma 索引读出向量，写进 PostgreSQL（D15）。
 dense = ["chromadb==1.5.9"]
 
 [dependency-groups]
@@ -33,6 +37,9 @@ packages = ["src/margin"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+# 集成测试要先起 PG（docker compose up -d postgres），默认跳过；用 pytest -m integration 单独跑
+markers = ["integration: 需要真实 PostgreSQL / Redis"]
+addopts = "-m 'not integration'"
 
 [tool.ruff]
 line-length = 100

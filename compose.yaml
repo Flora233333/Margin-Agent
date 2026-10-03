@@ -1,0 +1,27 @@
+# 本地开发用的基础服务。在 WSL 里运行（Docker 只装在 WSL）：
+#   wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d postgres"
+# 端口映射到 127.0.0.1，Windows 上的 Python 通过 localhost 连接。M1 再加 redis、worker。
+
+services:
+  postgres:
+    # 官方 PostgreSQL 18 镜像 + 预装 pgvector 扩展（向量列类型和余弦距离运算符）
+    image: pgvector/pgvector:pg18
+    environment:
+      POSTGRES_DB: margin
+      POSTGRES_USER: margin
+      # 开发库密码；compose 会从同目录 .env 读取 MARGIN_PG_PASSWORD，没有就用 margin_dev
+      POSTGRES_PASSWORD: ${MARGIN_PG_PASSWORD:-margin_dev}
+    ports:
+      - "127.0.0.1:5432:5432"  # 只绑本机，不暴露到局域网
+    volumes:
+      # PG 18 镜像的数据目录是 /var/lib/postgresql（18 起不再是 .../data）；
+      # 用命名卷保存数据，容器删了数据还在
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U margin -d margin"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:
