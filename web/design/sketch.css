@@ -1,0 +1,144 @@
+/*
+ * 手绘风：只在 <html data-style="sketch"> 时生效，叠加在 app.css 之上。
+ *
+ * 思路：Margin 的名字来自“页边批注”，手绘版就做成一本写满批注的笔记本。
+ *   1. 字体换成手写体：中文用霞鹜文楷，数字和英文用 Patrick Hand。
+ *   2. 背景是横线笔记纸，对话栏左边有一条红色页边线。
+ *   3. 边框不用 CSS border，而是画在 ::after 伪元素上，再用 SVG 滤镜（#rough，定义在 preview.html）
+ *      把直线“抖”成手画的样子。滤镜只作用在伪元素上，文字不会被扭曲。
+ *   4. 卡片轻微歪斜、引用原文用荧光笔、关键数字用马克笔划重点、旁边加一个手画箭头批注。
+ * 颜色仍然全部来自 tokens.css，所以四套配色、深浅色在手绘风下同样可用。
+ */
+
+:root[data-style="sketch"] {
+  --font-body: "LXGW WenKai Screen", "Patrick Hand", KaiTi, STKaiti, serif;
+  --font-display: "Patrick Hand", "LXGW WenKai Screen", KaiTi, serif;
+  --font-mono: "Patrick Hand", "LXGW WenKai Screen", KaiTi, monospace;
+  --text-sm: 0.875rem;   /* 楷体视觉上偏小，整体放大一点 */
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+
+  /* 两组不规则圆角：四个角半径差很多，看起来就像手画的方框 */
+  --wobble: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --wobble-2: 15px 255px 15px 225px / 225px 15px 255px 15px;
+  --stroke: color-mix(in srgb, var(--ink) 70%, transparent);
+}
+
+/* ---------- 纸张 ---------- */
+:root[data-style="sketch"] body {
+  background-image: linear-gradient(to bottom, color-mix(in srgb, var(--accent) 10%, transparent) 1px, transparent 1px);
+  background-size: 100% 30px;
+}
+:root[data-style="sketch"] .main {
+  /* 页边红线 */
+  background-image: linear-gradient(to right, transparent 44px, color-mix(in srgb, var(--cite) 35%, transparent) 44px 45.5px, transparent 45.5px);
+}
+:root[data-style="sketch"] .main-head { background: color-mix(in srgb, var(--paper) 92%, transparent); }
+:root[data-style="sketch"] .brand { font-size: 1.6rem; }
+
+/* ---------- 手画边框 ---------- */
+:root[data-style="sketch"] :is(.work, .source, .note, .composer, .bubble, .btn-new, .formula) {
+  position: relative;
+  border-color: transparent;
+  border-radius: var(--wobble);
+  box-shadow: none;
+}
+:root[data-style="sketch"] :is(.work, .source, .note, .composer, .bubble, .btn-new, .formula)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--stroke);
+  border-radius: inherit;
+  filter: url(#rough);
+  pointer-events: none;
+}
+/* 过程区和输入框再描一遍，错开一点，像铅笔来回画了两次 */
+:root[data-style="sketch"] :is(.work, .composer)::before {
+  content: "";
+  position: absolute;
+  inset: 2px -2px -1px 1px;
+  border: 1px solid var(--stroke);
+  border-radius: var(--wobble-2);
+  opacity: 0.35;
+  filter: url(#rough);
+  pointer-events: none;
+}
+:root[data-style="sketch"] .source.is-linked::after { border-color: var(--cite); }
+:root[data-style="sketch"] .composer:focus-within::after { border-color: var(--accent); }
+
+/* 被 overflow:hidden 的展开容器会裁掉歪斜卡片的角，这里给裁剪区留出几像素余量，布局不变 */
+:root[data-style="sketch"] .reveal-inner { padding: 3px 4px; margin: -3px -4px; }
+
+/* ---------- 歪斜：每张卡片角度略有不同 ---------- */
+:root[data-style="sketch"] .bubble { transform: rotate(-0.8deg); }
+:root[data-style="sketch"] .sources > :nth-child(odd) .source { transform: rotate(-0.5deg); }
+:root[data-style="sketch"] .sources > :nth-child(even) .source { transform: rotate(0.6deg); }
+
+/* 工作笔记做成便利贴 */
+:root[data-style="sketch"] .note {
+  background: color-mix(in srgb, var(--mark) 45%, var(--surface));
+  transform: rotate(-0.6deg);
+}
+
+/* ---------- 时间线：手画圆圈 + 虚线 ---------- */
+:root[data-style="sketch"] .step-node {
+  border: 1.5px solid currentColor;
+  border-radius: 50% 45% 55% 48% / 52% 50% 46% 50%;
+  background: var(--surface-2);
+}
+:root[data-style="sketch"] .step-node .icon { width: 11px; height: 11px; }
+:root[data-style="sketch"] .step-inner::before {
+  background: none;
+  border-left: 1.5px dashed var(--rule);
+}
+
+/* ---------- 荧光笔与重点 ---------- */
+:root[data-style="sketch"] .source-quote mark {
+  background: linear-gradient(100deg, transparent 1%, var(--mark) 3%, var(--mark) 96%, transparent 99%);
+  padding: 0 4px;
+}
+:root[data-style="sketch"] .key-figure {
+  background: linear-gradient(transparent 55%, var(--mark) 55%, var(--mark) 92%, transparent 92%);
+  padding: 0 2px;
+}
+:root[data-style="sketch"] .answer strong { font-weight: 400; }
+:root[data-style="sketch"] .cite {
+  font-size: 0.75em;
+  border: 1.2px solid var(--cite);
+  border-radius: 50% 45% 55% 48%;
+  padding: 0 4px;
+  margin-left: 2px;
+}
+
+/* ---------- 页边批注：手画箭头 + 一句话 ---------- */
+:root[data-style="sketch"] .doodle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  color: var(--cite);
+  font-family: "Patrick Hand", "LXGW WenKai Screen", KaiTi, serif;
+  font-size: var(--text-sm);
+  transform: rotate(3deg);
+}
+.doodle path { stroke-dasharray: 80; }
+/* 答案出现后，箭头像被笔画出来一样 */
+:root[data-style="sketch"] .answer:not(.is-hidden) .doodle path { animation: draw 0.9s var(--ease) 1.2s both; }
+:root[data-style="sketch"] .answer:not(.is-hidden) .doodle span { animation: tok-in 0.6s var(--ease) 1.8s both; }
+@keyframes draw { from { stroke-dashoffset: 80; } to { stroke-dashoffset: 0; } }
+
+/* ---------- 其他小件 ---------- */
+:root[data-style="sketch"] .send { border-radius: 50% 45% 55% 48% / 52% 50% 46% 50%; }
+:root[data-style="sketch"] .run.is-active { border-radius: var(--wobble); }
+:root[data-style="sketch"] .chip { border-style: dashed; }
+:root[data-style="sketch"] .quota > i {
+  background: repeating-linear-gradient(-45deg, var(--accent) 0 3px, transparent 3px 6px);
+}
+
+/* 手机宽度：页边空间不够，去掉红线和页边批注，避免压住正文 */
+@media (max-width: 760px) {
+  :root[data-style="sketch"] .main { background-image: none; }
+  :root[data-style="sketch"] .doodle { display: none; }
+}

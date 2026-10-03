@@ -15,11 +15,15 @@
   在真实语料上验证：17,596 个 block，首次建索引约 100 秒，缓存 41MB，之后加载 1.3 秒。
 - OpenAI 兼容模型客户端（`src/margin/llm/`），统一 reasoning_content / reasoning 字段。
 - 44 个测试全部通过（`uv run pytest`），ruff 无报错。
-- 前端设计稿 `web/design/`（tokens.css + preview.html），在线预览：
-  https://claude.ai/artifact/WSTcVfW9PkZDymLywggpwR
+- 前端设计稿第二版 `web/design/`，只在本地打开 `preview.html`：
+  三栏布局（历史 / 对话 / 来源）；过程区与回答分层；逐条展开的动效；
+  四套配色（墨青 / 石墨 / 藏青 / 松烟）× 深浅色；简洁风 + 手绘风（`sketch.css`）。
+  右下角“设计评审”面板切换，也可用地址参数，如 `preview.html?style=sketch&palette=navy&theme=dark`。
+- 运行环境约定写入 AGENTS.md（D10）。
 
 ## 下一步（M0.5 真实运行）
 
+0. 作者选定设计稿的风格和配色，记入 DECISIONS.md。
 1. 在 `.env` 填写模型配置（DeepSeek 或 vLLM 自训模型），用 `scripts/run_episode.py` 跑 3 类题各一道。
 2. 验证 DeepSeek 是否接受历史消息里的 `reasoning_content`（见“未决问题”1）。
 3. LLM 客户端加流式输出（`stream=True`），为 M2 的逐字思考展示做准备。

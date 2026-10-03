@@ -46,3 +46,13 @@
 ### D9 · 2026-10-03 · 测试只写企业风格的单元 / 接口 / 集成测试
 
 - **为什么**：作者的要求。每个测试对应一个会出事故的场景；不写 smoke 脚本和哈希校验。
+
+### D10 · 2026-10-03 · 运行环境分两层：Windows 跑 Python，WSL2 Docker 跑基础服务
+
+- **决定**：Python 代码、测试、FastAPI 开发服务器在 Windows 的 `.venv` 里跑；PostgreSQL、Redis、Celery worker 在 WSL2 的 Docker 里跑，通过 localhost 端口互通。细则见 AGENTS.md“运行环境约定”。
+- **为什么**：Celery 官方不支持 Windows；Docker 只装在 WSL 里。日常编辑、调试、跑单元测试留在 Windows 最顺手。
+- **替代**：全部在 WSL 里开发（仓库放在 WSL 文件系统 + VS Code Remote）。更接近线上 Linux 环境，但与当前 Windows 上的编辑和 AI 助手工作流不一致，暂不采用。
+
+### D11 · 2026-10-03 · 前端设计稿只在本地运行
+
+- **决定**：设计稿放 `web/design/`，用浏览器直接打开，不发布到任何在线平台。

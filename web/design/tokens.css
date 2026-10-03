@@ -1,45 +1,33 @@
 /*
  * Margin 设计 tokens（设计变量）
  *
- * 方向：“研报纸面”。像一份打印出来的券商研报：冷调纸白底、墨色正文、宋体标题；
- * 主色是墨青（沉稳、金融感），朱砂红只用于“引用标记”这一处——证据是本产品的核心，
- * 所以把最醒目的颜色留给它。
+ * 组件里只用 var(--xxx)，不写死颜色。这样切换配色、深浅色只需改 <html> 上的属性：
+ *   data-palette = ink | graphite | navy | pine     （四套配色，默认 ink）
+ *   data-theme   = light | dark | 不设置（跟随系统）
+ *   data-style   = clean | sketch                   （简洁风 / 手绘风，手绘风见 sketch.css）
  *
- * 用法：组件里只用 var(--xxx)，不要写死颜色，这样深色模式自动生效。
- * 深色模式三种状态：跟随系统（无 data-theme）、强制浅色、强制深色。
+ * 每套配色的 token 含义：
+ *   --paper      页面底色              --sidebar   左侧栏底色
+ *   --surface    卡片、输入框等表面     --surface-2 过程区（思考 + 工具调用）的底色
+ *   --ink        正文                  --ink-soft  次要文字      --ink-faint 更弱的文字
+ *   --rule       分隔线、边框           --bubble    用户提问气泡
+ *   --accent     主色（按钮、当前项）    --accent-wash 主色浅底
+ *   --cite       引用编号              --cite-wash 引用原文高亮
+ *   --mark       手绘风的荧光笔颜色
  */
 
+/* ======================= 公共：字体、字号、间距、状态色 ======================= */
 :root {
-  /* ---- 颜色：浅色 ---- */
-  --paper: #f6f7f4;        /* 页面底色：略带青灰的纸白，不用暖奶油色 */
-  --surface: #ffffff;      /* 卡片、输入框等浮起的表面 */
-  --ink: #1a2321;          /* 正文 */
-  --ink-soft: #5a6663;     /* 次要文字：说明、时间、元信息 */
-  --ink-faint: #8b9592;    /* 更弱：占位符、禁用 */
-  --rule: #dde2de;         /* 分隔线、边框 */
-  --accent: #1e5b57;       /* 主色：墨青。按钮、链接、当前步骤 */
-  --accent-wash: #e2edeb;  /* 主色的浅底：选中、悬停 */
-  --cite: #b4442c;         /* 朱砂：只用于引用编号与原文高亮 */
-  --cite-wash: #f7e5df;    /* 原文高亮底色 */
-  --ok: #2f7a4f;           /* 成功 */
-  --warn: #9a6a12;         /* 警示（未验证、口径不明） */
-  --danger: #a3372a;       /* 失败 */
-
-  /* ---- 字体 ---- */
-  --font-display: "Noto Serif SC", "Songti SC", "SimSun", serif;     /* 标题：研报感，克制使用 */
+  --font-display: "Noto Serif SC", "Songti SC", "SimSun", serif;
   --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", "JetBrains Mono", Consolas, monospace; /* 数字、工具名、doc_id */
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", Consolas, monospace;
 
-  /* ---- 字号（1.2 比例） ---- */
   --text-xs: 0.75rem;
-  --text-sm: 0.875rem;
-  --text-md: 1rem;
-  --text-lg: 1.2rem;
-  --text-xl: 1.44rem;
-  --text-2xl: 1.73rem;
-  --text-3xl: 2.4rem;      /* 答案里的关键数字 */
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.25rem;
 
-  /* ---- 间距（4 的倍数） ---- */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -48,79 +36,129 @@
   --space-6: 32px;
   --space-7: 48px;
 
-  --radius: 6px;           /* 只给真正“浮起”的元素用 */
-  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);   /* 先快后慢，动效更柔和 */
+
+  --ok: #2f7a4f;
+  --warn: #93650f;
+  --danger: #a3372a;
 }
 
-/* 深色：跟随系统（用户没有手动选浅色时） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --ok: #6cc08e; --warn: #d6a64a; --danger: #e07a6b; }
+}
+:root[data-theme="dark"] { --ok: #6cc08e; --warn: #d6a64a; --danger: #e07a6b; }
+
+/* ======================= 配色 1：墨青（默认） ======================= */
+:root {
+  --paper: #f7f8f6; --sidebar: #eff1ee; --surface: #ffffff; --surface-2: #f1f4f2;
+  --ink: #1b2422; --ink-soft: #5b6764; --ink-faint: #8c9693; --rule: #e1e5e2;
+  --bubble: #e9eeeb; --accent: #1e5b57; --accent-wash: #e2edeb;
+  --cite: #b4442c; --cite-wash: #f8e6df; --mark: #f3e39a;
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #131917;
-    --surface: #1a2220;
-    --ink: #e2e7e4;
-    --ink-soft: #9aa6a2;
-    --ink-faint: #6b7774;
-    --rule: #2a3431;
-    --accent: #6fb8ae;
-    --accent-wash: #1d2f2c;
-    --cite: #e4826a;
-    --cite-wash: #3a2520;
-    --ok: #6cc08e;
-    --warn: #d6a64a;
-    --danger: #e07a6b;
+    --paper: #151a19; --sidebar: #101413; --surface: #1c2321; --surface-2: #19201e;
+    --ink: #e3e8e5; --ink-soft: #9ba7a3; --ink-faint: #6c7875; --rule: #29332f;
+    --bubble: #222b29; --accent: #72b9b0; --accent-wash: #1e302d;
+    --cite: #e48469; --cite-wash: #3b2620; --mark: #5e5320;
     color-scheme: dark;
   }
 }
-
-/* 深色：用户手动选择（与上面取值相同） */
 :root[data-theme="dark"] {
-  --paper: #131917;
-  --surface: #1a2220;
-  --ink: #e2e7e4;
-  --ink-soft: #9aa6a2;
-  --ink-faint: #6b7774;
-  --rule: #2a3431;
-  --accent: #6fb8ae;
-  --accent-wash: #1d2f2c;
-  --cite: #e4826a;
-  --cite-wash: #3a2520;
-  --ok: #6cc08e;
-  --warn: #d6a64a;
-  --danger: #e07a6b;
+  --paper: #151a19; --sidebar: #101413; --surface: #1c2321; --surface-2: #19201e;
+  --ink: #e3e8e5; --ink-soft: #9ba7a3; --ink-faint: #6c7875; --rule: #29332f;
+  --bubble: #222b29; --accent: #72b9b0; --accent-wash: #1e302d;
+  --cite: #e48469; --cite-wash: #3b2620; --mark: #5e5320;
   color-scheme: dark;
 }
 
-/* ---- 基础排版 ---- */
+/* ======================= 配色 2：石墨（最克制，接近纯中性灰） ======================= */
+:root[data-palette="graphite"] {
+  --paper: #f8f8f7; --sidebar: #f0f0ee; --surface: #ffffff; --surface-2: #f3f3f1;
+  --ink: #1d1d1c; --ink-soft: #5f5f5c; --ink-faint: #91918d; --rule: #e4e4e1;
+  --bubble: #ececea; --accent: #3f5266; --accent-wash: #e6ebf0;
+  --cite: #a0561c; --cite-wash: #f6e9dc; --mark: #f2e3a0;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="graphite"]:not([data-theme="light"]) {
+    --paper: #191919; --sidebar: #131313; --surface: #222221; --surface-2: #1e1e1d;
+    --ink: #e8e8e6; --ink-soft: #a3a3a0; --ink-faint: #72726f; --rule: #2f2f2d;
+    --bubble: #2a2a29; --accent: #9db3c9; --accent-wash: #26303a;
+    --cite: #e19a5e; --cite-wash: #3a2b1f; --mark: #5a5022;
+  }
+}
+:root[data-palette="graphite"][data-theme="dark"] {
+  --paper: #191919; --sidebar: #131313; --surface: #222221; --surface-2: #1e1e1d;
+  --ink: #e8e8e6; --ink-soft: #a3a3a0; --ink-faint: #72726f; --rule: #2f2f2d;
+  --bubble: #2a2a29; --accent: #9db3c9; --accent-wash: #26303a;
+  --cite: #e19a5e; --cite-wash: #3a2b1f; --mark: #5a5022;
+}
+
+/* ======================= 配色 3：藏青（金融终端感，引用用金色） ======================= */
+:root[data-palette="navy"] {
+  --paper: #f6f7f9; --sidebar: #edf0f4; --surface: #ffffff; --surface-2: #f0f3f7;
+  --ink: #18202e; --ink-soft: #576175; --ink-faint: #8a93a4; --rule: #dfe4ec;
+  --bubble: #e7ecf3; --accent: #1f3d70; --accent-wash: #e3e9f3;
+  --cite: #a8791a; --cite-wash: #f6eedb; --mark: #f3e39a;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="navy"]:not([data-theme="light"]) {
+    --paper: #12161e; --sidebar: #0e1118; --surface: #1a2030; --surface-2: #171c28;
+    --ink: #e1e6ef; --ink-soft: #9aa4b7; --ink-faint: #6a7488; --rule: #262e3e;
+    --bubble: #1f2636; --accent: #8fb0e6; --accent-wash: #1d2840;
+    --cite: #e0b25a; --cite-wash: #352c1a; --mark: #5c5122;
+  }
+}
+:root[data-palette="navy"][data-theme="dark"] {
+  --paper: #12161e; --sidebar: #0e1118; --surface: #1a2030; --surface-2: #171c28;
+  --ink: #e1e6ef; --ink-soft: #9aa4b7; --ink-faint: #6a7488; --rule: #262e3e;
+  --bubble: #1f2636; --accent: #8fb0e6; --accent-wash: #1d2840;
+  --cite: #e0b25a; --cite-wash: #352c1a; --mark: #5c5122;
+}
+
+/* ======================= 配色 4：松烟（橄榄绿 + 梅红，最有温度） ======================= */
+:root[data-palette="pine"] {
+  --paper: #f5f5f0; --sidebar: #ecece5; --surface: #fdfdfa; --surface-2: #efefe8;
+  --ink: #22251d; --ink-soft: #5e6355; --ink-faint: #8f9386; --rule: #e0e1d7;
+  --bubble: #e8e9df; --accent: #4b5f3a; --accent-wash: #e7ece0;
+  --cite: #8e3c5f; --cite-wash: #f3e3ea; --mark: #f0e19a;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-palette="pine"]:not([data-theme="light"]) {
+    --paper: #171813; --sidebar: #12130f; --surface: #20221b; --surface-2: #1c1e18;
+    --ink: #e5e7df; --ink-soft: #a0a596; --ink-faint: #727667; --rule: #2d3027;
+    --bubble: #262920; --accent: #a9c08f; --accent-wash: #283222;
+    --cite: #db8db0; --cite-wash: #3a2430; --mark: #575022;
+  }
+}
+:root[data-palette="pine"][data-theme="dark"] {
+  --paper: #171813; --sidebar: #12130f; --surface: #20221b; --surface-2: #1c1e18;
+  --ink: #e5e7df; --ink-soft: #a0a596; --ink-faint: #727667; --rule: #2d3027;
+  --bubble: #262920; --accent: #a9c08f; --accent-wash: #283222;
+  --cite: #db8db0; --cite-wash: #3a2430; --mark: #575022;
+}
+
+/* ======================= 基础排版 ======================= */
+/* 宽高包含内边距和边框，width: 100% 加 padding 才不会撑破容器 */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
+  margin: 0;
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
   font-size: var(--text-md);
   line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
 }
-
-h1, h2, h3 {
-  font-family: var(--font-display);
-  font-weight: 600;
-  line-height: 1.35;
-  text-wrap: balance;
-}
-
-code, .mono {
-  font-family: var(--font-mono);
-  font-size: 0.92em;
-}
-
-/* 数字列对齐：耗时、token、金额都用等宽数字 */
 .num {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

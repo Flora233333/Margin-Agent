@@ -26,9 +26,29 @@
 - 模型一律用 `tests/fakes.py` 的 FakeLLM，测试不调用真实模型、不联网。
 - 每次改代码后运行 `uv run pytest`。
 
-## 环境与数据
+## 运行环境约定
 
-- 依赖用 uv 管理：`uv sync` 安装，`uv add <包>` 新增（并在 DECISIONS.md 写明为什么需要）。
+开发机是 Windows 10 + WSL2（Ubuntu 22.04，Docker 只装在 WSL 里）。代码在 Windows 上编辑，按下表分两层运行：
+
+| 内容 | 在哪运行 | 命令 |
+|---|---|---|
+| Python 代码、单元测试、脚本 | Windows，项目内 `.venv`（uv 管理的 CPython 3.11） | `uv sync`、`uv run pytest` |
+| PostgreSQL、Redis | WSL2 的 Docker Compose，端口映射到 localhost | `wsl docker compose up -d postgres redis` |
+| FastAPI（开发） | Windows `.venv`，热重载，连 localhost 的 PG/Redis | `uv run uvicorn ...` |
+| Celery worker | Linux：WSL2 或容器（Celery 官方不支持 Windows） | `wsl docker compose up worker` |
+| 集成测试（需要真实 PG/Redis） | Windows，先把 PG/Redis 起好 | `uv run pytest -m integration` |
+| 前端 | Windows，Node 24 + Vite | `npm run dev` |
+| 前端设计稿 | 本地浏览器直接打开 `web/design/*.html` | 不发布到任何在线平台 |
+| 自训模型 | 实验室服务器 vLLM，OpenAI 兼容接口 | `.env` 里配 `MARGIN_LLM_BASE_URL` |
+| CI | GitHub Actions（ubuntu） | push 时自动跑 |
+
+- 不使用 conda，不使用比赛项目的 AFAC2026 环境；Python 依赖只通过 uv 装进本项目 `.venv`。
+- 新增依赖用 `uv add <包>`，并在 DECISIONS.md 写明为什么需要。
+- Windows 下读写文本文件一律显式 `encoding="utf-8"`（默认是 GBK）；终端输出中文时加 `PYTHONIOENCODING=utf-8`。
+- 仓库统一 LF 换行（`.gitattributes`），容器和 CI 才不会出问题。
+
+## 数据与密钥
+
 - 语料、索引、缓存不进仓库（见 `.gitignore`），路径在 `.env` 里配置。原始语料只读，不修改。
 - 密钥只放 `.env`，绝不打印、提交或写进日志。
 
