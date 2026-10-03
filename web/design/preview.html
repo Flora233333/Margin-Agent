@@ -1,0 +1,604 @@
+<title>Margin 运行详情</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+/*
+ * 运行详情页的设计稿（静态 HTML + 少量原生 JS，最终会改写成 React 组件）。
+ * 布局：左侧是“正文”（问题 → 过程时间线 → 答案），右侧是“页边”（引用原文的批注）。
+ * 窄屏时页边移到正文下方。
+ */
+
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-inline: var(--space-4);
+  padding-block: var(--space-5) var(--space-7);
+}
+
+/* ---------- 顶栏 ---------- */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+.wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  letter-spacing: 0.02em;
+}
+/* 品牌标记：页边的一道竖线，呼应“在页边批注”的意思 */
+.wordmark::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 0.9em;
+  margin-right: 10px;
+  background: var(--cite);
+  vertical-align: -0.08em;
+}
+.crumb { color: var(--ink-soft); font-size: var(--text-sm); }
+.actions { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+
+.btn {
+  font: inherit;
+  font-size: var(--text-sm);
+  padding: 6px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+.btn:hover { border-color: var(--accent); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+.btn-primary:hover { filter: brightness(1.08); }
+
+/* ---------- 两栏 ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+@media (max-width: 880px) {
+  .layout { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- 问题 ---------- */
+.eyebrow {
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  color: var(--ink-soft);
+}
+.question {
+  font-size: var(--text-2xl);
+  margin: var(--space-2) 0 var(--space-3);
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.meta b { color: var(--ink); font-weight: 500; }
+
+/* 状态标签：颜色 + 文字双重编码 */
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-xs);
+  padding: 2px 10px;
+  border-radius: 99px;
+  border: 1px solid currentColor;
+}
+.status::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.status.done { color: var(--ok); }
+.status.running { color: var(--accent); }
+.status.running::before { animation: pulse 1.2s var(--ease) infinite; }
+@keyframes pulse { 50% { opacity: 0.25; } }
+
+/* ---------- 时间线（审计轨迹） ---------- */
+.timeline {
+  list-style: none;
+  margin: var(--space-6) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-4);
+  position: relative;
+}
+/* 左侧贯穿的细线 */
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 6px;
+  bottom: 6px;
+  width: 1px;
+  background: var(--rule);
+}
+.step {
+  position: relative;
+  padding-left: var(--space-6);
+  min-width: 0;
+  animation: rise 0.35s var(--ease) both;
+}
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } }
+
+/* 节点：小方块，像账本上的勾选框 */
+.step::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 7px;
+  width: 11px;
+  height: 11px;
+  background: var(--paper);
+  border: 1.5px solid var(--accent);
+}
+.step.is-active::before { background: var(--accent); }
+
+.step-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.tool {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent);
+  background: var(--accent-wash);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.step-title { font-weight: 500; }
+.duration {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+.step-body {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+
+/* 思考块：默认折叠成一行，点击展开 */
+.thinking {
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+}
+.thinking summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  list-style: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.thinking summary::-webkit-details-marker { display: none; }
+.thinking summary::before {
+  content: "›";
+  display: inline-block;
+  transition: transform 0.2s var(--ease);
+}
+.thinking[open] summary::before { transform: rotate(90deg); }
+.thinking-text {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  border-left: 2px dotted var(--rule);
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+}
+/* 正在流式输出时，末尾的光标 */
+.streaming .thinking-text::after {
+  content: "▍";
+  color: var(--accent);
+  animation: pulse 0.9s steps(2) infinite;
+}
+/* 正在思考时标题的流光效果 */
+.streaming summary {
+  background: linear-gradient(90deg, var(--ink-soft) 30%, var(--accent) 50%, var(--ink-soft) 70%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 1.6s linear infinite;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* 计算步骤：把公式直接写出来 */
+.formula {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  overflow-x: auto;
+}
+.formula .eq { color: var(--accent); font-weight: 500; }
+
+/* 压缩分隔：RC6-C 写笔记后清空上下文，这是本产品独有的一步 */
+.compaction {
+  position: relative;
+  padding-left: var(--space-6);
+}
+/* 压缩节点用虚线框，和普通工具步骤区分 */
+.compaction::before {
+  border-style: dashed;
+  border-color: var(--ink-faint);
+}
+.compaction-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+.compaction-rule::before,
+.compaction-rule::after {
+  content: "";
+  flex: 1;
+  border-top: 1px dashed var(--ink-faint);
+}
+.note {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+}
+.note-head {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  margin-bottom: var(--space-1);
+}
+
+/* ---------- 答案 ---------- */
+.answer {
+  margin-top: var(--space-7);
+  padding-top: var(--space-5);
+  border-top: 2px solid var(--ink);
+}
+.answer-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-3xl);
+  font-weight: 500;
+  line-height: 1.1;
+  margin: var(--space-2) 0 var(--space-3);
+}
+.answer-text { max-width: 62ch; }
+.caveat {
+  margin-top: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--warn);
+}
+
+/* 引用编号：朱砂色上标，悬停时与页边批注联动 */
+.cite {
+  font-family: var(--font-mono);
+  font-size: 0.72em;
+  vertical-align: super;
+  color: var(--cite);
+  text-decoration: none;
+  padding: 0 1px;
+  cursor: pointer;
+}
+.cite:hover, .cite.is-linked { background: var(--cite-wash); }
+
+/* ---------- 页边批注 ---------- */
+.margin {
+  border-left: 1px solid var(--rule);
+  padding-left: var(--space-5);
+  min-width: 0;
+}
+@media (max-width: 880px) {
+  .margin { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); padding-top: var(--space-5); }
+}
+.margin-inner { position: sticky; top: calc(env(safe-area-inset-top, 0px) + var(--space-5)); }
+.margin h2 { font-size: var(--text-md); margin: 0 0 var(--space-4); }
+.gloss {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--rule);
+  transition: background 0.15s var(--ease);
+}
+.gloss.is-linked { background: var(--cite-wash); }
+.gloss-no { font-family: var(--font-mono); color: var(--cite); font-size: var(--text-sm); }
+.gloss-doc { font-size: var(--text-sm); font-weight: 500; }
+.gloss-loc {
+  grid-column: 2;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+.gloss-quote {
+  grid-column: 2;
+  font-size: var(--text-sm);
+  color: var(--ink-soft);
+}
+.gloss-quote mark { background: var(--cite-wash); color: var(--ink); padding: 0 2px; }
+
+/* ---------- 样式规范（只在设计稿里出现） ---------- */
+.spec {
+  margin-top: var(--space-7);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--rule);
+}
+.spec h2 { font-size: var(--text-lg); }
+.swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+.swatch { font-size: var(--text-xs); color: var(--ink-soft); }
+.swatch i {
+  display: block;
+  height: 40px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  margin-bottom: var(--space-1);
+}
+.type-row {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--rule);
+}
+@media (max-width: 520px) { .type-row { grid-template-columns: minmax(0, 1fr); } }
+.type-label { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-faint); }
+</style>
+
+<div class="page">
+  <header class="topbar">
+    <div class="brand">
+      <span class="wordmark">Margin</span>
+      <span class="crumb">我的提问 / 运行 01JB7Q…K3</span>
+    </div>
+    <div class="actions">
+      <button class="btn" id="theme-toggle" type="button">切换深浅色</button>
+      <button class="btn btn-primary" id="replay" type="button">回放执行过程</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <main>
+      <p class="eyebrow">示例运行 · 数据来自测试语料</p>
+      <h1 class="question">甲公司 2023 年营业收入同比增长率是多少？</h1>
+      <div class="meta">
+        <span class="status done" id="status">已完成</span>
+        <span>答案类型 <b>百分比</b></span>
+        <span>模型 <b class="mono">deepseek-v4.1-flash</b></span>
+        <span>用时 <b class="num">38.6s</b></span>
+        <span>工具调用 <b class="num">8</b></span>
+        <span>Token <b class="num">21,480</b></span>
+      </div>
+
+      <ol class="timeline" id="timeline">
+        <li class="step">
+          <div class="step-head">
+            <span class="tool">search_docs</span>
+            <span class="step-title">检索：甲公司 2023 营业收入</span>
+            <span class="duration num">1.2s</span>
+          </div>
+          <details class="thinking">
+            <summary>思考了 6 秒</summary>
+            <p class="thinking-text">需要 2023 年和 2022 年两期营业收入。先找甲公司 2023 年年报，年报里通常会同时披露上年数据；如果没有，再单独找 2022 年报。注意口径要一致，都取合并报表口径。</p>
+          </details>
+          <p class="step-body">命中 8 篇。前两篇：甲公司 2023 年年度报告、甲公司 2022 年年度报告</p>
+        </li>
+        <li class="step">
+          <div class="step-head">
+            <span class="tool">read_section</span>
+            <span class="step-title">阅读：甲公司 2023 年年度报告 · 第三节 管理层讨论与分析</span>
+            <span class="duration num">0.1s</span>
+          </div>
+          <p class="step-body">读取 3 行，完整</p>
+        </li>
+        <li class="step">
+          <div class="step-head">
+            <span class="tool">cite</span>
+            <span class="step-title">引用 [1]：“实现营业收入120.5亿元”</span>
+            <span class="duration num">0.0s</span>
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-head">
+            <span class="tool">read_section</span>
+            <span class="step-title">阅读：甲公司 2022 年年度报告 · 第三节 管理层讨论与分析</span>
+            <span class="duration num">0.1s</span>
+          </div>
+          <p class="step-body">读取 2 行，完整</p>
+        </li>
+        <li class="step">
+          <div class="step-head">
+            <span class="tool">cite</span>
+            <span class="step-title">引用 [2]：“实现营业收入107.2亿元”</span>
+            <span class="duration num">0.0s</span>
+          </div>
+        </li>
+        <li class="compaction step">
+          <div class="compaction-rule">写入笔记 rev 1 · 上下文已压缩，清除 10 条历史消息</div>
+          <div class="note">
+            <div class="note-head">工作笔记 revision=1</div>
+            2023 营收 120.5 亿元（jia_2023_b0001），2022 营收 107.2 亿元（jia_2022_b0001），均为合并口径，已引用。下一步：计算同比增长率，保留两位小数。
+          </div>
+        </li>
+        <li class="step">
+          <div class="step-head">
+            <span class="tool">compute</span>
+            <span class="step-title">计算同比增长率</span>
+            <span class="duration num">0.0s</span>
+          </div>
+          <details class="thinking">
+            <summary>思考了 3 秒</summary>
+            <p class="thinking-text">笔记里两期数字齐了，单位都是亿元。增长率 = (本期 − 上期) / 上期 × 100。</p>
+          </details>
+          <div class="formula">(120.5 − 107.2) / 107.2 × 100 <span class="eq">= 12.41</span>
+            <span style="color: var(--ink-faint)">　result_exact 12.40671641791045</span></div>
+        </li>
+        <li class="step is-active">
+          <div class="step-head">
+            <span class="tool">finalize</span>
+            <span class="step-title">提交答案</span>
+            <span class="duration num">0.0s</span>
+          </div>
+        </li>
+      </ol>
+
+      <section class="answer" id="answer">
+        <p class="eyebrow">答案</p>
+        <p class="answer-value">12.41%</p>
+        <p class="answer-text">
+          甲公司 2023 年实现营业收入 120.5 亿元<a class="cite" data-cite="1" href="#gloss-1">[1]</a>，
+          2022 年为 107.2 亿元<a class="cite" data-cite="2" href="#gloss-2">[2]</a>，
+          同比增长 (120.5 − 107.2) / 107.2 = 12.41%。两期均为合并报表口径。
+        </p>
+        <p class="caveat">执行完成不代表答案已经过人工核验，请对照右侧原文。</p>
+      </section>
+    </main>
+
+    <aside class="margin">
+      <div class="margin-inner">
+        <h2>页边 · 原文出处</h2>
+        <div class="gloss" id="gloss-1" data-cite="1">
+          <span class="gloss-no">[1]</span>
+          <span class="gloss-doc">甲公司 2023 年年度报告</span>
+          <span class="gloss-loc">jia_2023_b0001 · 第三节 管理层讨论与分析</span>
+          <span class="gloss-quote">2023年，甲公司<mark>实现营业收入120.5亿元</mark>，同比增长12.4%。</span>
+        </div>
+        <div class="gloss" id="gloss-2" data-cite="2">
+          <span class="gloss-no">[2]</span>
+          <span class="gloss-doc">甲公司 2022 年年度报告</span>
+          <span class="gloss-loc">jia_2022_b0001 · 第三节 管理层讨论与分析</span>
+          <span class="gloss-quote">2022年，甲公司<mark>实现营业收入107.2亿元</mark>。</span>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <section class="spec">
+    <h2>样式规范</h2>
+    <div class="swatches">
+      <div class="swatch"><i style="background: var(--paper)"></i>纸白 paper</div>
+      <div class="swatch"><i style="background: var(--surface)"></i>表面 surface</div>
+      <div class="swatch"><i style="background: var(--ink)"></i>墨色 ink</div>
+      <div class="swatch"><i style="background: var(--accent)"></i>墨青 accent</div>
+      <div class="swatch"><i style="background: var(--cite)"></i>朱砂 cite</div>
+      <div class="swatch"><i style="background: var(--warn)"></i>警示 warn</div>
+    </div>
+    <div style="margin-top: var(--space-5)">
+      <div class="type-row"><span class="type-label">display · 宋体</span>
+        <span style="font-family: var(--font-display); font-size: var(--text-xl)">跨年度的营业收入比较</span></div>
+      <div class="type-row"><span class="type-label">body · 黑体</span>
+        <span>归属于母公司股东的净利润 8.2 亿元，研发投入 3.1 亿元。</span></div>
+      <div class="type-row"><span class="type-label">mono · 数据</span>
+        <span class="num">120.50　107.20　12.41%　jia_2023_b0001</span></div>
+    </div>
+  </section>
+</div>
+
+<script>
+// 设计稿里的两个交互：引用与页边批注联动、回放执行过程。正式前端会用 React 重写。
+
+// 1. 悬停或聚焦引用编号 [n] 时，高亮右侧对应的批注
+document.querySelectorAll(".cite").forEach((link) => {
+  const gloss = document.getElementById("gloss-" + link.dataset.cite);
+  const on = () => { link.classList.add("is-linked"); gloss.classList.add("is-linked"); };
+  const off = () => { link.classList.remove("is-linked"); gloss.classList.remove("is-linked"); };
+  link.addEventListener("mouseenter", on);
+  link.addEventListener("mouseleave", off);
+  link.addEventListener("focus", on);
+  link.addEventListener("blur", off);
+});
+
+// 2. 深浅色切换：在 <html> 上设置 data-theme，tokens.css 会切换整套颜色
+document.getElementById("theme-toggle").addEventListener("click", () => {
+  const root = document.documentElement;
+  const dark = root.dataset.theme
+    ? root.dataset.theme === "dark"
+    : matchMedia("(prefers-color-scheme: dark)").matches;
+  root.dataset.theme = dark ? "light" : "dark";
+});
+
+// 3. 回放：按顺序重新展示每一步，思考内容逐字出现，模拟 SSE 实时推送的效果
+const steps = [...document.querySelectorAll("#timeline > li")];
+const answer = document.getElementById("answer");
+const status = document.getElementById("status");
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, reduceMotion ? 0 : ms));
+let replaying = false;
+
+async function streamThinking(details) {
+  const text = details.querySelector(".thinking-text");
+  const summary = details.querySelector("summary");
+  const full = text.textContent;
+  const finalLabel = summary.textContent;
+  details.open = true;
+  details.classList.add("streaming");
+  summary.textContent = "正在思考";
+  text.textContent = "";
+  for (let i = 0; i < full.length; i += 2) {   // 每次追加两个字，像 token 流
+    text.textContent = full.slice(0, i + 2);
+    await sleep(28);
+  }
+  details.classList.remove("streaming");
+  summary.textContent = finalLabel;
+  await sleep(300);
+  details.open = false;                          // 思考结束后折叠成一行
+}
+
+document.getElementById("replay").addEventListener("click", async () => {
+  if (replaying) return;
+  replaying = true;
+  steps.forEach((li) => { li.hidden = true; li.classList.remove("is-active"); });
+  answer.hidden = true;
+  status.className = "status running";
+  status.textContent = "运行中";
+
+  for (const li of steps) {
+    li.hidden = false;
+    li.classList.add("is-active");
+    const thinking = li.querySelector(".thinking");
+    if (thinking) await streamThinking(thinking);
+    await sleep(500);
+    li.classList.remove("is-active");
+  }
+  steps[steps.length - 1].classList.add("is-active");
+  answer.hidden = false;
+  status.className = "status done";
+  status.textContent = "已完成";
+  replaying = false;
+});
+</script>

@@ -1,0 +1,130 @@
+/*
+ * Margin 设计 tokens（设计变量）
+ *
+ * 方向：“研报纸面”。像一份打印出来的券商研报：冷调纸白底、墨色正文、宋体标题；
+ * 主色是墨青（沉稳、金融感），朱砂红只用于“引用标记”这一处——证据是本产品的核心，
+ * 所以把最醒目的颜色留给它。
+ *
+ * 用法：组件里只用 var(--xxx)，不要写死颜色，这样深色模式自动生效。
+ * 深色模式三种状态：跟随系统（无 data-theme）、强制浅色、强制深色。
+ */
+
+:root {
+  /* ---- 颜色：浅色 ---- */
+  --paper: #f6f7f4;        /* 页面底色：略带青灰的纸白，不用暖奶油色 */
+  --surface: #ffffff;      /* 卡片、输入框等浮起的表面 */
+  --ink: #1a2321;          /* 正文 */
+  --ink-soft: #5a6663;     /* 次要文字：说明、时间、元信息 */
+  --ink-faint: #8b9592;    /* 更弱：占位符、禁用 */
+  --rule: #dde2de;         /* 分隔线、边框 */
+  --accent: #1e5b57;       /* 主色：墨青。按钮、链接、当前步骤 */
+  --accent-wash: #e2edeb;  /* 主色的浅底：选中、悬停 */
+  --cite: #b4442c;         /* 朱砂：只用于引用编号与原文高亮 */
+  --cite-wash: #f7e5df;    /* 原文高亮底色 */
+  --ok: #2f7a4f;           /* 成功 */
+  --warn: #9a6a12;         /* 警示（未验证、口径不明） */
+  --danger: #a3372a;       /* 失败 */
+
+  /* ---- 字体 ---- */
+  --font-display: "Noto Serif SC", "Songti SC", "SimSun", serif;     /* 标题：研报感，克制使用 */
+  --font-body: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", Consolas, monospace; /* 数字、工具名、doc_id */
+
+  /* ---- 字号（1.2 比例） ---- */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.44rem;
+  --text-2xl: 1.73rem;
+  --text-3xl: 2.4rem;      /* 答案里的关键数字 */
+
+  /* ---- 间距（4 的倍数） ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --radius: 6px;           /* 只给真正“浮起”的元素用 */
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+/* 深色：跟随系统（用户没有手动选浅色时） */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #131917;
+    --surface: #1a2220;
+    --ink: #e2e7e4;
+    --ink-soft: #9aa6a2;
+    --ink-faint: #6b7774;
+    --rule: #2a3431;
+    --accent: #6fb8ae;
+    --accent-wash: #1d2f2c;
+    --cite: #e4826a;
+    --cite-wash: #3a2520;
+    --ok: #6cc08e;
+    --warn: #d6a64a;
+    --danger: #e07a6b;
+    color-scheme: dark;
+  }
+}
+
+/* 深色：用户手动选择（与上面取值相同） */
+:root[data-theme="dark"] {
+  --paper: #131917;
+  --surface: #1a2220;
+  --ink: #e2e7e4;
+  --ink-soft: #9aa6a2;
+  --ink-faint: #6b7774;
+  --rule: #2a3431;
+  --accent: #6fb8ae;
+  --accent-wash: #1d2f2c;
+  --cite: #e4826a;
+  --cite-wash: #3a2520;
+  --ok: #6cc08e;
+  --warn: #d6a64a;
+  --danger: #e07a6b;
+  color-scheme: dark;
+}
+
+/* ---- 基础排版 ---- */
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: var(--text-md);
+  line-height: 1.7;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* 数字列对齐：耗时、token、金额都用等宽数字 */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

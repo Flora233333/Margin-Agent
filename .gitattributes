@@ -1,0 +1,2 @@
+# 仓库内统一用 LF 换行（Docker / Linux 运行时不出问题）
+* text=auto eol=lf

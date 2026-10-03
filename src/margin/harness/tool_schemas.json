@@ -1,0 +1,483 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "search_docs",
+      "description": "Search the fixed Alias v2.2 no-rerank canonical corpus and return up to eight fused document candidates with their best blocks. Use a concise evidence-oriented query and retry only with a meaningfully different query. The first result for each doc_id in an episode includes the complete document_identity navigation metadata. Later results for the same doc_id omit the full identity and include only document_identity_ref with repeated_query=true; use the complete identity already visible in the episode history. document_identity and document_identity_ref are navigation metadata, not citable evidence.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string",
+            "description": "Search terms derived only from the visible question and options."
+          },
+          "top_k": {
+            "default": 8,
+            "maximum": 8,
+            "minimum": 1,
+            "title": "Top K",
+            "type": "integer",
+            "description": "Number of fused document candidates to return."
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search_in_document",
+      "description": "Search every canonical block inside a document previously returned by search_docs using one query or 2-4 ordered queries. Each query independently uses the persistent document BM25 cache and returns its own results without fusion, reranking, or cross-query scoring. Results include section metadata, matched rows, scope, and versioned table_context; no runtime index build is allowed.",
+      "parameters": {
+        "additionalProperties": false,
+        "oneOf": [
+          {
+            "required": [
+              "query"
+            ]
+          },
+          {
+            "required": [
+              "queries"
+            ]
+          }
+        ],
+        "properties": {
+          "doc_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Doc Id",
+            "type": "string",
+            "description": "Opaque doc_id copied exactly from a successful search_docs result."
+          },
+          "query": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Query",
+            "description": "One keyword query; provide exactly one of query or queries."
+          },
+          "queries": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 500,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Queries",
+            "description": "Two to four ordered keyword queries; provide exactly one of query or queries. NFKC-trimmed queries must be distinct."
+          },
+          "top_k": {
+            "default": 5,
+            "maximum": 8,
+            "minimum": 1,
+            "title": "Top K",
+            "type": "integer",
+            "description": "Number of block hits returned independently for each query."
+          }
+        },
+        "required": [
+          "doc_id"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "read_section",
+      "description": "Read exact canonical text from a located doc_id/block_id at a zero-based line offset. The result may include table_context metadata; borrowed headers must be read from header_source.block_id before they can be cited.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Doc Id",
+            "type": "string",
+            "description": "Opaque doc_id copied exactly from a successful search result."
+          },
+          "block_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Block Id",
+            "type": "string",
+            "description": "Opaque block_id copied exactly from a successful search result or legal continuation."
+          },
+          "row_offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Row Offset",
+            "type": "integer",
+            "description": "Zero-based source line offset within the block."
+          },
+          "max_chars": {
+            "default": 3000,
+            "maximum": 6000,
+            "minimum": 100,
+            "title": "Max Chars",
+            "type": "integer",
+            "description": "Maximum canonical text characters to return."
+          }
+        },
+        "required": [
+          "doc_id",
+          "block_id"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "find_in_block",
+      "description": "Find literal NFKC and case-compatible keywords inside a previously located block and return bounded exact source contexts. Use it to navigate long blocks; it does not perform semantic search or regex execution.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Doc Id",
+            "type": "string",
+            "description": "Opaque doc_id copied exactly from a successful search result."
+          },
+          "block_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Block Id",
+            "type": "string",
+            "description": "Opaque block_id copied exactly from a successful search result."
+          },
+          "keywords": {
+            "items": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 5,
+            "minItems": 1,
+            "title": "Keywords",
+            "type": "array",
+            "description": "Literal keywords to locate in the block."
+          },
+          "match_mode": {
+            "default": "any",
+            "enum": [
+              "any",
+              "all"
+            ],
+            "title": "Match Mode",
+            "type": "string",
+            "description": "Whether a returned merged context must contain any or all keywords."
+          },
+          "before_chars": {
+            "default": 200,
+            "maximum": 500,
+            "minimum": 0,
+            "title": "Before Chars",
+            "type": "integer",
+            "description": "Context characters before a literal match."
+          },
+          "after_chars": {
+            "default": 600,
+            "maximum": 1000,
+            "minimum": 0,
+            "title": "After Chars",
+            "type": "integer",
+            "description": "Context characters after a literal match."
+          },
+          "max_matches": {
+            "default": 3,
+            "maximum": 5,
+            "minimum": 1,
+            "title": "Max Matches",
+            "type": "integer",
+            "description": "Maximum merged source contexts to return."
+          }
+        },
+        "required": [
+          "doc_id",
+          "block_id",
+          "keywords"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "cite",
+      "description": "Record an exact or uniquely whitespace-mappable quote from canonical text already returned by read_section or find_in_block for the same doc_id/block_id. Table metadata or a borrowed header is not citeable until its source block has been read.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "doc_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Doc Id",
+            "type": "string",
+            "description": "Opaque source doc_id."
+          },
+          "block_id": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Block Id",
+            "type": "string",
+            "description": "Opaque source block_id whose text was shown to the model."
+          },
+          "quote": {
+            "maxLength": 500,
+            "minLength": 2,
+            "title": "Quote",
+            "type": "string",
+            "description": "Exact continuous quote, or a uniquely whitespace-mappable quote, from visible canonical text."
+          },
+          "occurrence": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Occurrence",
+            "description": "Zero-based occurrence only when identical text appears multiple times in the same block."
+          }
+        },
+        "required": [
+          "doc_id",
+          "block_id",
+          "quote"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "compute",
+      "description": "Deterministic Decimal arithmetic. Supports + - * / ** (fractional powers need a positive base), parentheses, × ÷, numeric percent suffixes, and max, min, abs, round(x, n), sum, avg, sqrt, ln, log10, exp. Examples: CAGR (v1/v0)**(1/n)-1; max(a-b, c); avg(x1, x2, x3). Returns result rounded to precision and the unrounded result_exact; use result_exact or one combined expression for intermediate values.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "expression": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Expression",
+            "type": "string",
+            "description": "Expression such as 9.3 × 10%, (cur-prior)/prior × 100, (250/100)**(1/3)-1, or max(100-35, 72)."
+          },
+          "variables": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Variables",
+            "type": "object",
+            "description": "Optional variable-to-numeric-string mapping; values may use a trailing % or ％."
+          },
+          "precision": {
+            "default": 2,
+            "maximum": 8,
+            "minimum": 0,
+            "title": "Precision",
+            "type": "integer",
+            "description": "Decimal places for the ROUND_HALF_UP result; result_exact is not rounded."
+          }
+        },
+        "required": [
+          "expression"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "date_calc",
+      "description": "Calculate a date or deadline deterministically. Working-day mode excludes weekends only; it does not infer statutory holidays.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "base_date": {
+            "description": "Base date in YYYY-MM-DD or YYYY年M月D日 form.",
+            "title": "Base Date",
+            "type": "string"
+          },
+          "count_from": {
+            "enum": [
+              "same_day",
+              "next_day"
+            ],
+            "title": "Count From",
+            "type": "string",
+            "description": "For unit=day: next_day excludes base_date and treats the following eligible day as day 1; same_day includes base_date as day 1."
+          },
+          "duration": {
+            "maximum": 100000,
+            "minimum": 0,
+            "title": "Duration",
+            "type": "integer",
+            "description": "Non-negative duration."
+          },
+          "unit": {
+            "enum": [
+              "day",
+              "month",
+              "year"
+            ],
+            "title": "Unit",
+            "type": "string",
+            "description": "Duration unit."
+          },
+          "calendar": {
+            "default": "natural",
+            "enum": [
+              "natural",
+              "working"
+            ],
+            "title": "Calendar",
+            "type": "string",
+            "description": "Natural days or weekend-only working days."
+          },
+          "roll": {
+            "default": "none",
+            "enum": [
+              "none",
+              "next_working_day",
+              "previous_working_day"
+            ],
+            "title": "Roll",
+            "type": "string",
+            "description": "Optional final-date weekend adjustment."
+          }
+        },
+        "required": [
+          "base_date",
+          "count_from",
+          "duration",
+          "unit"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "write_note",
+      "description": "Replace the current episode working note and compact the context. After a successful note, earlier tool calls and results are removed; the next request contains only the system prompt, the question, and this note, and later calls continue after it. Write everything still needed: confirmed numbers with unit and period, doc_id/block_id, per-option conclusions, and open questions. Re-read a block before citing it.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "note": {
+            "maxLength": 800,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string",
+            "description": "Free-text replacement for the current episode note; 1-800 characters."
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "finalize",
+      "description": "Submit the final answer and terminate after at least one successful document search. Recheck multi-select letters against the option-by-option conclusions before calling.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "maxLength": 500,
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array",
+            "description": "Only the requested final answer values, without explanation, labels, formula, or unit."
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "escalate",
+      "description": "Terminate diagnostically only when evidence is genuinely unavailable, conflicting, out of scope, or resources are exhausted after at least one successful search. Escalated traces are never accepted or SFT eligible.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "no_evidence",
+              "conflicting_evidence",
+              "out_of_scope",
+              "resource_exhausted"
+            ],
+            "title": "Reason Code",
+            "type": "string",
+            "description": "Diagnostic terminal reason."
+          },
+          "detail": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string",
+            "description": "Concise evidence-based explanation without hidden Gold data."
+          }
+        },
+        "required": [
+          "reason_code",
+          "detail"
+        ],
+        "type": "object"
+      }
+    }
+  }
+]

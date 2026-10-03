@@ -1,0 +1,23 @@
+# 密钥：只提交 .env.example
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 本地数据与索引：语料、BM25 缓存、向量库都不进仓库
+/data/
+/.cache/
+
+# 前端
+node_modules/
+dist/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
