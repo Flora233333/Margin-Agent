@@ -1,8 +1,10 @@
 """用真实语料和真实模型跑一道题，打印每一轮的思考、工具调用和结果。
 
 用法：
-    uv run python scripts/run_episode.py "问题" [--format num] [--option A=... --option B=...]
-    uv run python scripts/run_episode.py "问题" --search-only   # 只测检索，不调模型
+    conda run -n margin --no-capture-output python scripts/run_episode.py "问题" [--format num]
+        [--option A=... --option B=...]
+    conda run -n margin --no-capture-output python scripts/run_episode.py "问题" --search-only
+        # 只测检索，不调模型
 
 配置从 .env 读取（见 .env.example）。首次运行会构建 BM25 索引（几分钟），之后从缓存加载。
 """

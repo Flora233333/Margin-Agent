@@ -56,3 +56,14 @@
 ### D11 · 2026-10-03 · 前端设计稿只在本地运行
 
 - **决定**：设计稿放 `web/design/`，用浏览器直接打开，不发布到任何在线平台。
+
+### D12 · 2026-10-03 · 本地 Python 环境改用 conda 环境 `margin`（推翻 D6）
+
+- **决定**：本地开发用 conda 环境 `margin`（`environment.yml`：Python 3.11 + pip + 环境变量），
+  依赖仍以 `pyproject.toml` 为准，用 `pip install -e . --group dev` 安装。删除 `.venv` 和 `uv.lock`。
+  D10 里“Windows `.venv`”相应改为 `margin` 环境，其余分层不变。
+- **为什么**：作者的其他项目都用 conda 管理，统一工具更好维护；原来用的 uv 是随 Hermes 一起装的，
+  不是独立安装，卸载或升级 Hermes 会影响本项目。
+- **代价**：pip 没有锁文件，依赖只按 pyproject 的版本下限安装。到 M5 写 Dockerfile 时再生成
+  固定版本的依赖清单，保证镜像可复现。
+- **替代**：保留 uv（锁文件更完善，但多一个工具要学）；conda 环境里再套 uv（两套工具叠加，不采用）。

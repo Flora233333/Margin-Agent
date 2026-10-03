@@ -1,0 +1,13 @@
+# Margin 的本地开发环境（conda 只负责提供 Python 解释器和环境变量）。
+# Python 依赖仍以 pyproject.toml 为准，用 pip 装进这个环境：
+#   conda env create -f environment.yml
+#   conda run -n margin python -m pip install -e . --group dev
+name: margin
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+variables:
+  PYTHONNOUSERSITE: "1"      # 不读取用户目录下的 site-packages，避免混进环境外的包
+  PYTHONIOENCODING: utf-8    # Windows 终端默认 GBK，输出中文会报错

@@ -8,13 +8,14 @@
 
 ## 已完成
 
-- 仓库骨架：uv + pyproject、ruff、pytest、`.env.example`、工作约定 AGENTS.md。
+- 仓库骨架：conda 环境 `margin`（`environment.yml`）+ pyproject、ruff、pytest、`.env.example`、
+  工作约定 AGENTS.md。
 - RC6-C Harness 轻量移植（`src/margin/harness/`）：提示词与工具 schema 原样保留；十个工具；
   笔记压缩 + 思考回灌主循环。保留和简化的内容见 [docs/MIGRATION.md](docs/MIGRATION.md)。
 - 检索（`src/margin/retrieval/`）：BM25（scipy 稀疏矩阵）+ 实体别名 + 可选向量，RRF 融合。
   在真实语料上验证：17,596 个 block，首次建索引约 100 秒，缓存 41MB，之后加载 1.3 秒。
 - OpenAI 兼容模型客户端（`src/margin/llm/`），统一 reasoning_content / reasoning 字段。
-- 44 个测试全部通过（`uv run pytest`），ruff 无报错。
+- 44 个测试全部通过（`conda run -n margin pytest`），ruff 无报错。
 - 前端设计稿第二版 `web/design/`，只在本地打开 `preview.html`：
   三栏布局（历史 / 对话 / 来源）；过程区与回答分层；逐条展开的动效；
   四套配色（墨青 / 石墨 / 藏青 / 松烟）× 深浅色；简洁风 + 手绘风（`sketch.css`）。
@@ -39,3 +40,5 @@
 
 - 语料路径在 `.env`，默认指向 `D:/competition/finetune/data/`（只读使用）。
 - BM25 缓存在 `.cache/bm25/`（不进仓库），语料变化时删除重建。
+- WSL 里的 Docker 已安装并在运行，但用户 `flora` 不在 `docker` 组，`docker ps` 报 permission denied。
+  M1 之前由作者执行：`wsl -d Ubuntu-22.04 -- sudo usermod -aG docker flora`，再 `wsl --shutdown`。

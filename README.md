@@ -23,15 +23,16 @@ docs/           计划、决策记录、移植说明
 ## 开发
 
 ```bash
-uv sync                      # 安装依赖到 .venv
-uv run pytest                # 运行测试
-uv run ruff check src tests  # 代码检查
+conda env create -f environment.yml                         # 建 conda 环境 margin（Python 3.11）
+conda run -n margin python -m pip install -e . --group dev  # 安装项目和开发工具
+conda run -n margin pytest                                  # 运行测试
+conda run -n margin ruff check src tests scripts            # 代码检查
 ```
 
 用真实语料跑一道题：复制 `.env.example` 为 `.env` 并填写，然后
 
 ```bash
-uv run python scripts/run_episode.py "甲公司2023年营业收入同比增长多少？" --format pct
+conda run -n margin --no-capture-output python scripts/run_episode.py "甲公司2023年营业收入同比增长多少？" --format pct
 ```
 
 ## 文档
