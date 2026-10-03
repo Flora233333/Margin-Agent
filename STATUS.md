@@ -1,8 +1,8 @@
 # 当前状态
 
-更新：2026-10-03
+更新：2026-10-04
 
-## 所在阶段：M0 完成，下一步 M0.5
+## 所在阶段：M0.5 基本完成（向量检索待部署），下一步 M1
 
 计划全文见 [docs/PLAN.md](docs/PLAN.md)。
 
@@ -15,7 +15,7 @@
 - 检索（`src/margin/retrieval/`）：BM25（scipy 稀疏矩阵）+ 实体别名 + 可选向量，RRF 融合。
   在真实语料上验证：17,596 个 block，首次建索引约 100 秒，缓存 41MB，之后加载 1.3 秒。
 - OpenAI 兼容模型客户端（`src/margin/llm/`），统一 reasoning_content / reasoning 字段。
-- 44 个测试全部通过（`conda run -n margin pytest`），ruff 无报错。
+- 47 个测试全部通过（`conda run -n margin pytest`），ruff 无报错。
 - 前端设计稿第三版 `web/design/`，只在本地打开 `preview.html`：
   - 三种风格：简洁「批注版式」（`clean.css`，含衬线开关）、手绘（`sketch.css`，作者已认可，外观不再改）、
     瑞士 + 扁平矢量（`swiss.css`）；公共结构与动效在 `base.css`。
@@ -33,9 +33,22 @@
 1. ~~接通真实模型~~（2026-10-04 完成）：学校网关，主用 `DeepSeek`（v4.1-flash），备用 `GLM`（glm5.3-flash），
    用 `--model` 切换。首次真实运行：“广晟控股 2023 年营业收入”9 轮完成，逐字引用合并利润表，答 1275.99（亿元）。
    网关上三个对话模型都支持工具调用，也接受历史里的 `reasoning_content`。
-2. 继续用 `scripts/run_episode.py` 跑另外两类题（百分比计算、选择 / 判断），观察轮数和失败方式。
-3. LLM 客户端加流式输出（`stream=True`），为 M2 的逐字思考展示做准备。
-4. 进入 M1：FastAPI + PostgreSQL + Celery/Redis 最小闭环。
+2. ~~三类题各跑通~~（2026-10-04 完成）：E80 里挑 7 道开放检索题（数值 2、百分比 2、判断 / 单选 / 多选各 1），
+   两个模型各跑一遍，向量检索关闭：
+
+   | 模型 | 答对 | 平均调用次数 | 平均耗时 | 平均输入 token |
+   |---|---|---|---|---|
+   | DeepSeek | 6/7 | 13 | 80s（最慢一题 336s，单轮最长 90s） | 35 万 |
+   | GLM | 5/7 | 20 | 60s | 32 万 |
+
+   - 两个模型都错 `res_b_005`（标准 22.19%）：DeepSeek 交 22.00%，GLM 交 22.20%，都是中间结果提前取整。
+   - GLM 在多选题 `fin_b_005` 上用完 30 轮（12 次 read_section）没有提交；DeepSeek 21 轮答对。
+   - 另见：DeepSeek 曾把“营业总收入”当成“营业收入”答（1277.31 vs 1275.99），同一题另两次答对。
+   - 结论：DeepSeek 主用不变；M1 的重试策略要区分“网关失败”（换模型重跑）和“答错”（不自动重跑）。
+3. ~~LLM 客户端流式输出~~（完成）：`chat(..., on_delta=回调)` 走 SSE，思考逐字回调，工具参数分片拼接，
+   最后一块取 usage；`run_episode(on_delta=...)` 给每个片段带上轮次。脚本加 `--stream` 可直接看效果。
+4. 向量检索：CPU 上跑 llama.cpp `llama-server` 提供查询向量（方案待作者审核）。
+5. 进入 M1：FastAPI + PostgreSQL + Celery/Redis 最小闭环。
 
 ## 未决问题
 

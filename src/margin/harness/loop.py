@@ -24,8 +24,11 @@ RC6-C 相比普通 ReAct 循环的两个关键设计：
 from __future__ import annotations
 
 import copy
+import functools
 import json
+import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,6 +48,7 @@ class Step:
     tool_name: str
     arguments: str  # 模型给出的原始 JSON 字符串
     result: dict[str, Any]
+    llm_seconds: float = 0.0  # 这一轮模型调用的耗时（不含工具执行），用来比较模型速度
 
 
 @dataclass
@@ -65,6 +69,7 @@ def run_episode(
     max_turns: int = 30,
     max_note_updates: int = 20,
     max_tokens: int = 8192,
+    on_delta: Callable[[int, str, str], None] | None = None,
 ) -> Trace:
     initial = initial_messages(task)
     trace = Trace(task=task, messages=copy.deepcopy(initial))
@@ -84,7 +89,11 @@ def run_episode(
             break
 
         # 模型调用失败（网络、限流、5xx）直接抛出，由上层决定重试，这里不吞异常。
-        response = llm.chat(trace.messages, registry.schemas, max_tokens, tool_choice)
+        started = time.monotonic()
+        # 传了 on_delta 就走流式：思考片段一到就回调 on_delta(轮次, "reasoning", 片段)
+        stream = functools.partial(on_delta, turn) if on_delta else None
+        response = llm.chat(trace.messages, registry.schemas, max_tokens, tool_choice, stream)
+        llm_seconds = time.monotonic() - started
         trace.usage.append(response.usage)
 
         # 只保留 id / type / function 三个标准字段，去掉各家接口附带的额外字段（如 index）
@@ -118,7 +127,7 @@ def run_episode(
         name = call["function"]["name"]
         raw_args = call["function"]["arguments"]
         result = registry.execute(name, raw_args)
-        trace.steps.append(Step(turn, response.reasoning, name, raw_args, result))
+        trace.steps.append(Step(turn, response.reasoning, name, raw_args, result, llm_seconds))
         if name != "write_note":
             non_note_turns += 1
 

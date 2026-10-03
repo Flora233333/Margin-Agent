@@ -31,7 +31,10 @@ class FakeLLM:
         self.script = list(script)
         self.requests: list[dict[str, Any]] = []
 
-    def chat(self, messages, tools, max_tokens, tool_choice) -> LLMResponse:
+    def chat(self, messages, tools, max_tokens, tool_choice, on_delta=None) -> LLMResponse:
         self.requests.append({"messages": json.loads(json.dumps(messages)),
                               "tool_choice": tool_choice})
-        return self.script.pop(0)
+        response = self.script.pop(0)
+        if on_delta and response.reasoning:
+            on_delta("reasoning", response.reasoning)  # 模拟流式：整段思考作为一个片段推出
+        return response

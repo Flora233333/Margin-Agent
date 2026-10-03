@@ -5,14 +5,24 @@ DeepSeek 官方 API、vLLM 部署的自训模型、LM Studio 都实现了同一�
 
 思考过程（CoT）的字段名各家不同：DeepSeek / 旧版 vLLM 用 reasoning_content，新版 vLLM 用 reasoning。
 这里统一成 LLMResponse.reasoning，Harness 不需要关心是哪家模型。
+
+两种调用方式，返回的 LLMResponse 完全一样：
+    非流式：等模型全部生成完，一次拿到整条回复。
+    流式（传 on_delta）：服务端用 SSE 一小块一小块地推，每来一块思考 / 正文就回调一次，
+    前端因此能“逐字”显示思考过程；工具调用的参数也是分块来的，在这里拼完整再返回。
 """
 
 from __future__ import annotations
 
+import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 import httpx
+
+# 流式回调：on_delta(kind, text)，kind 是 "reasoning"（思考）或 "content"（正文）
+OnDelta = Callable[[str, str], None]
 
 
 @dataclass
@@ -29,7 +39,8 @@ class ChatModel(Protocol):
     """Harness 只依赖这个接口。测试里用 FakeLLM 实现它，不需要真的调模型。"""
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
-             max_tokens: int, tool_choice: str) -> LLMResponse: ...
+             max_tokens: int, tool_choice: str,
+             on_delta: OnDelta | None = None) -> LLMResponse: ...
 
 
 class OpenAICompatibleClient:
@@ -46,7 +57,8 @@ class OpenAICompatibleClient:
         )
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
-             max_tokens: int, tool_choice: str) -> LLMResponse:
+             max_tokens: int, tool_choice: str,
+             on_delta: OnDelta | None = None) -> LLMResponse:
         body = {
             "model": self.model,
             "messages": messages,
@@ -56,6 +68,9 @@ class OpenAICompatibleClient:
             "max_tokens": max_tokens,
             **self.extra_body,
         }
+        if on_delta is not None:
+            return self._chat_stream(body, on_delta)
+
         response = self.http.post("/chat/completions", json=body)
         response.raise_for_status()  # 4xx/5xx 直接抛异常，由上层决定是否重试
         data = response.json()
@@ -67,6 +82,60 @@ class OpenAICompatibleClient:
             tool_calls=message.get("tool_calls") or [],
             usage=data.get("usage") or {},
             finish_reason=choice.get("finish_reason"),
+        )
+
+    def _chat_stream(self, body: dict[str, Any], on_delta: OnDelta) -> LLMResponse:
+        """SSE 流式调用。每行形如 `data: {chunk}`，最后一行是 `data: [DONE]`。
+
+        一个 chunk 的 delta 里可能有：思考片段、正文片段、工具调用片段。
+        工具调用第一块带 id 和函数名，之后几块只带 index 和一段 arguments，按 index 拼起来。
+        include_usage=true 时，服务端在最后额外发一个 choices 为空、只带 usage 的 chunk。
+        """
+        body = {**body, "stream": True, "stream_options": {"include_usage": True}}
+        reasoning: list[str] = []
+        content: list[str] = []
+        calls: dict[int, dict[str, Any]] = {}
+        usage: dict[str, Any] = {}
+        finish_reason = None
+
+        with self.http.stream("POST", "/chat/completions", json=body) as response:
+            response.raise_for_status()
+            for line in response.iter_lines():
+                if not line.startswith("data:"):
+                    continue  # 空行、SSE 注释行（心跳）
+                data = line.removeprefix("data:").strip()
+                if data == "[DONE]":
+                    break
+                chunk = json.loads(data)
+                usage = chunk.get("usage") or usage
+                if not chunk.get("choices"):
+                    continue
+                choice = chunk["choices"][0]
+                finish_reason = choice.get("finish_reason") or finish_reason
+                delta = choice.get("delta") or {}
+
+                think = delta.get("reasoning_content") or delta.get("reasoning")
+                if think:
+                    reasoning.append(think)
+                    on_delta("reasoning", think)
+                if delta.get("content"):
+                    content.append(delta["content"])
+                    on_delta("content", delta["content"])
+                for piece in delta.get("tool_calls") or []:
+                    call = calls.setdefault(piece["index"], {
+                        "id": None, "type": "function",
+                        "function": {"name": "", "arguments": ""}})
+                    call["id"] = piece.get("id") or call["id"]
+                    function = piece.get("function") or {}
+                    call["function"]["name"] += function.get("name") or ""
+                    call["function"]["arguments"] += function.get("arguments") or ""
+
+        return LLMResponse(
+            content="".join(content) or None,
+            reasoning="".join(reasoning) or None,
+            tool_calls=[calls[i] for i in sorted(calls)],
+            usage=usage,
+            finish_reason=finish_reason,
         )
 
     def close(self) -> None:

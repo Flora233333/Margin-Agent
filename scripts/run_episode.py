@@ -6,6 +6,7 @@
     conda run -n margin --no-capture-output python scripts/run_episode.py "问题" --search-only
         # 只测检索，不调模型
     ... --model GLM        # 临时换模型（默认读 MARGIN_LLM_MODEL）
+    ... --stream           # 流式调用，思考逐字打印
 
 配置从 .env 读取（见 .env.example）。首次运行会构建 BM25 索引（几分钟），之后从缓存加载。
 
@@ -63,6 +64,7 @@ def main() -> None:
     parser.add_argument("--option", action="append", default=[], help="选项，如 A=甲公司更高")
     parser.add_argument("--search-only", action="store_true")
     parser.add_argument("--model", help="模型名，如 DeepSeek / GLM；不填则用 MARGIN_LLM_MODEL")
+    parser.add_argument("--stream", action="store_true", help="流式调用，边生成边打印思考")
     args = parser.parse_args()
     load_dotenv()
     model = args.model or os.environ.get("MARGIN_LLM_MODEL")
@@ -80,15 +82,33 @@ def main() -> None:
     print(f"模型：{model}")
     llm = OpenAICompatibleClient(os.environ["MARGIN_LLM_BASE_URL"], model,
                                  os.environ.get("MARGIN_LLM_API_KEY", ""))
-    trace = run_episode(task, llm, build_registry(task, corpus, retriever))
+    shown_turn = -1
+
+    def show_delta(turn: int, kind: str, text: str) -> None:
+        """流式模式：思考一边生成一边打印，换轮时先打一行标题。"""
+        nonlocal shown_turn
+        if turn != shown_turn:
+            shown_turn = turn
+            print(f"\n--- 第 {turn} 轮思考 ---")
+        print(text, end="", flush=True)
+
+    started = time.monotonic()
+    trace = run_episode(task, llm, build_registry(task, corpus, retriever),
+                        on_delta=show_delta if args.stream else None)
+    total_seconds = time.monotonic() - started
 
     for step in trace.steps:
-        print(f"\n=== 第 {step.turn} 轮 · {step.tool_name}")
-        if step.reasoning:
+        print(f"\n=== 第 {step.turn} 轮 · {step.tool_name} · 模型 {step.llm_seconds:.1f}s")
+        if step.reasoning and not args.stream:  # 流式时思考已经打印过
             print("[思考]", step.reasoning[:500])
         print("[参数]", step.arguments)
         print("[结果]", json.dumps(step.result, ensure_ascii=False)[:500])
     print("\n最终：", trace.final, "| 停止原因：", trace.violation)
+    prompt_tokens = sum(u.get("prompt_tokens", 0) for u in trace.usage)
+    completion_tokens = sum(u.get("completion_tokens", 0) for u in trace.usage)
+    print(f"统计：{len(trace.usage)} 次模型调用，总耗时 {total_seconds:.1f}s"
+          f"（模型 {sum(s.llm_seconds for s in trace.steps):.1f}s），"
+          f"输入 {prompt_tokens} token，输出 {completion_tokens} token")
 
 
 if __name__ == "__main__":

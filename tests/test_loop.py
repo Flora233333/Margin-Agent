@@ -100,3 +100,15 @@ def test_turn_budget_excludes_write_note(make_registry):
     trace = run_episode(TASK, llm, make_registry(TASK), max_turns=2)
     assert len(trace.steps) == 3
     assert trace.violation == "max_turns"
+
+
+def test_stream_deltas_are_tagged_with_turn(make_registry):
+    """流式模式下，每个思考片段带上轮次，前端据此把它放进对应的步骤卡片。"""
+    llm = FakeLLM([
+        call("search_docs", reasoning="先检索", query="甲公司"),
+        call("finalize", reasoning="可以提交了", answers=["120.5"]),
+    ])
+    deltas = []
+    run_episode(TASK, llm, make_registry(TASK), on_delta=lambda *d: deltas.append(d))
+
+    assert deltas == [(0, "reasoning", "先检索"), (1, "reasoning", "可以提交了")]
