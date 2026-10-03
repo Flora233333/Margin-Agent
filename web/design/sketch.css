@@ -1,5 +1,5 @@
 /*
- * 手绘风：只在 <html data-style="sketch"> 时生效，叠加在 app.css 之上。
+ * 手绘风：只在 <html data-style="sketch"> 时生效，叠加在 base.css 之上。
  *
  * 思路：Margin 的名字来自“页边批注”，手绘版就做成一本写满批注的笔记本。
  *   1. 字体换成手写体：中文用霞鹜文楷，数字和英文用 Patrick Hand。
@@ -93,8 +93,8 @@
 }
 
 /* ---------- 荧光笔与重点 ---------- */
-:root[data-style="sketch"] .source-quote mark {
-  background: linear-gradient(100deg, transparent 1%, var(--mark) 3%, var(--mark) 96%, transparent 99%);
+:root[data-style="sketch"] .source mark {
+  background-image: linear-gradient(100deg, transparent 1%, var(--mark) 3%, var(--mark) 96%, transparent 99%);
   padding: 0 4px;
 }
 :root[data-style="sketch"] .key-figure {
@@ -136,6 +136,21 @@
 :root[data-style="sketch"] .quota > i {
   background: repeating-linear-gradient(-45deg, var(--accent) 0 3px, transparent 3px 6px);
 }
+
+/* ---------- 新增交互的手绘版本（结构和动效来自 base.css，这里只改外观） ---------- */
+/* 输入框：胶囊也画成手绘的，展开后变回手绘方框；两组圆角都是 8 个值，过渡才连续 */
+:root[data-style="sketch"] .composer { border-radius: 60px 40px 55px 45px / 45px 55px 40px 60px; }
+:root[data-style="sketch"] .composer:focus-within,
+:root[data-style="sketch"] .composer:has(textarea:not(:placeholder-shown)) { border-radius: var(--wobble); }
+
+/* 提交答案的圆和勾：用抖动滤镜画成铅笔线，节点本身不再画圈 */
+:root[data-style="sketch"] .step-node.is-check { border: 0; background: none; }
+:root[data-style="sketch"] .check-draw { filter: url(#rough-fine); }
+:root[data-style="sketch"] .check-draw circle { fill: var(--mark); }
+:root[data-style="sketch"] .step-node::after { border-style: dashed; }
+
+:root[data-style="sketch"] .history-indicator { border-radius: var(--wobble); }
+:root[data-style="sketch"] .panel-tab { font-family: var(--font-display); }
 
 /* 手机宽度：页边空间不够，去掉红线和页边批注，避免压住正文 */
 @media (max-width: 760px) {

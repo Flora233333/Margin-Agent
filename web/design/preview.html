@@ -1,53 +1,72 @@
 <!doctype html>
 <!--
   Margin 前端设计稿（本地预览，直接用浏览器打开即可）。
-  文件分工：tokens.css 配色与变量 / app.css 简洁风布局与组件 / sketch.css 手绘风 / demo.js 回放动效。
-  右下角“设计评审”面板不属于产品界面，只用来切换风格、配色、深浅色和重新回放。
+  文件分工：
+    tokens.css  配色、字体、间距等设计变量
+    base.css    公共结构、组件与动效（三种风格共用）
+    clean.css   简洁风「批注版式」（含衬线版）
+    sketch.css  手绘风
+    swiss.css   瑞士风格 + 扁平矢量
+    demo.js     回放动效与交互
+  右下角“设计评审”面板不属于产品界面，只用来切换风格、字体、配色、深浅色和重新回放。
+  也可以用地址参数直接打开某个组合，例如 preview.html?style=clean&font=serif&palette=paper
 -->
-<html lang="zh-CN" data-style="clean" data-palette="ink">
+<html lang="zh-CN" data-style="clean" data-palette="ink" data-font="sans">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Margin 设计稿</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600&family=Patrick+Hand&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600&family=Patrick+Hand&family=Source+Serif+4:opsz,wght@8..60,400..700&display=swap">
   <!-- 霞鹜文楷（手绘风的中文手写体），加载失败时退回系统楷体 -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/lxgwwenkaiscreen.css">
   <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="app.css">
+  <link rel="stylesheet" href="base.css">
+  <link rel="stylesheet" href="clean.css">
   <link rel="stylesheet" href="sketch.css">
+  <link rel="stylesheet" href="swiss.css">
 </head>
 <body>
 
-<!-- 图标与手绘滤镜。图标用 <use href="#i-xxx"> 引用；#rough 被 sketch.css 用来把边框“抖”成手画线 -->
+<!-- 图标与手绘滤镜。图标用 <use href="#i-xxx"> 引用；#rough / #rough-fine 被 sketch.css 用来把线条“抖”成手画的样子 -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <filter id="rough">
     <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="2" seed="3"/>
     <feDisplacementMap in="SourceGraphic" scale="3"/>
+  </filter>
+  <filter id="rough-fine">
+    <feTurbulence type="fractalNoise" baseFrequency="0.06" numOctaves="2" seed="7"/>
+    <feDisplacementMap in="SourceGraphic" scale="1.4"/>
   </filter>
   <symbol id="i-search" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></symbol>
   <symbol id="i-read" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2.5h7l3 3v8H3z"/><path d="M5.5 7.5h5M5.5 10h5"/></symbol>
   <symbol id="i-cite" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M3 9.5c0-3 1.5-4.5 3.5-5M3 9.5h3V13H3zM9 9.5c0-3 1.5-4.5 3.5-5M9 9.5h3V13H9z"/></symbol>
   <symbol id="i-note" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3z"/></symbol>
   <symbol id="i-calc" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><rect x="3" y="2" width="10" height="12" rx="1.5"/><path d="M5.5 5h5M5.5 8.5h1M9.5 8.5h1M5.5 11.5h1M9.5 11.5h1"/></symbol>
-  <symbol id="i-check" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.5 12 13 4.5"/></symbol>
+  <symbol id="i-ok" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.5 12 13 4.5"/></symbol>
   <symbol id="i-chev" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5 10.5 8 6 12.5"/></symbol>
+  <symbol id="i-chev-left" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5"/></symbol>
   <symbol id="i-plus" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></symbol>
   <symbol id="i-up" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 16 16"><rect x="4.5" y="4.5" width="7" height="7" rx="1.2" fill="currentColor"/></symbol>
   <symbol id="i-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="5" y="5" width="8" height="8" rx="1.5"/><path d="M3 10.5V3h7.5"/></symbol>
   <symbol id="i-export" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7 8 10.5 11.5 7M3 13.5h10"/></symbol>
   <symbol id="i-redo" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 2.5v3h-3"/></symbol>
+  <symbol id="i-panel" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"><rect x="2.5" y="3" width="11" height="10" rx="1.5"/><path d="M10 3v10"/></symbol>
 </svg>
 
 <div class="app">
 
   <!-- ============================== 左：历史提问 ============================== -->
   <nav class="sidebar" aria-label="历史提问">
-    <div class="brand">Margin</div>
-    <button class="btn-new" type="button"><svg class="icon"><use href="#i-plus"/></svg>新提问</button>
+    <div class="brand"><span class="brand-mark">M</span><span class="brand-rest">argin</span></div>
+    <button class="btn-new" type="button"><svg class="icon"><use href="#i-plus"/></svg><span class="label">新提问</span></button>
+    <span class="rail-only rail-history" aria-hidden="true"><svg class="icon"><use href="#i-clock"/></svg></span>
 
     <div class="history">
+      <div class="history-indicator" aria-hidden="true"></div>
       <div class="history-label">今天</div>
       <a class="run is-active" href="#"><i class="dot ok"></i><span class="run-text">甲公司 2023 年营业收入同比增长率</span></a>
       <a class="run" href="#"><i class="dot running"></i><span class="run-text">22乙债01 的票面利率与付息日</span></a>
@@ -60,8 +79,8 @@
     </div>
 
     <div class="account">
-      <span class="account-name">演示账号</span>
-      <span>本小时已用 <span class="num">12 / 20</span> 次</span>
+      <span class="account-name"><span class="avatar">演</span><span class="label">演示账号</span></span>
+      <span class="label">本小时已用 <span class="num">12 / 20</span> 次</span>
       <div class="quota" aria-hidden="true"><i></i></div>
     </div>
   </nav>
@@ -75,13 +94,17 @@
     </header>
 
     <div class="thread">
-      <div class="bubble">甲公司 2023 年营业收入同比增长率是多少？保留两位小数。</div>
+      <!-- 提问：手绘风里是气泡，简洁风 / 瑞士风里是大标题 -->
+      <div class="ask">
+        <span class="ask-meta">提问 · 今天 14:32</span>
+        <h1 class="bubble">甲公司 2023 年营业收入同比增长率是多少？保留两位小数。</h1>
+      </div>
 
       <!-- 过程区：思考 + 工具调用，和下面的回答在视觉上分开 -->
-      <section class="work is-open" data-done-label="思考与检索 · 8 步 · 38.6 秒">
-        <button class="work-head" type="button" aria-expanded="true">
+      <section class="work" data-done-label="思考与检索 · 8 步 · 38.6 秒">
+        <button class="work-head" type="button" aria-expanded="false">
           <svg class="icon chev"><use href="#i-chev"/></svg>
-          <span class="work-label">思考与检索 · 8 步 · 38.6 秒</span>
+          <span class="work-label"><span>思考与检索 · 8 步 · 38.6 秒</span></span>
           <span class="pulse" aria-hidden="true"><i></i><i></i><i></i></span>
         </button>
         <div class="work-body-wrap reveal">
@@ -96,11 +119,11 @@
                   </div></div>
                 </li>
 
-                <li class="step reveal" data-seq="2" data-label="正在检索“甲公司 营业收入 2023”">
+                <li class="step reveal" data-seq="2" data-label="正在检索“甲公司 营业收入 2023”" data-search-step>
                   <div class="reveal-inner"><div class="step-inner">
                     <span class="step-node"><svg class="icon"><use href="#i-search"/></svg></span>
                     <div class="step-row"><span class="step-title">检索文档 <q>甲公司 营业收入 2023</q></span><span class="step-time num">1.2s</span></div>
-                    <div class="step-detail">命中 6 篇，最相关：甲公司 2023 年年度报告</div>
+                    <div class="step-detail">命中 <span data-count="6">6</span> 篇，最相关：甲公司 2023 年年度报告</div>
                   </div></div>
                 </li>
 
@@ -112,7 +135,7 @@
                   </div></div>
                 </li>
 
-                <li class="step reveal" data-seq="4" data-label="正在核对引用">
+                <li class="step reveal" data-seq="4" data-label="正在核对引用" data-cite-step="1">
                   <div class="reveal-inner"><div class="step-inner">
                     <span class="step-node"><svg class="icon"><use href="#i-cite"/></svg></span>
                     <div class="step-row"><span class="step-title">引用 [1] <q>实现营业收入120.5亿元</q></span><span class="step-time num">0.1s</span></div>
@@ -135,7 +158,7 @@
                   </div></div>
                 </li>
 
-                <li class="step reveal" data-seq="7" data-label="正在核对引用">
+                <li class="step reveal" data-seq="7" data-label="正在核对引用" data-cite-step="2">
                   <div class="reveal-inner"><div class="step-inner">
                     <span class="step-node"><svg class="icon"><use href="#i-cite"/></svg></span>
                     <div class="step-row"><span class="step-title">引用 [2] <q>实现营业收入107.2亿元</q></span><span class="step-time num">0.1s</span></div>
@@ -168,7 +191,10 @@
 
                 <li class="step reveal" data-seq="10" data-label="正在提交答案">
                   <div class="reveal-inner"><div class="step-inner">
-                    <span class="step-node"><svg class="icon"><use href="#i-check"/></svg></span>
+                    <!-- 先画圆、再打勾；pathLength="1" 让动画只需把线长当作 1 来算 -->
+                    <span class="step-node is-check">
+                      <svg class="check-draw" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8" pathLength="1"/><path d="M6.3 10.3l2.6 2.6 4.9-5.3" pathLength="1"/></svg>
+                    </span>
                     <div class="step-row"><span class="step-title">提交答案 <span class="mono">12.41%</span></span></div>
                     <div class="step-detail">格式校验通过</div>
                   </div></div>
@@ -189,7 +215,15 @@
             </svg>
             <span>两处原文都核对过</span>
           </div>
-          <p data-stream>甲公司 2023 年营业收入同比增长 <strong class="key-figure">12.41%</strong>。</p>
+          <!-- 结论行：简洁风、瑞士风显示；手绘风用下面的第一句话代替 -->
+          <div class="verdict">
+            <div class="verdict-main">
+              <span class="verdict-figure"><span data-count="12.41">12.41</span><span class="verdict-unit">%</span></span>
+              <span class="verdict-label">甲公司 · 2023 年营业收入同比增长率</span>
+            </div>
+            <div class="verdict-art" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          </div>
+          <p class="lead" data-stream>甲公司 2023 年营业收入同比增长 <strong class="key-figure">12.41%</strong>。</p>
           <p data-stream>2023 年营业收入 120.5 亿元<a class="cite" href="#src-1" data-src="1">1</a>，2022 年为 107.2 亿元<a class="cite" href="#src-2" data-src="2">2</a>。按 (120.5 − 107.2) ÷ 107.2 计算得 12.4067%，四舍五入保留两位小数。</p>
           <p class="caveat" data-stream>两年数字分别取自当年年报原文。若 2023 年报对上年数做过重述，按重述后的口径结果会略有不同。</p>
         </div>
@@ -199,7 +233,11 @@
         <div class="reveal-inner">
           <div class="answer-foot">
             <span class="hint">依据 2 处原文引用</span>
-            <button class="icon-btn" type="button"><svg class="icon"><use href="#i-copy"/></svg>复制</button>
+            <span class="ledger"><span>deepseek-v4.1-flash</span><span>8 次调用</span><span>41.2k / 2.3k token</span><span>压缩 1 次</span><span>38.6 秒</span></span>
+            <button class="icon-btn copy-btn" type="button">
+              <span class="swap"><svg class="icon"><use href="#i-copy"/></svg><svg class="icon"><use href="#i-ok"/></svg></span>
+              <span class="btn-label">复制</span>
+            </button>
             <button class="icon-btn" type="button"><svg class="icon"><use href="#i-export"/></svg>导出</button>
             <button class="icon-btn" type="button"><svg class="icon"><use href="#i-redo"/></svg>重新运行</button>
           </div>
@@ -207,92 +245,139 @@
       </div>
     </div>
 
+    <!-- 输入框：未聚焦时是胶囊，聚焦后展开（纯 CSS，见 base.css） -->
     <div class="composer-wrap">
       <div class="composer">
-        <textarea rows="2" placeholder="继续追问，或输入新的问题…" aria-label="输入问题"></textarea>
-        <div class="composer-bar">
-          <span class="chip">deepseek-v4.1-flash</span>
-          <span class="chip">思考 · 自适应</span>
-          <button class="send" type="button" aria-label="发送"><svg class="icon"><use href="#i-up"/></svg></button>
+        <textarea rows="1" placeholder="继续追问，或输入新的问题…" aria-label="输入问题"></textarea>
+        <div class="composer-tools collapsible">
+          <div><div class="composer-bar">
+            <span class="chip">deepseek-v4.1-flash</span>
+            <span class="chip">思考 · 自适应</span>
+          </div></div>
         </div>
+        <button class="send" type="button" aria-label="发送">
+          <span class="swap"><svg class="icon"><use href="#i-up"/></svg><svg class="icon"><use href="#i-stop"/></svg></span>
+        </button>
       </div>
     </div>
   </main>
 
-  <!-- ============================== 右：来源与运行信息 ============================== -->
+  <!-- ============================== 右：来源（简洁风里是页边旁注） ============================== -->
   <aside class="side-panel" aria-label="来源">
-    <section>
-      <h2 class="panel-title">来源 <span class="num">2</span></h2>
-      <div class="sources">
-        <div class="reveal" data-seq="4">
-          <div class="reveal-inner">
-            <article class="source" id="src-1" data-src="1">
-              <div class="source-head"><span class="source-no">[1]</span><span class="source-doc">甲公司 2023 年年度报告</span></div>
-              <div class="source-loc">jia_2023 · 第三节 管理层讨论与分析 · 第 12 行</div>
-              <div class="source-quote">……报告期内，公司<mark>实现营业收入120.5亿元</mark>，同比增长12.4%，归属于上市公司股东的净利润……</div>
-            </article>
+    <button class="panel-tab" type="button" aria-label="展开来源">
+      <svg class="icon"><use href="#i-chev-left"/></svg>来源 <span class="num">2</span>
+    </button>
+    <div class="panel-body">
+      <div class="panel-head">
+        <h2 class="panel-title">来源 <span class="num">2</span></h2>
+        <button class="icon-btn panel-toggle" type="button" aria-expanded="true"><svg class="icon"><use href="#i-panel"/></svg>收起</button>
+      </div>
+
+      <!-- data-anchor：简洁风里这条旁注要对齐的元素，按顺序取第一个当前可见的 -->
+      <div class="margin-track">
+        <div class="sources">
+          <div class="reveal margin-item" data-seq="4" data-anchor='.answer .cite[data-src="1"]|[data-cite-step="1"]'>
+            <div class="reveal-inner">
+              <article class="source" id="src-1" data-src="1">
+                <button class="source-head" type="button" aria-expanded="false">
+                  <span class="source-no">1</span><span class="source-doc">甲公司 2023 年年度报告</span>
+                  <svg class="source-chev"><use href="#i-chev"/></svg>
+                </button>
+                <div class="source-loc">jia_2023 · 第三节 管理层讨论与分析</div>
+                <div class="source-text">
+                  <p class="source-line"><span class="ln">11</span>一、经营情况讨论与分析</p>
+                  <p class="source-line"><span class="ln">12</span>报告期内，公司<mark>实现营业收入120.5亿元</mark>，同比增长12.4%；归属于上市公司股东的净利润18.3亿元，同比增长9.6%。</p>
+                  <p class="source-line"><span class="ln">13</span>其中，主营业务收入116.8亿元，占营业收入的96.9%，较上年提高0.8个百分点。</p>
+                  <a class="source-open" href="#">在原文中打开 →</a>
+                </div>
+              </article>
+            </div>
+          </div>
+          <div class="reveal margin-item" data-seq="7" data-anchor='.answer .cite[data-src="2"]|[data-cite-step="2"]'>
+            <div class="reveal-inner">
+              <article class="source" id="src-2" data-src="2">
+                <button class="source-head" type="button" aria-expanded="false">
+                  <span class="source-no">2</span><span class="source-doc">甲公司 2022 年年度报告</span>
+                  <svg class="source-chev"><use href="#i-chev"/></svg>
+                </button>
+                <div class="source-loc">jia_2022 · 第二节 主要会计数据</div>
+                <div class="source-text">
+                  <p class="source-line"><span class="ln">5</span>（一）主要会计数据</p>
+                  <p class="source-line"><span class="ln">6</span>2022 年度，公司<mark>实现营业收入107.2亿元</mark>，较上年增长8.9%；经营活动产生的现金流量净额21.4亿元。</p>
+                  <p class="source-line"><span class="ln">7</span>本报告期末总资产386.5亿元，较上年末增长6.2%。</p>
+                  <a class="source-open" href="#">在原文中打开 →</a>
+                </div>
+              </article>
+            </div>
           </div>
         </div>
-        <div class="reveal" data-seq="7">
+
+        <section class="reveal margin-item group" data-seq="2" data-anchor="[data-search-step]|.work-head">
           <div class="reveal-inner">
-            <article class="source" id="src-2" data-src="2">
-              <div class="source-head"><span class="source-no">[2]</span><span class="source-doc">甲公司 2022 年年度报告</span></div>
-              <div class="source-loc">jia_2022 · 第二节 主要会计数据 · 第 6 行</div>
-              <div class="source-quote">……2022 年度，公司<mark>实现营业收入107.2亿元</mark>，较上年增长8.9%……</div>
-            </article>
+            <button class="group-head" type="button" aria-expanded="true">检索命中的其他文档 <span class="num">4</span><svg class="icon"><use href="#i-chev"/></svg></button>
+            <div class="collapsible">
+              <div>
+                <ul class="also">
+                  <li><span>甲公司 2023 年半年度报告</span><span class="num">#3</span></li>
+                  <li><span>甲公司 2023 年社会责任报告</span><span class="num">#4</span></li>
+                  <li><span>乙公司 2023 年年度报告</span><span class="num">#5</span></li>
+                  <li><span>甲公司 2021 年年度报告</span><span class="num">#6</span></li>
+                </ul>
+              </div>
+            </div>
           </div>
+        </section>
+      </div>
+
+      <!-- 运行信息：手绘风、瑞士风显示；简洁风改为回答底部的账目行 -->
+      <section class="reveal facts-section" data-seq="12">
+        <div class="reveal-inner">
+          <h2 class="panel-title">运行信息</h2>
+          <dl class="facts">
+            <dt>模型</dt><dd>deepseek-v4.1-flash</dd>
+            <dt>用时</dt><dd class="num">38.6 s</dd>
+            <dt>模型调用</dt><dd class="num">8 次</dd>
+            <dt>输入 token</dt><dd class="num">41,208</dd>
+            <dt>输出 token</dt><dd class="num">2,316</dd>
+            <dt>上下文压缩</dt><dd class="num">1 次</dd>
+            <dt>Harness</dt><dd class="num">h1.2.5-rc6c</dd>
+          </dl>
         </div>
-      </div>
-    </section>
-
-    <section class="reveal" data-seq="2">
-      <div class="reveal-inner">
-        <h2 class="panel-title">检索命中的其他文档</h2>
-        <ul class="also">
-          <li><span>甲公司 2023 年半年度报告</span><span class="num">#3</span></li>
-          <li><span>甲公司 2023 年社会责任报告</span><span class="num">#4</span></li>
-          <li><span>乙公司 2023 年年度报告</span><span class="num">#5</span></li>
-          <li><span>甲公司 2021 年年度报告</span><span class="num">#6</span></li>
-        </ul>
-      </div>
-    </section>
-
-    <section class="reveal" data-seq="12">
-      <div class="reveal-inner">
-        <h2 class="panel-title">运行信息</h2>
-        <dl class="facts">
-          <dt>模型</dt><dd>deepseek-v4.1-flash</dd>
-          <dt>用时</dt><dd class="num">38.6 s</dd>
-          <dt>模型调用</dt><dd class="num">8 次</dd>
-          <dt>输入 token</dt><dd class="num">41,208</dd>
-          <dt>输出 token</dt><dd class="num">2,316</dd>
-          <dt>上下文压缩</dt><dd class="num">1 次</dd>
-          <dt>Harness</dt><dd class="num">h1.2.5-rc6c</dd>
-        </dl>
-      </div>
-    </section>
+      </section>
+    </div>
   </aside>
+
+  <!-- 引用 [n] 与页边旁注之间的连线（只在简洁风显示，路径由 demo.js 计算） -->
+  <svg class="connector" aria-hidden="true"><path pathLength="1"/></svg>
 </div>
 
 <!-- ============================== 设计评审面板（不属于产品） ============================== -->
 <div class="review" role="region" aria-label="设计评审">
   <div class="review-title"><span>设计评审</span><button class="icon-btn minimize" type="button">收起</button></div>
   <div>风格
-    <div class="seg">
+    <div class="seg" data-group="style">
       <button type="button" data-set="style" data-value="clean">简洁</button>
       <button type="button" data-set="style" data-value="sketch">手绘</button>
+      <button type="button" data-set="style" data-value="swiss">瑞士</button>
     </div>
   </div>
-  <div>配色
-    <div class="seg">
+  <div>字体 <span class="review-note">（仅简洁风）</span>
+    <div class="seg" data-group="font">
+      <button type="button" data-set="font" data-value="sans">无衬线</button>
+      <button type="button" data-set="font" data-value="serif">衬线</button>
+    </div>
+  </div>
+  <div>配色 <span class="review-note">（瑞士风为固定配色）</span>
+    <div class="seg" data-group="palette">
       <button type="button" data-set="palette" data-value="ink"><i class="swatch" style="background:#1e5b57"></i>墨青</button>
       <button type="button" data-set="palette" data-value="graphite"><i class="swatch" style="background:#3f5266"></i>石墨</button>
       <button type="button" data-set="palette" data-value="navy"><i class="swatch" style="background:#1f3d70"></i>藏青</button>
       <button type="button" data-set="palette" data-value="pine"><i class="swatch" style="background:#4b5f3a"></i>松烟</button>
+      <button type="button" data-set="palette" data-value="paper"><i class="swatch" style="background:#8f4a2b"></i>宣纸</button>
     </div>
   </div>
   <div>深浅
-    <div class="seg">
+    <div class="seg" data-group="theme">
       <button type="button" data-set="theme" data-value="auto">跟随系统</button>
       <button type="button" data-set="theme" data-value="light">浅</button>
       <button type="button" data-set="theme" data-value="dark">深</button>

@@ -1,0 +1,237 @@
+/*
+ * 瑞士风格 + 扁平矢量：只在 <html data-style="swiss"> 时生效，叠加在 base.css 之上。
+ *
+ * 国际主义（瑞士）平面设计的几条规矩：
+ *   1. 网格与左对齐：内容贴着网格线左对齐，右边自然参差；不用居中排版。
+ *   2. 层级只靠字号和字重：不用卡片、阴影、圆角（圆角全部为 0）。
+ *   3. 粗细两种分隔线：粗黑线分大区块，细灰线分条目。
+ *   4. 只用黑、白、一个红：红色只给最重要的东西（结论、当前步骤、引用编号）。
+ *   5. 扁平矢量：几何实心图形（方、圆、四分之一圆、三角）做装饰，不用渐变和描边插画。
+ * 瑞士风使用自己的固定配色，不受“配色”切换影响。
+ */
+
+:root[data-style="swiss"] {
+  --font-body: "Inter", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-display: "Inter", "Noto Sans SC", sans-serif;
+  --font-mono: "Inter", "Noto Sans SC", sans-serif;
+  --radius-sm: 0;
+  --radius: 0;
+  --radius-lg: 0;
+
+  --paper: #ffffff; --sidebar: #ffffff; --surface: #ffffff; --surface-2: #f2f2f0;
+  --ink: #0b0b0b; --ink-soft: #3b3b3a; --ink-faint: #8a8a87; --rule: #0b0b0b;
+  --hair: #dadad6;                         /* 细分隔线 */
+  --bubble: transparent; --accent: #e3241b; --accent-wash: #fde3e0;
+  --cite: #e3241b; --cite-wash: #fde3e0; --mark: #ffe14d;
+  font-feature-settings: "tnum" 1;         /* Inter 的等宽数字，表格里数字对齐 */
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="swiss"]:not([data-theme="light"]) {
+    --paper: #0d0d0d; --sidebar: #0d0d0d; --surface: #151515; --surface-2: #1b1b1b;
+    --ink: #f4f4f2; --ink-soft: #c6c6c2; --ink-faint: #7e7e7a; --rule: #f4f4f2;
+    --hair: #2e2e2c; --accent: #ff3b2f; --accent-wash: #3b1512;
+    --cite: #ff3b2f; --cite-wash: #3b1512; --mark: #d9c21a;
+  }
+}
+:root[data-style="swiss"][data-theme="dark"] {
+  --paper: #0d0d0d; --sidebar: #0d0d0d; --surface: #151515; --surface-2: #1b1b1b;
+  --ink: #f4f4f2; --ink-soft: #c6c6c2; --ink-faint: #7e7e7a; --rule: #f4f4f2;
+  --hair: #2e2e2c; --accent: #ff3b2f; --accent-wash: #3b1512;
+  --cite: #ff3b2f; --cite-wash: #3b1512; --mark: #d9c21a;
+}
+
+/* ================================ 粗线分区 ================================ */
+:root[data-style="swiss"] .sidebar { border-right: 2px solid var(--rule); }
+:root[data-style="swiss"] .side-panel { border-left: 2px solid var(--rule); }
+:root[data-style="swiss"] .main-head { border-bottom: 2px solid var(--rule); }
+:root[data-style="swiss"] .main-title { font-weight: 700; }
+
+/* ================================ 左栏 ================================ */
+:root[data-style="swiss"] .brand { font-family: var(--font-display); font-size: 1.75rem; font-weight: 800; letter-spacing: -0.04em; }
+/* 品牌后面一个红色小方块 */
+:root[data-style="swiss"] .brand::after {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-left: 3px;
+  background: var(--accent);
+}
+:root[data-style="swiss"] .btn-new { background: var(--ink); color: var(--paper); border-color: var(--ink); font-weight: 600; }
+:root[data-style="swiss"] .btn-new:hover { background: var(--accent); border-color: var(--accent); }
+:root[data-style="swiss"] .history-label { font-weight: 700; color: var(--ink); border-bottom: 1px solid var(--hair); }
+/* 历史条目前加两位编号 01、02… */
+:root[data-style="swiss"] .history { counter-reset: run; }
+:root[data-style="swiss"] .run { counter-increment: run; }
+:root[data-style="swiss"] .run::before { content: counter(run, decimal-leading-zero); font-size: var(--text-xs); color: var(--ink-faint); width: 16px; }
+:root[data-style="swiss"] .dot { border-radius: 0; }
+:root[data-style="swiss"] .run.is-active { background: none; font-weight: 600; box-shadow: inset 3px 0 0 var(--accent); }
+:root[data-style="swiss"] .account { border-top: 2px solid var(--rule); }
+
+/* ================================ 中栏：左对齐，大字号层级 ================================ */
+:root[data-style="swiss"] .thread {
+  max-width: 860px;
+  margin: 0;
+  padding: var(--space-7) var(--space-7) var(--space-5);
+  gap: var(--space-6);
+}
+:root[data-style="swiss"] .ask { justify-items: start; gap: var(--space-2); }
+:root[data-style="swiss"] .ask-meta {
+  display: block;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--accent);
+}
+:root[data-style="swiss"] .bubble {
+  max-width: 100%;
+  padding: 0;
+  font-size: clamp(1.75rem, 1.2rem + 1.4vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  word-break: keep-all;      /* 中文标题优先在空格和标点处换行 */
+  overflow-wrap: anywhere;
+}
+
+/* 过程区：不是盒子，是一张以粗黑线开头的编号表 */
+:root[data-style="swiss"] .work { background: none; border: 0; border-top: 3px solid var(--rule); }
+:root[data-style="swiss"] .work-head { padding: var(--space-3) 0; color: var(--ink); font-weight: 600; }
+:root[data-style="swiss"] .work-body { border-top: 1px solid var(--hair); }
+:root[data-style="swiss"] .steps { padding: 0; counter-reset: step; }
+:root[data-style="swiss"] .step { counter-increment: step; }
+:root[data-style="swiss"] .step:has(.thought-dot) { counter-increment: none; }
+:root[data-style="swiss"] .step-inner {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  column-gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--hair);
+}
+:root[data-style="swiss"] .step-inner > :not(.step-node) { grid-column: 2; }
+:root[data-style="swiss"] .step-inner::before { display: none; }
+/* 编号列：工具步骤显示 01、02…；思考步骤显示一个实心小圆 */
+:root[data-style="swiss"] .step-node {
+  position: static;
+  grid-row: 1 / span 4;
+  width: auto;
+  height: auto;
+  place-items: start;
+  border-radius: 0;
+  color: var(--ink);
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+:root[data-style="swiss"] .step-node::before { content: counter(step, decimal-leading-zero); }
+:root[data-style="swiss"] .step-node .icon { display: none; }
+:root[data-style="swiss"] .step-node:has(.thought-dot)::before { content: none; }
+:root[data-style="swiss"] .thought-dot { width: 10px; height: 10px; margin-top: 7px; background: var(--ink); }
+:root[data-style="swiss"] .step.is-current .step-node { color: var(--accent); }
+:root[data-style="swiss"] .step-node::after { display: none; }
+:root[data-style="swiss"] .step:not(.is-hidden) .step-node { animation: slide-in 0.45s var(--ease) both; }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-10px); } }
+:root[data-style="swiss"] .step-title { font-weight: 600; }
+
+/* 提交答案：实心红圆 + 白色勾（先画圆，再填满，最后打勾） */
+:root[data-style="swiss"] .step-node.is-check::before { content: none; }
+:root[data-style="swiss"] .check-draw { width: 26px; height: 26px; }
+:root[data-style="swiss"] .check-draw circle { fill: var(--accent); stroke: var(--accent); }
+:root[data-style="swiss"] .check-draw path { stroke: var(--paper); stroke-width: 2.2; }
+:root[data-style="swiss"] .step:not(.is-hidden) .check-draw circle { animation: draw-line 0.5s var(--ease) 0.2s both, fill-solid 0.35s var(--ease) 0.7s both; }
+:root[data-style="swiss"] .step:not(.is-hidden) .check-draw path { animation: draw-line 0.35s var(--ease) 1s both; }
+@keyframes fill-solid { from { fill-opacity: 0; } to { fill-opacity: 1; } }
+
+:root[data-style="swiss"] .formula { border: 0; border-left: 3px solid var(--accent); background: var(--surface-2); }
+:root[data-style="swiss"] .compact-rule::after { border-top: 1px solid var(--hair); opacity: 1; }
+:root[data-style="swiss"] .note { border: 1px solid var(--rule); }
+
+/* 结论：超大数字 + 扁平几何构图 */
+:root[data-style="swiss"] .verdict {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--space-4);
+  padding: var(--space-4) 0 var(--space-5);
+  margin-bottom: var(--space-4);
+  border-top: 3px solid var(--rule);
+  border-bottom: 1px solid var(--hair);
+}
+:root[data-style="swiss"] .verdict-main { display: grid; gap: var(--space-2); }
+:root[data-style="swiss"] .verdict-figure {
+  font-size: clamp(3rem, 2rem + 4vw, 5rem);
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.05em;
+}
+:root[data-style="swiss"] .verdict-unit { color: var(--accent); }
+:root[data-style="swiss"] .verdict-label { font-size: var(--text-sm); font-weight: 600; }
+:root[data-style="swiss"] .verdict-art {
+  display: grid;
+  grid-template-columns: repeat(2, 30px);
+  grid-template-rows: repeat(2, 30px);
+  gap: 4px;
+}
+:root[data-style="swiss"] .verdict-art i { display: block; }
+:root[data-style="swiss"] .verdict-art i:nth-child(1) { background: var(--accent); }                               /* 方 */
+:root[data-style="swiss"] .verdict-art i:nth-child(2) { background: var(--ink); border-radius: 50%; }             /* 圆 */
+:root[data-style="swiss"] .verdict-art i:nth-child(3) { background: var(--ink); border-top-right-radius: 100%; }  /* 四分之一圆 */
+:root[data-style="swiss"] .verdict-art i:nth-child(4) { background: var(--accent); clip-path: polygon(0 100%, 100% 0, 100% 100%); } /* 三角 */
+/* 回答出现时，四个图形依次弹出 */
+:root[data-style="swiss"] .answer:not(.is-hidden) .verdict-art i { animation: shape-pop 0.5s var(--ease-spring) both; }
+:root[data-style="swiss"] .answer:not(.is-hidden) .verdict-art i:nth-child(2) { animation-delay: 0.08s; }
+:root[data-style="swiss"] .answer:not(.is-hidden) .verdict-art i:nth-child(3) { animation-delay: 0.16s; }
+:root[data-style="swiss"] .answer:not(.is-hidden) .verdict-art i:nth-child(4) { animation-delay: 0.24s; }
+@keyframes shape-pop { from { transform: scale(0); } }
+
+:root[data-style="swiss"] .answer { font-size: var(--text-md); line-height: 1.7; }
+:root[data-style="swiss"] .answer p { max-width: 62ch; }
+:root[data-style="swiss"] .answer .lead { display: none; }
+:root[data-style="swiss"] .cite { font-weight: 700; }
+:root[data-style="swiss"] .answer-foot { padding-top: var(--space-3); border-top: 1px solid var(--hair); }
+:root[data-style="swiss"] .answer-foot .hint { font-weight: 600; color: var(--ink); }
+
+/* 输入框：收起时只是一条粗下划线，聚焦后四边补齐成方框，并带一块错位的红色色块 */
+:root[data-style="swiss"] .composer-wrap { padding-left: var(--space-7); padding-right: var(--space-7); }
+:root[data-style="swiss"] .composer {
+  max-width: 860px;
+  margin: 0;
+  border: 2px solid transparent;
+  border-bottom-color: var(--rule);
+  box-shadow: none;
+  padding-left: 2px;
+}
+:root[data-style="swiss"] .composer:focus-within,
+:root[data-style="swiss"] .composer:has(textarea:not(:placeholder-shown)) {
+  border-color: var(--rule);
+  padding-left: 16px;
+  box-shadow: 6px 6px 0 var(--accent);
+}
+:root[data-style="swiss"] .send { border-radius: 0; background: var(--ink); }
+:root[data-style="swiss"] .send:hover { background: var(--accent); }
+:root[data-style="swiss"] .chip { border-radius: 0; border-color: var(--rule); color: var(--ink); }
+
+/* ================================ 右栏：编号条目，没有卡片 ================================ */
+:root[data-style="swiss"] .panel-title { font-size: var(--text-md); font-weight: 700; }
+:root[data-style="swiss"] .source {
+  --card-bg: var(--paper);
+  border: 0;
+  border-top: 1px solid var(--hair);
+  padding: var(--space-3) 0;
+}
+:root[data-style="swiss"] .source.is-linked { border-top: 1px solid var(--accent); }
+:root[data-style="swiss"] .source-no { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.03em; }
+:root[data-style="swiss"] .source-doc { font-weight: 700; }
+:root[data-style="swiss"] .source.is-flash { animation: block-flash 1.2s var(--ease); }
+@keyframes block-flash { from { background-color: var(--accent-wash); } }
+:root[data-style="swiss"] .group-head { font-weight: 700; border-top: 3px solid var(--rule); padding-top: var(--space-3); }
+:root[data-style="swiss"] .facts { border-top: 1px solid var(--hair); padding-top: var(--space-3); }
+:root[data-style="swiss"] .facts dd { font-weight: 600; }
+
+@media (max-width: 760px) {
+  :root[data-style="swiss"] .thread,
+  :root[data-style="swiss"] .composer-wrap { padding-left: var(--space-4); padding-right: var(--space-4); }
+  :root[data-style="swiss"] .bubble { word-break: normal; }
+}
+:root[data-style="swiss"] .source-no::before, :root[data-style="swiss"] .source-no::after { content: none; }
