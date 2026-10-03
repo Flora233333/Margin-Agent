@@ -126,10 +126,34 @@ function scroller() {
   return [main, app].find((el) => getComputedStyle(el).overflowY === "auto");
 }
 
+/*
+ * 自动跟随到底部：只在用户“没有往上翻”时跟随。
+ * 用户一旦向上滚（滚轮、方向键、PageUp、触屏拖动）就停止跟随，不再抢滚动条；
+ * 用户自己滚回底部附近时恢复跟随。
+ */
+let following = true;
+
 function followBottom() {
   const s = scroller();
-  s?.scrollTo({ top: s.scrollHeight, behavior: "smooth" });
+  if (!following || !s) return;
+  s.scrollTo({ top: s.scrollHeight, behavior: "smooth" });
 }
+
+function stopFollowing() {
+  following = false;
+}
+window.addEventListener("wheel", (event) => {
+  if (event.deltaY < 0) stopFollowing();
+}, { passive: true });
+window.addEventListener("touchmove", stopFollowing, { passive: true });
+window.addEventListener("keydown", (event) => {
+  if (["ArrowUp", "PageUp", "Home"].includes(event.key)) stopFollowing();
+});
+// 滚动事件不冒泡，用捕获阶段统一监听 .app / .main 的滚动
+document.addEventListener("scroll", (event) => {
+  const s = event.target === document ? document.scrollingElement : event.target;
+  if (s.scrollHeight - s.scrollTop - s.clientHeight < 40) following = true;
+}, true);
 
 function markCurrent(step) {
   for (const s of document.querySelectorAll(".step.is-current")) s.classList.remove("is-current");
@@ -152,6 +176,7 @@ function resetAll() {
   setWorkOpen(true);
   markCurrent(null);
   scroller()?.scrollTo({ top: 0 });
+  following = true;   // 新一轮回放：重新开始跟随，直到用户自己往上翻
   // 读一次布局，强制浏览器先应用“收起”状态；否则下面去掉 is-hidden 时不会有过渡
   void root.offsetHeight;
   root.classList.remove("no-transition");
@@ -258,6 +283,8 @@ for (const head of document.querySelectorAll(".group-head")) {
 function linkSources(event, on) {
   const el = event.target.closest("[data-src]");
   if (!el) return;
+  // 只是在同一块内部移动（例如从标题移到原文），不算离开 / 进入，避免连线反复重画
+  if (event.relatedTarget?.closest("[data-src]") === el) return;
   for (const x of document.querySelectorAll(`[data-src="${el.dataset.src}"]`)) {
     x.classList.toggle("is-linked", on);
   }
@@ -339,9 +366,14 @@ function scheduleLayout() {
     layoutMargin();
   });
 }
-// 正文高度变化（展开动画、逐字输出、换行）或旁注高度变化（原文展开）时重新对齐
+/*
+ * 什么时候重新对齐：过程区、回答的高度变了（展开 / 折叠、逐字输出、换行），或旁注自己的高度变了（原文展开）。
+ * 注意不能只盯整个 .thread：旁注轨道会把整页撑高，.thread 被拉伸后高度不再变化，折叠过程区时就收不到通知。
+ * 所以盯住真正会变的两个内容块。
+ */
 const resizeWatcher = new ResizeObserver(scheduleLayout);
-resizeWatcher.observe(document.querySelector(".thread"));
+resizeWatcher.observe(work);
+resizeWatcher.observe(document.querySelector(".answer"));
 for (const item of marginItems) resizeWatcher.observe(item);
 window.addEventListener("resize", scheduleLayout);
 
@@ -362,9 +394,13 @@ function drawConnector(from, card) {
   const mid = (x1 + x2) / 2;
 
   connector.style.height = `${app.scrollHeight}px`;
+  // 先在“无过渡”状态下把线收回到长度 0，再恢复过渡并重新画出。
+  // 否则从一块直接移到另一块时，上一条线还没收回（长度接近满），新线会直接整条出现、看不到生长
+  connectorPath.style.transition = "none";
   connectorPath.classList.remove("is-on");
   connectorPath.setAttribute("d", `M${x1} ${y1} C${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`);
   void connectorPath.getBoundingClientRect();
+  connectorPath.style.transition = "";
   connectorPath.classList.add("is-on");
 }
 

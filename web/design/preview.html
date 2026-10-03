@@ -273,10 +273,11 @@
         <button class="icon-btn panel-toggle" type="button" aria-expanded="true"><svg class="icon"><use href="#i-panel"/></svg>收起</button>
       </div>
 
-      <!-- data-anchor：简洁风里这条旁注要对齐的元素，按顺序取第一个当前可见的 -->
+      <!-- data-anchor：简洁风里这条旁注要对齐的元素，按顺序取第一个当前可见的。
+           过程区展开时对齐到过程里的“引用”步骤（正在看的地方），收起后对齐到回答里的 [n] -->
       <div class="margin-track">
         <div class="sources">
-          <div class="reveal margin-item" data-seq="4" data-anchor='.answer .cite[data-src="1"]|[data-cite-step="1"]'>
+          <div class="reveal margin-item" data-seq="4" data-anchor='[data-cite-step="1"]|.answer .cite[data-src="1"]'>
             <div class="reveal-inner">
               <article class="source" id="src-1" data-src="1">
                 <button class="source-head" type="button" aria-expanded="false">
@@ -293,7 +294,7 @@
               </article>
             </div>
           </div>
-          <div class="reveal margin-item" data-seq="7" data-anchor='.answer .cite[data-src="2"]|[data-cite-step="2"]'>
+          <div class="reveal margin-item" data-seq="7" data-anchor='[data-cite-step="2"]|.answer .cite[data-src="2"]'>
             <div class="reveal-inner">
               <article class="source" id="src-2" data-src="2">
                 <button class="source-head" type="button" aria-expanded="false">
