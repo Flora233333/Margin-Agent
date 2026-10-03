@@ -492,7 +492,8 @@ copyButton.addEventListener("click", () => {
 });
 
 /* ======================================== 6. 设计评审面板 ======================================== */
-const prefs = { style: "clean", palette: "ink", theme: "auto", font: "sans" };
+// 默认是作者选定的主方案：简洁风 + 衬线 + 石墨 + 浅色（候选二是手绘风）
+const prefs = { style: "clean", palette: "graphite", theme: "light", font: "serif" };
 try {
   Object.assign(prefs, JSON.parse(localStorage.getItem("margin-design") ?? "{}"));
 } catch {
