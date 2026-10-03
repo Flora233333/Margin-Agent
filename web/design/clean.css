@@ -247,7 +247,7 @@
   right: 0;
   top: 0;
   transition:
-    top 0.6s var(--ease),
+    top 0.5s var(--ease),          /* 与过程区折叠、原文展开同样时长，和内容同步到达 */
     grid-template-rows 0.5s var(--ease),
     opacity 0.45s var(--ease) 0.08s,
     transform 0.5s var(--ease);

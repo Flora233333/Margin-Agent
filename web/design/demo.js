@@ -321,6 +321,31 @@ function anchorOf(item) {
  * 旁注对齐：每条旁注的目标位置 = 它的锚点（正文里的引用，或过程区里的引用步骤）所在高度；
  * 从上到下排，如果会压住上一条，就往下推。位置变化时 CSS 让 top 平滑过渡，旁注会“滑”到新位置。
  */
+/*
+ * 下面两个函数用来算“动画播完以后”的位置和高度。
+ * 过程区折叠、旁注展开都要播 0.5 秒动画；如果每一帧都按当时量到的位置去追，目标一直在变，
+ * 旁注就会一顿一顿地跟在后面。所以在动画一开始就算出终点，旁注直接滑过去，和内容同步到达。
+ */
+
+/* 过程区正在展开 / 折叠：它下面的内容最终还要移动多少（展开为正，折叠为负；静止时为 0） */
+const workBodyWrap = work.querySelector(".work-body-wrap");
+function workShift() {
+  const finalHeight = work.classList.contains("is-open") ? workBodyWrap.firstElementChild.scrollHeight : 0;
+  return finalHeight - workBodyWrap.getBoundingClientRect().height;
+}
+
+/* 一条旁注动画播完后的高度：内容的完整高度，再把原文区换成它最终的高度（展开 = 全文，收起 = 3 行） */
+function finalItemHeight(item) {
+  let height = item.querySelector(".reveal-inner").scrollHeight;
+  const text = item.querySelector(".source-text");
+  if (text) {
+    const threeLines = parseFloat(getComputedStyle(text).fontSize) * 1.7 * 3;   // 与 base.css 的 max-height 一致
+    const finalText = text.closest(".is-expanded") ? text.scrollHeight : Math.min(text.scrollHeight, threeLines);
+    height += finalText - text.getBoundingClientRect().height;
+  }
+  return height;
+}
+
 function layoutMargin() {
   if (!marginEnabled()) {
     for (const item of marginItems) item.style.top = "";
@@ -328,11 +353,18 @@ function layoutMargin() {
     return;
   }
   const trackTop = marginTrack.getBoundingClientRect().top;
+  const shift = workShift();
   const placed = [];
   for (const item of marginItems) {
     if (item.classList.contains("is-hidden")) continue;
     const anchor = anchorOf(item);
-    const target = anchor ? anchor.getBoundingClientRect().top - trackTop - 6 : item.offsetTop;
+    let target = item.offsetTop;
+    if (anchor) {
+      target = anchor.getBoundingClientRect().top - trackTop - 6;
+      // 锚点在过程区下方（例如回答里的 [1]）：加上过程区还要变化的高度，得到它的最终位置
+      const below = workBodyWrap.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING;
+      if (below && !workBodyWrap.contains(anchor)) target += shift;
+    }
     placed.push({ item, target });
   }
   placed.sort((a, b) => a.target - b.target);
@@ -351,7 +383,7 @@ function layoutMargin() {
     } else {
       item.style.top = `${top}px`;
     }
-    floor = top + item.offsetHeight + 16;
+    floor = top + finalItemHeight(item) + 16;
   }
   marginTrack.style.height = `${floor}px`;
 }
