@@ -30,14 +30,17 @@
 ## 下一步（M0.5 真实运行）
 
 0. 前端方案已选定（D14）：简洁风 + 衬线 + 石墨 + 浅色为主，手绘风为候选。
-1. 在 `.env` 填写模型配置（DeepSeek 或 vLLM 自训模型），用 `scripts/run_episode.py` 跑 3 类题各一道。
-2. 验证 DeepSeek 是否接受历史消息里的 `reasoning_content`（见“未决问题”1）。
+1. ~~接通真实模型~~（2026-10-04 完成）：学校网关，主用 `DeepSeek`（v4.1-flash），备用 `GLM`（glm5.3-flash），
+   用 `--model` 切换。首次真实运行：“广晟控股 2023 年营业收入”9 轮完成，逐字引用合并利润表，答 1275.99（亿元）。
+   网关上三个对话模型都支持工具调用，也接受历史里的 `reasoning_content`。
+2. 继续用 `scripts/run_episode.py` 跑另外两类题（百分比计算、选择 / 判断），观察轮数和失败方式。
 3. LLM 客户端加流式输出（`stream=True`），为 M2 的逐字思考展示做准备。
 4. 进入 M1：FastAPI + PostgreSQL + Celery/Redis 最小闭环。
 
 ## 未决问题
 
-1. DeepSeek API 若拒绝历史消息里的 `reasoning_content`，需要在客户端发送前去掉（只对自训模型保留）。
+1. ~~DeepSeek 是否拒绝历史里的 `reasoning_content`~~：学校网关上不拒绝（2026-10-04 实测）。
+   若以后接 DeepSeek 官方 API 再验证一次。
 2. 向量检索未在真实环境验证：需要本地 embedding 服务 + `artifacts/indexes/chroma/h1.1.0-rc` 索引。
 3. 文档身份 / 表格上下文两类结果增强未移植，先观察自训模型在缺少它们时的表现。
 

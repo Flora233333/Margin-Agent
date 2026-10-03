@@ -5,8 +5,13 @@
         [--option A=... --option B=...]
     conda run -n margin --no-capture-output python scripts/run_episode.py "问题" --search-only
         # 只测检索，不调模型
+    ... --model GLM        # 临时换模型（默认读 MARGIN_LLM_MODEL）
 
 配置从 .env 读取（见 .env.example）。首次运行会构建 BM25 索引（几分钟），之后从缓存加载。
+
+学校网关是公用的，可用模型时好时坏：
+主用 DeepSeek（v4.1-flash），不可用时用 --model GLM（glm5.3-flash）。
+一道题从头到尾只用一个模型，不在中途自动切换，否则结果分不清是哪个模型做的。
 """
 
 from __future__ import annotations
@@ -57,8 +62,10 @@ def main() -> None:
     parser.add_argument("--format", default="text", help="答案类型：num/pct/tf/mcq/multi/date/text")
     parser.add_argument("--option", action="append", default=[], help="选项，如 A=甲公司更高")
     parser.add_argument("--search-only", action="store_true")
+    parser.add_argument("--model", help="模型名，如 DeepSeek / GLM；不填则用 MARGIN_LLM_MODEL")
     args = parser.parse_args()
     load_dotenv()
+    model = args.model or os.environ.get("MARGIN_LLM_MODEL")
 
     corpus, retriever = build_retriever()
     if args.search_only:
@@ -66,9 +73,12 @@ def main() -> None:
             print(row["rank"], row["doc_id"], row["best_block_id"], row["contributions"])
         return
 
+    if not model:
+        parser.error("请用 --model 指定模型，或在 .env 里设置 MARGIN_LLM_MODEL")
     options = dict(item.split("=", 1) for item in args.option) or None
     task = {"question": args.question, "options": options, "answer_format": args.format}
-    llm = OpenAICompatibleClient(os.environ["MARGIN_LLM_BASE_URL"], os.environ["MARGIN_LLM_MODEL"],
+    print(f"模型：{model}")
+    llm = OpenAICompatibleClient(os.environ["MARGIN_LLM_BASE_URL"], model,
                                  os.environ.get("MARGIN_LLM_API_KEY", ""))
     trace = run_episode(task, llm, build_registry(task, corpus, retriever))
 
