@@ -7,7 +7,7 @@
 为什么导入而不是重新计算：文档向量是 RC6-C 训练 / 评测时用的那一份（服务器 GPU 建库），
 原样搬过来，检索结果才和训练环境一致；CPU 上重算 1.76 万块要几十个小时。
 数据库地址读配置 MARGIN_DATABASE_URL。表会先清空再导入，重复运行结果一样。
-M1 引入 Alembic 后，建表语句移到迁移脚本里。
+表由迁移建好（先运行 alembic upgrade head），这个脚本只负责灌数据。
 """
 
 from __future__ import annotations
@@ -22,15 +22,6 @@ from pgvector.psycopg import register_vector
 
 from margin.settings import get_settings
 
-# vector(1024)：Qwen3-Embedding-0.6B 的向量维度，写进列类型，维度不对的数据插不进去
-CREATE_TABLE = """
-CREATE TABLE IF NOT EXISTS block_vectors (
-    block_id  text PRIMARY KEY,
-    doc_id    text NOT NULL,
-    embedding vector(1024) NOT NULL
-)
-"""
-
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -43,10 +34,7 @@ def main() -> None:
     print(f"从 Chroma 读出 {len(data['ids'])} 条向量")
 
     with psycopg.connect(get_settings().database_url) as conn:
-        # pgvector 是 PG 扩展，每个数据库要先启用一次，之后才有 vector 类型
-        conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-        register_vector(conn)
-        conn.execute(CREATE_TABLE)
+        register_vector(conn)  # 让 psycopg 能把 numpy 数组按 vector 类型写入
         conn.execute("TRUNCATE block_vectors")
         started = time.monotonic()
         # COPY 是 PG 的批量导入协议，比逐行 INSERT 快一两个数量级

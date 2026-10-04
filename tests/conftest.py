@@ -1,4 +1,5 @@
-"""测试共用的数据：一个只有 3 个文档的小语料，和一个按剧本回放回复的假模型。
+"""测试共用的数据：一个只有 3 个文档的小语料，和一个按剧本回放回复的假模型；
+以及集成测试用的测试数据库。
 
 为什么用假模型（FakeLLM）：测试要快、免费、结果每次一样。真实模型每次回答都不同，
 没法写断言；我们要测的是 Harness 的逻辑（压缩、停止条件、工具规则），而不是模型聪不聪明。
@@ -6,13 +7,21 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
+import psycopg
 import pytest
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
 
+from margin.db import make_engine
 from margin.harness import build_registry
 from margin.retrieval import Corpus, HybridRetriever
 from margin.retrieval.alias import Alias, AliasCatalog
+from margin.settings import get_settings
 
 BLOCKS = [
     {
@@ -63,3 +72,37 @@ def make_registry(corpus, retriever):
         return build_registry(task or {"question": "测试题", "answer_format": "num"},
                               corpus, retriever)
     return make
+
+
+# ---------------------------------------------------------------- 集成测试的数据库
+
+TEST_DB = "margin_test"
+
+
+@pytest.fixture(scope="session")
+def engine():
+    """每次测试会话重建独立的测试库 margin_test 并执行全部迁移，不碰开发库里的数据。
+
+    迁移同时被测试到了：迁移脚本有错，所有集成测试都会失败。
+    """
+    admin_url = get_settings().database_url
+    # CREATE / DROP DATABASE 不能在事务里执行，所以用 autocommit 连接
+    with psycopg.connect(admin_url, autocommit=True) as admin:
+        admin.execute(f"DROP DATABASE IF EXISTS {TEST_DB} WITH (FORCE)")
+        admin.execute(f"CREATE DATABASE {TEST_DB}")
+    url = make_url(admin_url).set(database=TEST_DB).render_as_string(hide_password=False)
+    config = Config(Path(__file__).parents[1] / "alembic.ini")
+    config.attributes["database_url"] = url  # migrations/env.py 读这里
+    command.upgrade(config, "head")
+    engine = make_engine(url)
+    yield engine
+    engine.dispose()
+
+
+@pytest.fixture
+def db(engine):
+    """每个测试开始前清空业务表（保留迁移预置的开发用户），测试之间互不影响。"""
+    with engine.begin() as conn:
+        conn.execute(text("TRUNCATE runs, attempts, steps, events, outbox, block_vectors"
+                          " RESTART IDENTITY"))
+    return engine

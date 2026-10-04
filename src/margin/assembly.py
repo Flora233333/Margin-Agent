@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from .db import get_engine
 from .llm import OpenAICompatibleClient
 from .retrieval import Corpus, HybridRetriever
 from .retrieval.alias import AliasCatalog
@@ -20,7 +21,7 @@ def build_retriever(settings: Settings) -> tuple[Corpus, HybridRetriever]:
     dense = None
     if settings.embedding_base_url:  # 配了 embedding 服务才开向量检索
         embedder = EmbeddingClient(settings.embedding_base_url, settings.embedding_model)
-        dense = DenseSearcher(settings.database_url, embedder)
+        dense = DenseSearcher(get_engine(), embedder)
     retriever = HybridRetriever.create(
         corpus, cache_dir=settings.cache_dir / "bm25", aliases=aliases, dense=dense
     )

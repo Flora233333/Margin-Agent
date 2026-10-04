@@ -19,9 +19,9 @@ BM25 只认字面，"营收增长" 和 "营业收入同比增加" 字面重合�
 from __future__ import annotations
 
 import httpx
-import numpy as np
-import psycopg
-from pgvector.psycopg import register_vector
+from sqlalchemy import Engine, select
+
+from ..models import BlockVector
 
 # Qwen3-Embedding 要求查询带指令前缀（文档侧不带），否则召回质量明显下降。
 # 拼接方式照抄 RC6-C（afacpt.harness.local_embedding）：指令 + 一个空格 + 查询。
@@ -45,21 +45,20 @@ class EmbeddingClient:
 
 
 class DenseSearcher:
-    def __init__(self, database_url: str, embedder: EmbeddingClient) -> None:
-        # autocommit：这里只有只读查询，不需要显式事务
-        self.conn = psycopg.connect(database_url, autocommit=True)
-        register_vector(self.conn)  # 让 numpy 数组能直接作为 vector 参数传给 SQL
+    def __init__(self, engine: Engine, embedder: EmbeddingClient) -> None:
+        self.engine = engine  # 连接从 Engine 的连接池里借，用完归还
         self.embedder = embedder
 
     def search(self, query: str, limit: int) -> list[tuple[str, str, float]]:
         """返回 [(doc_id, block_id, 相似度), ...]，按相似度从高到低。
 
-        `<=>` 是 pgvector 的余弦距离运算符（0 = 方向完全相同），相似度 = 1 - 距离。
+        cosine_distance 对应 pgvector 的 `<=>` 余弦距离运算符（0 = 方向完全相同），
+        相似度 = 1 - 距离。
+        生成的 SQL：SELECT doc_id, block_id, 1 - (embedding <=> :v) ... ORDER BY embedding <=> :v
         """
-        vector = np.asarray(self.embedder.embed_query(query), dtype=np.float32)
-        rows = self.conn.execute(
-            "SELECT doc_id, block_id, 1 - (embedding <=> %(v)s) FROM block_vectors"
-            " ORDER BY embedding <=> %(v)s LIMIT %(limit)s",
-            {"v": vector, "limit": limit},
-        ).fetchall()
+        distance = BlockVector.embedding.cosine_distance(self.embedder.embed_query(query))
+        stmt = (select(BlockVector.doc_id, BlockVector.block_id, 1 - distance)
+                .order_by(distance).limit(limit))
+        with self.engine.connect() as conn:
+            rows = conn.execute(stmt).all()
         return [(doc_id, block_id, float(similarity)) for doc_id, block_id, similarity in rows]
