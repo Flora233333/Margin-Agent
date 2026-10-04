@@ -63,18 +63,22 @@ ChatGPT 评审、`AFAC_Backend_Technical_Design.md` v2）以及 2026-10-03 的�
 
 ```mermaid
 flowchart TB
-    U[浏览器 React] --> N[Nginx]
-    N --> A[FastAPI：接口 + SSE]
-    A --> PG[(PostgreSQL：业务事实)]
-    A <-.订阅通知.-> R[(Redis)]
-    PG --> D[Dispatcher：投递 outbox / 巡检过期租约]
+    U["浏览器 React"] --> N["Nginx"]
+    N --> A["FastAPI: 接口 + SSE"]
+    A --> PG[("PostgreSQL: 业务事实")]
+
+    R[("Redis")] -->|"订阅通知"| A
+
+    PG --> D["Dispatcher: 投递 outbox / 巡检过期租约"]
     D --> R
-    R --> W[Celery Worker]
-    W --> H[Margin Harness：RC6-C 循环 + 十工具]
-    H --> L[模型：DeepSeek API / vLLM 自训模型]
-    H --> S[检索：BM25 + 别名 + 向量]
+    R --> W["Celery Worker"]
+
+    W --> H["Margin Harness: RC6-C 循环 + 十工具"]
+    H --> L["模型: DeepSeek API / vLLM 自训模型"]
+    H --> S["检索: BM25 + 别名 + 向量"]
+
     W --> PG
-    W -.实时增量.-> R
+    W -->|"实时增量"| R
 ```
 
 一句话：**数据库记账，队列解耦，租约防并发写，SSE 看过程。**
@@ -83,7 +87,8 @@ flowchart TB
 
 1. `POST /runs`：在**一个事务**里写入 run、第一个 attempt、一条 outbox 记录，立即返回 202 和 run_id。
 2. Dispatcher 从 outbox 取出记录，往 Redis 队列发一条“请执行 attempt X”。
-3. Worker 收到后先在数据库**领取租约**（条件更新），再跑 Harness；每完成一步，就把步骤和事件在一个事务里写库。
+3. Worker 收到后先在数据库**领取租约**（条件更新），再跑 Harness；每完成一步，就把步骤、事件、断点在一个带 epoch 检查的事务里写库，
+   提交后再往 Redis 发“有新事件”的通知。
 4. 浏览器通过 SSE 订阅这个 run 的事件：持久事件从数据库按序号补读，思考 token 从 Redis 实时转发。
 5. 终态（成功/失败/取消）写库后，SSE 发送终态事件并关闭。
 
@@ -96,10 +101,10 @@ flowchart TB
 | users | id, username, password_hash | 密码用 argon2 哈希 |
 | sessions | id, user_id, token_digest, expires_at, revoked_at | 只存 token 的哈希；登出即吊销 |
 | runs | id, owner_id, question, options, answer_format, status, cancel_requested, idempotency_key, model, created_at | `unique(owner_id, idempotency_key)` 防重复提交 |
-| attempts | id, run_id, attempt_no, status, lease_owner, lease_epoch, lease_until | 一次执行尝试；重试就新建一条，历史保留 |
+| attempts | id, run_id, attempt_no, status, model, trigger, lease_owner, lease_epoch, lease_until, last_step, checkpoint, started_at | 一次执行尝试；重试（自动 / 用户“重新生成”）就新建一条，历史保留；接管不新建，epoch+1；checkpoint（JSONB）是断点 |
 | steps | attempt_id, step_no, tool_name, arguments, result, reasoning | `unique(attempt_id, step_no)` |
 | events | run_id, seq, type, payload | `unique(run_id, seq)`，SSE 断线按 seq 补发 |
-| outbox | id, attempt_id, status, next_attempt_at | 和业务写入同事务 |
+| outbox | id, attempt_id, status, next_attempt_at | 和业务写入同事务；部分唯一索引：同一 attempt 最多一条 pending |
 | llm_calls | attempt_id, step_no, model, duration_ms, first_token_ms, tokens | 轻量的观测数据，开发者视图用 |
 
 ---
@@ -110,17 +115,31 @@ flowchart TB
 直接“写库 + 发消息”两步走，中间崩溃就会出现“任务记下了却没人执行”。Outbox 把“要发的消息”
 也写进同一个事务；Dispatcher 再异步投递，失败就重试。代价：可能重复投递 → 由 5.2 的租约去重。
 
-### 5.2 租约 + epoch（fencing token）：防止两个 worker 同时执行同一个任务
-```sql
--- 领取：只有待执行或租约已过期的 attempt 才能被领取，每次领取 epoch + 1
-UPDATE attempts SET status='running', lease_owner=:w, lease_epoch=lease_epoch+1,
-       lease_until=now()+interval '90 seconds'
-WHERE id=:id AND (status='pending' OR (status='running' AND lease_until < now()))
-RETURNING lease_epoch;
--- 提交每一步：必须仍持有自己那个 epoch，否则说明自己是被接管的“旧 worker”
-UPDATE attempts SET last_step=:n WHERE id=:id AND lease_epoch=:my_epoch;
-```
-Worker 有独立的心跳线程续租。Inspector 定期扫描过期租约，重新投递。
+### 5.2 租约 + epoch（fencing token）、接管与超时监督（2026-10-05 修订，D17）
+
+完整推导和问答见 `review/03_架构对齐与租约方案.md`。要点：
+
+- **领取 = 一条条件 UPDATE**（判断与修改在同一语句里，不“先查再写”）；“过期”只是 `lease_until < now()` 的比较，
+  时间一律用数据库的 `now()`：
+  ```sql
+  UPDATE attempts SET status='running', lease_owner=:w, lease_epoch=lease_epoch+1,
+         lease_until=now()+interval '90 seconds'
+  WHERE id=:id AND (status='pending' OR (status='running' AND lease_until < now()))
+  RETURNING lease_epoch;
+  ```
+- **每一步提交带 epoch**：同一事务里 `UPDATE attempts … WHERE lease_epoch=:my_epoch`（同时写断点、续租）
+  + 写 steps + 写 events；更新 0 行说明已被取代 → 回滚并停止。
+- **接管 vs 重试**：接管 = worker 出事，同一 attempt epoch+1，从最后一个已提交步骤之后继续（读断点），最多 3 次；
+  重试 = 新建 attempt 从头开始，自动（执行失败，换备用模型，1 次）或手动（用户点“重新生成”，计入配额）。
+- **Inspector**（在 dispatcher 进程里）每 15 秒：给租约过期的 running attempt、消息丢失的 pending attempt 补一条 outbox；
+  outbox 部分唯一索引保证同一 attempt 最多一条 pending。
+- **超时预算**：LLM 总 180s / 首块 60s / 块间 30s；检索 30s；单个工具 60s；整个 attempt 20 分钟。
+- **监督者**（心跳线程）：每 5 秒检查超时与 epoch，每 15 秒续租；发现问题举起停止标志；
+  60 秒无回应判定卡死 → `os._exit` 结束子进程，Celery 补新进程，任务由别人接管；Celery 硬时限 25 分钟只防整个进程冻住。
+- **被取代的 worker**：续租 / 提交 / 主线程检查点任一处发现 epoch 不对就停止，不写任何东西；关闭 HTTP 流、回滚、
+  释放模型并发名额（名额自带过期时间）。实时片段带 epoch，前端丢弃旧 epoch。
+- **Celery 配置**：`acks_late=True` + `prefetch_multiplier=1`（每个槽位只拿正在跑的那一条），`visibility_timeout` 2 小时；
+  M1 一个 worker 容器 4 个子进程，扩容加容器。队列只是唤醒信号，谁执行由数据库决定。
 
 ### 5.3 幂等提交
 前端每次提交生成一个 `Idempotency-Key`；同一个 key 重复提交返回同一个 run，参数不同则返回 409。
@@ -174,10 +193,10 @@ Session 可以服务端随时吊销。
 |---|---|---|---|
 | **M0 Harness 移植** ✅ | RC6-C 轻量移植、检索、模型客户端、44 个测试 | 测试通过；真实语料能检索 | Agent 循环、上下文管理、BM25/RRF |
 | **M0.5 真实运行** | 真实模型跑通几道题；LLM 客户端支持流式输出 | 3 类题各跑通一次 | OpenAI 接口、流式响应 |
-| **M1 最小服务闭环** | FastAPI + PG + Alembic + Celery/Redis；Outbox；幂等；步骤持久化；按 seq 的简单 SSE；Compose | 提交 → 后台执行 → 刷新可见；重复提交只建一个 run | 事务、索引、唯一约束、消息队列、幂等 |
-| **M2 过程可视化** | 两层事件；React 时间线（思考流式展开、工具卡片、引用批注） | 演示视频：思考逐字出现、刷新后历史完整 | SSE vs WebSocket、长连接、Nginx |
+| **M1 最小服务闭环** | FastAPI + PG + Alembic + Celery/Redis；Outbox；幂等；步骤 + 断点持久化（带 epoch 的提交）；重新生成；客户端超时；按 seq 的简单 SSE；Compose | 提交 → 后台执行 → 刷新可见；重复提交只建一个 run | 事务、索引、唯一约束、消息队列、幂等 |
+| **M2 过程可视化** | 两层事件（实时片段带 epoch）；React 时间线（思考流式展开、工具卡片、引用批注） | 演示视频：思考逐字出现、刷新后历史完整 | SSE vs WebSocket、长连接、Nginx |
 | **M3 多用户与治理** | 登录、owner 隔离、配额、LLM 信号量、分层重试、开发者视图、证据缓存 | A 看不到 B；10 个并发任务模型并发不超限 | Session/JWT、XSS/CSRF、限流算法、Lua、缓存三问题 |
-| **M4 可靠性** | 租约 + epoch、心跳、Inspector、取消、显式重试、故障注入集成测试 | kill worker 后任务被接管；取消后不再调用模型 | 分布式锁、fencing token、至少一次 vs 恰好一次 |
+| **M4 可靠性** | 接管（从断点继续）、监督者心跳（超时预算 + 卡死判定）、Inspector、取消、自动重试、故障注入集成测试（7 个场景，见 review/03） | kill worker 后任务被接管；取消后不再调用模型 | 分布式锁、fencing token、至少一次 vs 恰好一次 |
 | **M5 评测回放** | 固定题集作为批量任务跑同一条队列，产出准确率/步数/token 报告 | 一键回放 E80，报告可读 | 评测方法、批处理 |
 | **M6 交付** | Nginx、CI、README、演示视频、Locust 压测报告 | 一条命令启动；绿色 CI | 压测指标、部署 |
 

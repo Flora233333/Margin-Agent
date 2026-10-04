@@ -1,8 +1,8 @@
 # 当前状态
 
-更新：2026-10-04
+更新：2026-10-05
 
-## 所在阶段：M0.5 完成，下一步 M1
+## 所在阶段：M0.5 完成，架构方案已审核，下一步 M1
 
 计划全文见 [docs/PLAN.md](docs/PLAN.md)。
 
@@ -27,7 +27,7 @@
   - 右下角“设计评审”面板切换，也可用地址参数，如 `preview.html?style=clean&font=serif&palette=paper`。
 - 运行环境约定写入 AGENTS.md（D10）。
 
-## 下一步（M0.5 真实运行）
+## M0.5 记录（真实运行）
 
 0. 前端方案已选定（D14）：简洁风 + 衬线 + 石墨 + 浅色为主，手绘风为候选。
 1. ~~接通真实模型~~（2026-10-04 完成）：学校网关，主用 `DeepSeek`（v4.1-flash），备用 `GLM`（glm5.3-flash），
@@ -62,7 +62,26 @@
 
    - DeepSeek 错的 14 题里 11 题是多选少选 / 多选；GLM 主要失败是轮数用完不提交。
    - 两个模型都对 54 题，至少一个对 69 题。160 次运行网关没有出错。
-6. 进入 M1：FastAPI + PostgreSQL + Celery/Redis 最小闭环。
+6. ~~架构对齐与租约方案修订~~（2026-10-05 完成，D17）：见 `review/03_架构对齐与租约方案.md`，已写入 PLAN §5.2。
+
+## 下一步：M1 最小服务闭环
+
+**开始写代码前必读（作者要求）**：AGENTS.md 的“代码风格”和“测试”两节。要点——
+中文注释讲清“为什么”和概念（读者是后端初学者）；**不写防御性代码**（只在模型参数、外部服务、用户输入这些边界处理错误，
+不加哈希 / 版本闸门）；简单直接、一个函数做一件事；测试只写单元 / 接口 / 集成，一个测试对应一个会出事故的场景；
+小步提交，每块代码量控制在作者一次能 review 完。
+
+M1 范围（PLAN §7、§5.2）：
+
+1. 配置模块（统一读 .env），替换 `run_episode.py` / `import_vectors.py` 各自的读取；组件组装抽成共用函数。
+2. SQLAlchemy 模型 + Alembic 迁移：users / runs / attempts（含 last_step、checkpoint）/ steps / events / outbox / llm_calls，
+   `block_vectors` 建表也移入迁移。
+3. Harness：`run_episode` 增加 checkpoint / on_step / should_stop 参数（M1 先用 on_step 写步骤）。
+4. FastAPI：`POST /runs`（同一事务写 run + attempt + outbox，幂等键）、`GET /runs/{id}`、重新生成接口、按 seq 的简单 SSE。
+5. Dispatcher（投递 outbox）+ Celery worker（领取租约、带 epoch 提交每一步）；`acks_late=True` + `prefetch_multiplier=1`。
+6. 客户端超时：LLM 首块 60s / 块间 30s / 总 180s，embedding 30s，PG statement_timeout 30s。
+7. compose 加 redis、api、worker、dispatcher；接口测试 + 集成测试（幂等、带 epoch 的提交被拒）。
+8. M1 顺手处理代码导读第六节的 5 个点（删 `answers_match`、连接池等）。
 
 ## 未决问题
 
