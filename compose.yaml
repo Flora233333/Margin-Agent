@@ -1,11 +1,12 @@
-# 本地开发用的基础服务。在 WSL 里运行（Docker 只装在 WSL）：
-#   wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d postgres"
-# 端口映射到 127.0.0.1，Windows 上的 Python 通过 localhost 连接。M1 再加 redis、worker。
+# 本地开发用的基础服务，在 WSL 里运行（Docker 只装在 WSL）：
+#   wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d --wait"
+# 端口只映射到 127.0.0.1，Windows 上的 Python 通过 localhost 连接。M1 再加 redis、api、worker。
 
 services:
   postgres:
     # 官方 PostgreSQL 18 镜像 + 预装 pgvector 扩展（向量列类型和余弦距离运算符）
     image: pgvector/pgvector:pg18
+    restart: unless-stopped  # WSL 重启后 Docker 会自动把它拉起来
     environment:
       POSTGRES_DB: margin
       POSTGRES_USER: margin
@@ -22,6 +23,32 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  embedding:
+    # llama.cpp 官方 CPU 版服务镜像，只给“查询”算向量（文档向量已在 PG 里）。
+    # 用摘要（digest）固定版本：标签 server 会随上游更新，摘要不会。对应 build 11371。
+    image: ghcr.io/ggml-org/llama.cpp@sha256:460ff87b6dfd6b9e8ee0f4018540e007eb333a574994033b70dd6be46069de01
+    restart: unless-stopped
+    # 参数与 RC6-C 的索引 rc6-local-qwen3emb06b-q8_0-v2 保持一致，改了就和库里的文档向量对不上：
+    #   --pooling last        Qwen3-Embedding 取最后一个 token 的隐藏状态作为整句向量
+    #   --embd-normalize 2    L2 归一化（向量长度为 1），余弦相似度 = 点积
+    #   -c / -b / -ub 8192    一段输入必须整段放进一个批次；默认 512 会拒绝长文本
+    #   --alias               对外的模型名，和索引记录的名字相同
+    command: >
+      -m /models/Qwen3-Embedding-0.6B-Q8_0.gguf
+      --embedding --pooling last --embd-normalize 2
+      -c 8192 -b 8192 -ub 8192 --threads 8
+      --host 0.0.0.0 --port 8080 --alias rc6-local-qwen3emb06b-q8_0-v2
+    volumes:
+      # 模型只有一份，放在仓库的 models/（不进 git），只读挂载进容器，不复制
+      - ./models:/models:ro
+    ports:
+      - "127.0.0.1:18082:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
 
 volumes:
   pgdata:

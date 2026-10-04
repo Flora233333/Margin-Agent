@@ -38,10 +38,13 @@ conda run -n margin --no-capture-output python scripts/run_episode.py "甲公司
 开启向量检索（第三路）还需要三步，见 docs/DECISIONS.md D15：
 
 ```bash
-wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d --wait postgres"
-pwsh scripts/start_embedding.ps1        # 另开一个终端，保持运行
-conda run -n margin --no-capture-output python scripts/import_vectors.py .cache/chroma/rc6-local-qwen3emb06b-q8_0-v2/chroma   # 只需一次
+# 启动 PostgreSQL（pgvector）和 embedding 服务（llama.cpp），都在 WSL 的 Docker 里
+wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d --wait"
+# 只需一次：把 RC6-C 的向量导入 PG
+conda run -n margin --no-capture-output python scripts/import_vectors.py .cache/chroma/rc6-local-qwen3emb06b-q8_0-v2/chroma
 ```
+
+embedding 模型 `models/Qwen3-Embedding-0.6B-Q8_0.gguf` 不进仓库，需要自己放进去（compose 只读挂载给容器）。
 
 注意：WSL 空闲时会自动关机，PG 随之停止；跑长任务时保持一个 WSL 终端开着。
 

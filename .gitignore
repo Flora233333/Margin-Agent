@@ -22,6 +22,5 @@ dist/
 .DS_Store
 Thumbs.db
 
-# 本地运行时：llama.cpp 程序和 GGUF 模型（大文件，不进仓库）
-/bin/
+# embedding 模型 GGUF（大文件，不进仓库；compose 只读挂载给 llama.cpp 容器）
 /models/

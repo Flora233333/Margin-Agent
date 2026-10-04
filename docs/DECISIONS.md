@@ -103,10 +103,16 @@
 - **替代**：继续用 Chroma（与 RC6-C 完全一致，但多一套存储，无法与业务数据联查）；
   pgvector HNSW `ef_search=300`（前 10 与精确完全一致，但多一个要调的参数，数据量小时没有速度优势）。
 
-### D16 · 2026-10-04 · 本机运行时文件放在仓库目录内，仓库移到 D:\competition\margin-agent
+### D16 · 2026-10-04 · embedding 服务放进 Compose；仓库移到 D:\competition\margin-agent
 
-- **决定**：llama.cpp 官方 Windows CPU 版（b11379）放 `bin/llama.cpp/`，embedding 模型放 `models/`，
-  v2 Chroma 索引放 `.cache/chroma/`，三者都在 `.gitignore` 里。仓库从 `D:\projects` 移到 `D:\competition\margin-agent`，
-  比赛根仓库用 `/margin-agent/` 忽略它（和 `finetune/` 一样是独立仓库）。
-- **为什么**：作者要求项目相关文件集中在一处；llama.cpp 版本不必和 RC6-C 的固定提交 `a25c9865` 完全相同，
-  一致性已由上面的向量比对验证。模型确认是 Q8_0，sha256 与 v2 记录一致，不需要重新下载。
+- **决定**：llama.cpp 用官方 CPU 服务镜像（按摘要固定，build 11371）作为 compose 的 `embedding` 服务，
+  端口 127.0.0.1:18082；模型只保留一份 `models/Qwen3-Embedding-0.6B-Q8_0.gguf`（不进 git），只读挂载进容器。
+  不再用 Windows 版 llama.cpp。仓库从 `D:\projects` 移到 `D:\competition\margin-agent`，比赛根仓库用
+  `/margin-agent/` 忽略它（和 `finetune/` 一样是独立仓库）。
+- **为什么**：M1 的 worker 跑在 WSL 的容器里，连不到 Windows 上的进程；放进 compose 后，PG、embedding（以后还有
+  Redis、API、worker）一条 `docker compose up` 全部起来，部署时也是同一份配置。
+  模型从 D 盘挂载进容器只在启动时读一次（实测加载 3.4 秒），所以不必复制到 WSL 里，避免两份模型占空间。
+- **验证**：容器版重算 20 个文档块与 v2 比，余弦最低 0.99947、平均 0.99969（与 Windows 版相同）。
+  查询（E80 问题，平均 64 字）串行平均 180ms、P95 376ms；4 并发吞吐 6.2 条/秒。
+- **代价**：WSL 空闲会自动关机，服务随之停止；`restart: unless-stopped` 让 Docker 重启后自动拉起容器，
+  但 WSL 本身要有人唤醒（打开 WSL 终端或运行任意 wsl 命令）。
