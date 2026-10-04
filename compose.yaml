@@ -1,6 +1,26 @@
-# 本地开发用的基础服务，在 WSL 里运行（Docker 只装在 WSL）：
-#   wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d --wait"
-# 端口只映射到 127.0.0.1，Windows 上的 Python 通过 localhost 连接。M1 再加 redis、api、worker。
+# 整套服务，在 WSL 里运行（Docker 只装在 WSL）：
+#   wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d --build --wait"
+# 端口只映射到 127.0.0.1，Windows 上的浏览器 / Python / 测试通过 localhost 连接。
+#
+#   基础服务  postgres、redis、embedding（官方镜像）
+#   应用服务  migrate（执行迁移后退出）、api、worker、dispatcher（同一个应用镜像，命令不同）
+
+# 应用服务的公共配置（YAML 锚点 &app，下面用 <<: *app 引用，避免抄四遍）
+x-app: &app
+  build: .
+  image: margin-app
+  restart: unless-stopped
+  # 模型网关地址和密钥来自 .env（不进镜像、不进仓库）
+  env_file: .env
+  # 下面这些覆盖 .env 里的同名项：容器里的主机名和路径与 Windows 上不同
+  environment:
+    MARGIN_DATABASE_URL: postgresql://margin:${MARGIN_PG_PASSWORD:-margin_dev}@postgres:5432/margin
+    MARGIN_REDIS_URL: redis://redis:6379/0
+    MARGIN_EMBEDDING_BASE_URL: http://embedding:8080/v1
+    MARGIN_BLOCKS_PATH: /data/blocks/blocks.jsonl
+    MARGIN_MANIFEST_PATH: /data/canonical/h1.1.0-rc/manifest.json
+    MARGIN_ALIAS_PATH: /data/canonical/h1.1.0-rc/entity_alias_catalog.jsonl
+    MARGIN_CACHE_DIR: /app/.cache
 
 services:
   postgres:
@@ -49,6 +69,66 @@ services:
       interval: 5s
       timeout: 3s
       retries: 30
+
+  redis:
+    # Celery 的消息队列（broker）。M2 起还用于实时推送思考片段
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    <<: *app
+    # 一次性任务：把数据库结构升级到最新版本后退出；api / worker / dispatcher 等它成功再启动
+    command: alembic upgrade head
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    command: uvicorn margin.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  worker:
+    <<: *app
+    # 4 个子进程 = 最多同时执行 4 道题；扩容就多开几个 worker 容器
+    command: celery -A margin.worker worker --concurrency 4 --loglevel INFO
+    volumes:
+      # 语料只读挂载（不复制进镜像）；BM25 缓存和 Windows 上共用一份，不用在容器里重建
+      - ../finetune/data:/data:ro
+      - ./.cache/bm25:/app/.cache/bm25
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+
+  dispatcher:
+    <<: *app
+    command: python -m margin.dispatcher
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
 
 volumes:
   pgdata:
