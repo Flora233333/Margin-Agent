@@ -16,8 +16,18 @@ dependencies = [
     "scipy>=1.11",
     # PostgreSQL 驱动（psycopg 3；binary 版自带 libpq，Windows 上不用另装客户端）
     "psycopg[binary]>=3.2",
-    # 让 psycopg 认识 pgvector 的 vector 类型（numpy 数组 <-> vector 列）
+    # 让 SQLAlchemy 认识 pgvector 的 vector 列类型和余弦距离运算
     "pgvector>=0.4",
+    # 统一读配置：环境变量 / .env -> 有类型的 Settings 对象（D18）
+    "pydantic-settings>=2.4",
+    # ORM + 连接池；Alembic 管数据库结构的版本（迁移脚本）
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    # HTTP 接口；uvicorn 是运行它的 ASGI 服务器
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    # 后台任务队列，Redis 作消息中间件（broker）
+    "celery[redis]>=5.4",
 ]
 
 [project.optional-dependencies]

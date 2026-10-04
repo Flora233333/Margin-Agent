@@ -20,42 +20,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import time
 from pathlib import Path
 
+from margin.assembly import build_llm, build_retriever
 from margin.harness import build_registry, run_episode
-from margin.llm import OpenAICompatibleClient
-from margin.retrieval import Corpus, HybridRetriever
-from margin.retrieval.alias import AliasCatalog
-from margin.retrieval.dense import DenseSearcher, EmbeddingClient
-
-
-def load_dotenv(path: Path = Path(".env")) -> None:
-    """极简 .env 读取：KEY=VALUE，忽略空行和 # 注释。"""
-    if not path.exists():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip() and not line.startswith("#") and "=" in line:
-            key, value = line.split("=", 1)
-            os.environ.setdefault(key.strip(), value.strip())
-
-
-def build_retriever() -> tuple[Corpus, HybridRetriever]:
-    started = time.monotonic()
-    corpus = Corpus.load(Path(os.environ["MARGIN_BLOCKS_PATH"]),
-                         Path(os.environ["MARGIN_MANIFEST_PATH"]))
-    aliases = AliasCatalog.load(Path(os.environ["MARGIN_ALIAS_PATH"]))
-    dense = None
-    if os.environ.get("MARGIN_EMBEDDING_BASE_URL"):  # 配了 embedding 服务才开向量检索
-        embedder = EmbeddingClient(os.environ["MARGIN_EMBEDDING_BASE_URL"],
-                                   os.environ["MARGIN_EMBEDDING_MODEL"])
-        dense = DenseSearcher(os.environ["MARGIN_DATABASE_URL"], embedder)
-    cache = Path(os.environ.get("MARGIN_CACHE_DIR", ".cache")) / "bm25"
-    retriever = HybridRetriever.create(corpus, cache_dir=cache, aliases=aliases, dense=dense)
-    print(f"[检索器就绪] {len(corpus.blocks)} 个 block，{len(corpus.by_doc)} 个文档，"
-          f"向量检索={'开' if dense else '关'}，耗时 {time.monotonic() - started:.1f}s")
-    return corpus, retriever
+from margin.settings import get_settings
 
 
 def main() -> None:
@@ -64,26 +34,26 @@ def main() -> None:
     parser.add_argument("--format", default="text", help="答案类型：num/pct/tf/mcq/multi/date/text")
     parser.add_argument("--option", action="append", default=[], help="选项，如 A=甲公司更高")
     parser.add_argument("--search-only", action="store_true")
-    parser.add_argument("--model", help="模型名，如 DeepSeek / GLM；不填则用 MARGIN_LLM_MODEL")
+    parser.add_argument("--model", help="模型名：DeepSeek / GLM，默认读配置")
     parser.add_argument("--stream", action="store_true", help="流式调用，边生成边打印思考")
     parser.add_argument("--json-out", type=Path, help="把结果另存为 JSON")
     args = parser.parse_args()
-    load_dotenv()
-    model = args.model or os.environ.get("MARGIN_LLM_MODEL")
+    settings = get_settings()
+    model = args.model or settings.llm_model
 
-    corpus, retriever = build_retriever()
+    started = time.monotonic()
+    corpus, retriever = build_retriever(settings)
+    print(f"[检索器就绪] {len(corpus.blocks)} 个 block，{len(corpus.by_doc)} 个文档，"
+          f"向量检索={'开' if retriever.dense else '关'}，耗时 {time.monotonic() - started:.1f}s")
     if args.search_only:
         for row in retriever.search_docs(args.question)["results"]:
             print(row["rank"], row["doc_id"], row["best_block_id"], row["contributions"])
         return
 
-    if not model:
-        parser.error("请用 --model 指定模型，或在 .env 里设置 MARGIN_LLM_MODEL")
     options = dict(item.split("=", 1) for item in args.option) or None
     task = {"question": args.question, "options": options, "answer_format": args.format}
     print(f"模型：{model}")
-    llm = OpenAICompatibleClient(os.environ["MARGIN_LLM_BASE_URL"], model,
-                                 os.environ.get("MARGIN_LLM_API_KEY", ""))
+    llm = build_llm(settings, model)
     shown_turn = -1
 
     def show_delta(turn: int, kind: str, text: str) -> None:

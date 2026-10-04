@@ -137,11 +137,3 @@ def normalize_answers(values: list[str], kind: str, max_components: int = 4) -> 
             date(*map(int, re.findall(r"\d+", v)))  # 非法日期（如 2月30日）会抛 ValueError
     return normalized
 
-
-def answers_match(predicted: list[str], gold: list[str], kind: str) -> bool:
-    """评测用：规范化后逐分量完全一致才算对。模型答案无法规范化直接算错。"""
-    expected = normalize_answers(gold, kind)
-    try:
-        return normalize_answers(predicted, kind) == expected
-    except ValueError:
-        return False
