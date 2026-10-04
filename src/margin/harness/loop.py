@@ -49,6 +49,7 @@ class Step:
     arguments: str  # 模型给出的原始 JSON 字符串
     result: dict[str, Any]
     llm_seconds: float = 0.0  # 这一轮模型调用的耗时（不含工具执行），用来比较模型速度
+    usage: dict[str, Any] = field(default_factory=dict)  # 这一轮模型调用的 token 用量
 
 
 @dataclass
@@ -70,7 +71,14 @@ def run_episode(
     max_note_updates: int = 20,
     max_tokens: int = 8192,
     on_delta: Callable[[int, str, str], None] | None = None,
+    on_step: Callable[[Step], None] | None = None,
 ) -> Trace:
+    """解一道题。
+
+    on_delta(轮次, 类型, 片段)：传了就走流式，思考片段一到就回调（给前端逐字显示）。
+    on_step(step)：每完成一步（工具执行完）回调一次。后台 worker 在这里把这一步写进数据库；
+    回调抛出的异常不在这里捕获，会直接中断本题（例如 worker 发现执行权已被别人取代）。
+    """
     initial = initial_messages(task)
     trace = Trace(task=task, messages=copy.deepcopy(initial))
 
@@ -127,7 +135,10 @@ def run_episode(
         name = call["function"]["name"]
         raw_args = call["function"]["arguments"]
         result = registry.execute(name, raw_args)
-        trace.steps.append(Step(turn, response.reasoning, name, raw_args, result, llm_seconds))
+        step = Step(turn, response.reasoning, name, raw_args, result, llm_seconds, response.usage)
+        trace.steps.append(step)
+        if on_step is not None:
+            on_step(step)
         if name != "write_note":
             non_note_turns += 1
 

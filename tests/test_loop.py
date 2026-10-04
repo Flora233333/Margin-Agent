@@ -1,5 +1,6 @@
 """主循环测试：RC6-C 的笔记压缩、思考回灌和各种停止条件。"""
 
+import pytest
 from fakes import FakeLLM, call, say
 
 from margin.harness import run_episode
@@ -112,3 +113,37 @@ def test_stream_deltas_are_tagged_with_turn(make_registry):
     run_episode(TASK, llm, make_registry(TASK), on_delta=lambda *d: deltas.append(d))
 
     assert deltas == [(0, "reasoning", "先检索"), (1, "reasoning", "可以提交了")]
+
+
+def test_on_step_receives_each_step_as_it_completes(make_registry):
+    """worker 靠 on_step 逐步落库：每一步工具执行完立刻回调，且带上这一轮的 token 用量。"""
+    script = [
+        call("search_docs", query="甲公司 营业收入"),
+        call("finalize", answers=["120.5"]),
+    ]
+    script[0].usage = {"prompt_tokens": 900, "completion_tokens": 40}
+    llm = FakeLLM(script)
+    seen = []
+    run_episode(TASK, llm, make_registry(TASK), on_step=lambda step: seen.append(
+        (step.turn, step.tool_name, len(llm.requests), step.usage)))
+
+    # 第 0 步回调时模型只被调用了 1 次：说明是“做完一步就回调”，不是全部结束后才补
+    assert seen == [
+        (0, "search_docs", 1, {"prompt_tokens": 900, "completion_tokens": 40}),
+        (1, "finalize", 2, {}),
+    ]
+
+
+def test_on_step_error_stops_episode_without_more_model_calls(make_registry):
+    """执行权被别人取代时，落库回调会抛异常：本题必须立刻中断，不能继续调用模型（花钱、写脏数据）。"""
+    llm = FakeLLM([
+        call("search_docs", query="甲公司"),
+        call("finalize", answers=["120.5"]),
+    ])
+
+    def lose_lease(step):
+        raise RuntimeError("lease lost")
+
+    with pytest.raises(RuntimeError):
+        run_episode(TASK, llm, make_registry(TASK), on_step=lose_lease)
+    assert len(llm.requests) == 1
