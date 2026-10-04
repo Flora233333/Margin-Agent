@@ -7,8 +7,9 @@
 import json
 
 import httpx
+import pytest
 
-from margin.llm import OpenAICompatibleClient
+from margin.llm import LLMTimeout, OpenAICompatibleClient
 
 TOOLS = [{"type": "function", "function": {"name": "search_docs", "parameters": {}}}]
 MESSAGES = [{"role": "user", "content": "宁德时代2025年营业收入？"}]
@@ -74,3 +75,16 @@ def test_stream_assembles_reasoning_and_tool_call():
         "name": "search_docs", "arguments": '{"query": "宁德时代"}'}}]
     assert response.finish_reason == "tool_calls"
     assert response.usage == {"prompt_tokens": 297, "completion_tokens": 66}
+
+
+def test_stream_that_runs_past_total_timeout_is_aborted():
+    """网关一直在推数据、但总时长超了（例如模型反复输出停不下来）：放弃这次调用，而不是一直等。"""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=sse(delta(reasoning="想")),
+                              headers={"content-type": "text/event-stream"})
+
+    client = make_client(handler)
+    client.total_timeout = -1  # 截止时间设在过去：收到第一块时就已超时
+
+    with pytest.raises(LLMTimeout):
+        client.chat(MESSAGES, TOOLS, 512, "auto", on_delta=lambda *d: None)

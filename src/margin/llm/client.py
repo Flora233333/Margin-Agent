@@ -10,11 +10,19 @@ DeepSeek 官方 API、vLLM 部署的自训模型、LM Studio 都实现了同一�
     非流式：等模型全部生成完，一次拿到整条回复。
     流式（传 on_delta）：服务端用 SSE 一小块一小块地推，每来一块思考 / 正文就回调一次，
     前端因此能“逐字”显示思考过程；工具调用的参数也是分块来的，在这里拼完整再返回。
+
+超时（D18）：模型网关偶尔会“挂住”不返回，没有超时的话 worker 会一直等下去。
+    连接     10 秒连不上就放弃
+    等数据   60 秒收不到任何数据就放弃（流式时对首块和块间都生效）
+    总时长   180 秒（实测单轮最长 120 秒，留了余量）；流式时每收到一块检查一次
+    httpx 的读超时只有一个值，区分不了“首块”和“块间”，所以块间也是 60 秒，而不是方案里的 30 秒；
+    更细的卡死判定由 M4 的监督者负责。
 """
 
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
@@ -23,6 +31,14 @@ import httpx
 
 # 流式回调：on_delta(kind, text)，kind 是 "reasoning"（思考）或 "content"（正文）
 OnDelta = Callable[[str, str], None]
+
+CONNECT_TIMEOUT = 10
+READ_TIMEOUT = 60
+TOTAL_TIMEOUT = 180
+
+
+class LLMTimeout(Exception):
+    """一次模型调用超过了总时长上限。"""
 
 
 @dataclass
@@ -45,15 +61,18 @@ class ChatModel(Protocol):
 
 class OpenAICompatibleClient:
     def __init__(self, base_url: str, model: str, api_key: str = "", *,
-                 timeout: float = 600, extra_body: dict[str, Any] | None = None) -> None:
+                 total_timeout: float = TOTAL_TIMEOUT,
+                 extra_body: dict[str, Any] | None = None) -> None:
         self.model = model
+        self.total_timeout = total_timeout
         # extra_body 用来传各家特有参数，例如 vLLM 的
         # {"chat_template_kwargs": {"enable_thinking": true}}
         self.extra_body = extra_body or {}
         self.http = httpx.Client(
             base_url=base_url,
             headers={"Authorization": f"Bearer {api_key}"} if api_key else {},
-            timeout=timeout,
+            # 非流式：整条回复生成完才开始返回数据，所以“等数据”的上限就是总时长
+            timeout=httpx.Timeout(total_timeout, connect=CONNECT_TIMEOUT),
         )
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
@@ -97,10 +116,14 @@ class OpenAICompatibleClient:
         calls: dict[int, dict[str, Any]] = {}
         usage: dict[str, Any] = {}
         finish_reason = None
+        deadline = time.monotonic() + self.total_timeout
 
-        with self.http.stream("POST", "/chat/completions", json=body) as response:
+        timeout = httpx.Timeout(READ_TIMEOUT, connect=CONNECT_TIMEOUT)
+        with self.http.stream("POST", "/chat/completions", json=body, timeout=timeout) as response:
             response.raise_for_status()
             for line in response.iter_lines():
+                if time.monotonic() > deadline:  # 一直有数据、但总时长超了（例如模型反复输出）
+                    raise LLMTimeout(f"模型调用超过 {self.total_timeout} 秒")
                 if not line.startswith("data:"):
                     continue  # 空行、SSE 注释行（心跳）
                 data = line.removeprefix("data:").strip()
