@@ -2,7 +2,7 @@
 
 更新：2026-10-05
 
-## 所在阶段：M0.5 完成，架构方案已审核，下一步 M1
+## 所在阶段：M1 完成，下一步 M2（过程可视化 + 前端）
 
 计划全文见 [docs/PLAN.md](docs/PLAN.md)。
 
@@ -15,7 +15,7 @@
 - 检索（`src/margin/retrieval/`）：BM25（scipy 稀疏矩阵）+ 实体别名 + 可选向量，RRF 融合。
   在真实语料上验证：17,596 个 block，首次建索引约 100 秒，缓存 41MB，之后加载 1.3 秒。
 - OpenAI 兼容模型客户端（`src/margin/llm/`），统一 reasoning_content / reasoning 字段。
-- 49 个测试（48 个单元 + 1 个连真实 PG 的集成测试）全部通过（`conda run -n margin pytest`），ruff 无报错。
+- 75 个测试：51 个单元测试（`conda run -n margin pytest`）+ 24 个接口 / 集成测试（`pytest -m integration`，连真实 PG），全部通过，ruff 无报错。
 - 前端设计稿第三版 `web/design/`，只在本地打开 `preview.html`：
   - 三种风格：简洁「批注版式」（`clean.css`，含衬线开关）、手绘（`sketch.css`，作者已认可，外观不再改）、
     瑞士 + 扁平矢量（`swiss.css`）；公共结构与动效在 `base.css`。
@@ -64,24 +64,42 @@
    - 两个模型都对 54 题，至少一个对 69 题。160 次运行网关没有出错。
 6. ~~架构对齐与租约方案修订~~（2026-10-05 完成，D17）：见 `review/03_架构对齐与租约方案.md`，已写入 PLAN §5.2。
 
-## 下一步：M1 最小服务闭环
+## M1 记录（2026-10-05 完成，提交 fbb6879 … 2651c80，取舍见 D18）
+
+做了什么（按提交顺序）：
+
+1. 配置模块 `settings.py`（pydantic-settings）+ 共用组装 `assembly.py`；删死代码 `answers_match`。
+2. SQLAlchemy 模型 + Alembic 首个迁移（users / runs / attempts / steps / events / outbox / block_vectors）；
+   开发库已迁移，v2 向量重新导入。
+3. Harness 加 `on_step`（每步完成即回调，回调抛异常直接中断本题）。
+4. `runs.py`（建任务 + Outbox + 幂等、重新生成、查询、事件）、`lease.py`（领取、带 epoch 提交、续租、巡检）。
+5. FastAPI：`POST /runs`、`GET /runs/{id}`、`POST /runs/{id}/regenerate`、`GET /runs/{id}/events`（SSE）。
+6. Celery worker + dispatcher（outbox 投递、每 15 秒巡检）；模型调用超时 10s / 60s / 180s。
+7. Dockerfile + compose（加 redis、migrate、api、worker、dispatcher，共 7 个服务）。
+
+端到端实测（真实 DeepSeek，compose 全部服务）：
+
+- 同一个幂等键提交两次都返回 run 1；worker 13 步完成，SSE 按 seq 推出 16 个事件后关闭；
+  `GET /runs/1` 能看到每一步。答案 1277.31（“营业总收入”，标准 1275.99），是 M0.5 记录过的同一口径问题。
+- 重新生成返回 202，执行中再点返回 409。
+- 故障演练：第 2 次执行进行到第 6 步时 `docker compose kill worker`，86 秒后巡检判为 `lease_expired`，
+  6 步保留；重启 worker 后服务正常。
+- 和方案的差异：块间超时是 60s 而不是 30s（httpx 只有一个读超时）；checkpoint 推迟到 M4、llm_calls 推迟到 M3。
+
+## 下一步：M2 过程可视化
 
 **开始写代码前必读（作者要求）**：AGENTS.md 的“代码风格”和“测试”两节。要点——
 中文注释讲清“为什么”和概念（读者是后端初学者）；**不写防御性代码**（只在模型参数、外部服务、用户输入这些边界处理错误，
 不加哈希 / 版本闸门）；简单直接、一个函数做一件事；测试只写单元 / 接口 / 集成，一个测试对应一个会出事故的场景；
 小步提交，每块代码量控制在作者一次能 review 完。
 
-M1 范围（PLAN §7、§5.2）：
+M2 范围（PLAN §7）：
 
-1. 配置模块（统一读 .env），替换 `run_episode.py` / `import_vectors.py` 各自的读取；组件组装抽成共用函数。
-2. SQLAlchemy 模型 + Alembic 迁移：users / runs / attempts（含 last_step、checkpoint）/ steps / events / outbox / llm_calls，
-   `block_vectors` 建表也移入迁移。
-3. Harness：`run_episode` 增加 checkpoint / on_step / should_stop 参数（M1 先用 on_step 写步骤）。
-4. FastAPI：`POST /runs`（同一事务写 run + attempt + outbox，幂等键）、`GET /runs/{id}`、重新生成接口、按 seq 的简单 SSE。
-5. Dispatcher（投递 outbox）+ Celery worker（领取租约、带 epoch 提交每一步）；`acks_late=True` + `prefetch_multiplier=1`。
-6. 客户端超时：LLM 首块 60s / 块间 30s / 总 180s，embedding 30s，PG statement_timeout 30s。
-7. compose 加 redis、api、worker、dispatcher；接口测试 + 集成测试（幂等、带 epoch 的提交被拒）。
-8. M1 顺手处理代码导读第六节的 5 个点（删 `answers_match`、连接池等）。
+1. 两层事件：worker 把思考片段（带 epoch）发到 Redis pub/sub；SSE 同时转发实时片段和持久事件；
+   API 改为收到 Redis 通知再查库，代替每秒轮询。
+2. React 前端（按 D14 选定的简洁风 + 衬线 + 石墨）：提交框、时间线（思考逐字展开、工具卡片、引用批注）、
+   刷新后从库里恢复完整历史；联调时逐项检查显示和交互逻辑。
+3. Vite 开发代理到 API（同源，不开 CORS）。
 
 ## 未决问题
 
@@ -96,5 +114,6 @@ M1 范围（PLAN §7、§5.2）：
 - 语料路径在 `.env`，默认指向 `D:/competition/finetune/data/`（只读使用）。
 - BM25 缓存在 `.cache/bm25/`（不进仓库），语料变化时删除重建。
 - WSL Docker 可用（2026-10-03 验证：`flora` 已在 docker 组；Windows 经 localhost 能连到 WSL 容器端口）。
-  注意：WSL 空闲时会自动关机，容器随之停止。M1 起 PG/Redis 时要保持一个 WSL 终端开着，
+  注意：WSL 空闲时会自动关机，容器随之停止。跑服务时要保持一个 WSL 终端开着，
   或在 `%UserProfile%\.wslconfig` 里调大 `vmIdleTimeout`。
+- Windows 上的脚本经 localhost 连 WSL 里的 PG，发送大于约 20KB 的请求会多约 45ms（转发层，D18）；容器之间没有这个问题。

@@ -131,3 +131,23 @@
   断点每步覆盖写一次 JSONB；`os._exit` 不执行 finally，资源靠操作系统、PG 断连回滚和 Redis 名额过期兜底。
 - **作者补充**：只结束监督者线程也能保证正确性（租约过期后被接管、旧主线程写入被 epoch 拒绝），
   结束整个子进程只是让槽位和内存立刻回收，不必等 25 分钟硬时限。
+
+### D18 · 2026-10-05 · M1 实现时的取舍
+
+- **新依赖**：pydantic-settings（配置集中、缺项启动即报错、报错不带输入值以免密钥进日志）；
+  SQLAlchemy 2（ORM + 连接池）+ Alembic（表结构版本化，`alembic check` 能发现模型与迁移不一致）；
+  FastAPI + uvicorn（接口与自动文档）；Celery[redis]（后台任务队列）。都写在 pyproject，镜像和 CI 用同一份。
+- **M1 加入最小巡检**：dispatcher 每 15 秒把租约过期的 running attempt 判为失败并 epoch+1。
+  原因：Celery 硬时限只杀进程、不改库，没有巡检时崩溃的任务会永远停在 running。M4 把“判失败”改成“接管”。
+  实测：执行中途 `docker compose kill worker`，86 秒后被判为 `lease_expired`，已完成的 6 步保留。
+- **推迟到用到时再做**：`attempts.checkpoint` 和 Harness 的 checkpoint / should_stop 参数推迟到 M4（接管时才读断点，
+  先写不读的数据没有测试能保护）；`llm_calls` 表推迟到 M3 开发者视图，M1 的耗时和 token 记在 steps 上。
+  以后加列 / 加表正好用第二个迁移演示 Alembic 的增量升级。
+- **模型调用超时**：连接 10s、等数据 60s、总时长 180s。httpx 的读超时只有一个值，区分不了“首块”和“块间”，
+  所以块间是 60s 而不是方案里的 30s；worker 一律走流式，等数据的超时才对每一块生效。
+- **事件序号**：由 `runs.last_seq` 行锁分配，而不是全表自增 id：自增 id 的分配顺序不等于提交顺序，
+  按 “id 大于上次” 读会永久漏掉后提交的小 id。
+- **错误信息**：写进库、展示给用户的只有异常类型或 HTTP 状态码（如 `llm_http_502`），因为 httpx 的报错文本带网关地址。
+- **实测**：worker 容器在 1 个子进程加载语料 + BM25 后约 1.2GB；4 个子进程都加载后估计约 4.5GB（未满载实测，本机 23GB）。
+  容器内向量查询 47ms；Windows 经 localhost 连 WSL 时发送大于约 20KB 的请求会固定多约 45ms（转发层的问题，
+  与 PG 无关），所以本机跑脚本时向量查询约 92ms。
