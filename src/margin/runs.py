@@ -145,7 +145,8 @@ def get_run(engine: Engine, owner_id: int, run_id: int) -> dict[str, Any]:
         }
 
 
-def events_after(engine: Engine, run_id: int, after_seq: int) -> tuple[list[Event], str]:
+def events_after(engine: Engine, owner_id: int, run_id: int,
+                 after_seq: int) -> tuple[list[Event], str]:
     """取 seq 大于 after_seq 的事件（按 seq 排序），以及 run 当前的状态。
 
     先读状态、后读事件，顺序不能反：PG 默认的隔离级别下，每条语句看到的是它开始时已提交的数据。
@@ -154,7 +155,10 @@ def events_after(engine: Engine, run_id: int, after_seq: int) -> tuple[list[Even
     状态已是结束，说明同一事务写的结束事件也已提交，后面读事件一定能读到。
     """
     with Session(engine) as session:
-        status = session.scalar(select(Run.status).where(Run.id == run_id))
+        status = session.scalar(
+            select(Run.status).where(Run.id == run_id, Run.owner_id == owner_id))
+        if status is None:
+            raise RunNotFound
         events = session.execute(
             select(Event).where(Event.run_id == run_id, Event.seq > after_seq)
             .order_by(Event.seq)

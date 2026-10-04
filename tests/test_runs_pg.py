@@ -102,12 +102,12 @@ def test_events_are_numbered_continuously_in_commit_order(db):
     lease.commit_step(db, held, make_step(1))
     lease.finish(db, held, {"name": "finalize", "submitted": ["120.50"]}, None)
 
-    events, status = runs.events_after(db, 1, after_seq=0)
+    events, status = runs.events_after(db, OWNER, 1, after_seq=0)
     assert [(e.seq, e.type) for e in events] == [
         (1, "attempt_queued"), (2, "attempt_started"), (3, "step"), (4, "step"),
         (5, "attempt_finished")]
     assert status == "completed"
-    assert [e.seq for e in runs.events_after(db, 1, after_seq=3)[0]] == [4, 5]
+    assert [e.seq for e in runs.events_after(db, OWNER, 1, after_seq=3)[0]] == [4, 5]
 
 
 def test_regenerate_is_rejected_while_an_attempt_is_still_active(db):
