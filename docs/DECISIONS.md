@@ -206,3 +206,24 @@
 - **注意**：py-amqp 的 `read_timeout` 按 Linux 格式设置 `SO_RCVTIMEO`，在 Windows 上会被当成毫秒。
   dispatcher 只跑在容器里不受影响；在 Windows 上做 RabbitMQ 实验时数字不可信。
 - **是否需要重新评测**：不需要，不涉及模型接口和检索。
+
+### D22 · 2026-10-06 · M2 实现时的取舍（待作者 review 确认）
+
+执行时作者不在场，按“选最稳妥的方案继续、记进 STATUS”处理；作者确认后本条即为定稿。细节和浏览器实测见
+`review/02_代码导读/M2_过程可视化.md`。
+
+- **API 的事件通知用后台线程 + 同步 psycopg 做 LISTEN**（`event_hub.py`）：psycopg 的异步连接不支持 Windows 默认的
+  Proactor 事件循环，开发和测试都在 Windows 上。线程收到通知后用 `loop.call_soon_threadsafe` 交给事件循环。
+- **实时片段每个 SSE 连接各自订阅 Redis**，不像 PG 那样每进程一条再分发：Redis 连接便宜，代码简单；同时观看的人上千时再改。
+- **Redis 不可用时只丢实时片段**：worker 第一次 publish 失败后这次执行不再发；API 订阅失败只记日志，持久事件照常推。
+- **SSE 心跳是具名事件 `event: ping`（不带 id），前端 25 秒无数据就重建连接**：SSE 注释（`: ping`）浏览器不交给 JS，
+  前端无法据此判断连接是否活着。联调实测 Vite 代理在 API 进程死掉后不关闭浏览器侧连接，页面会永远等下去。
+  另给 uvicorn 设 `--timeout-graceful-shutdown 5`，停 API 时不必等 docker 10 秒后强杀。
+- **前端页面状态全部来自事件流**（`?after=0` 补发全部历史），`GET /runs/{id}` 只取题目和判断 404：刷新、从历史进入、执行中是同一条路径。
+- **“重新生成”按钮执行中也能点，以后端 409 为准**：前端状态可能是旧的（另一个标签页刚点过）。
+- **旁注对齐用设计稿算法的简化版**：每帧按当前位置重算，不提前算动画终点，不画连线；来源上下文只取自模型读过的步骤。
+- **前端依赖**：Vite 8、React 19、TypeScript 6、vitest 5，只装在 `web/app/node_modules`；不用 react-router（三种页面）、
+  不用状态管理库（一个 reducer）。样式从 `web/design` 原样复制三个文件，应用的补充单独放 `app.css`。
+- **后端新增依赖 `redis`**（Python 客户端）：worker publish、API 订阅实时片段。
+- **是否需要重新评测**：不需要，提示词、工具说明和检索都没变；worker 改为流式调用模型（M0.5 实现的 `on_delta`），
+  请求内容相同，只是响应分片返回。
