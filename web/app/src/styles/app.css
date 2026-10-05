@@ -4,6 +4,10 @@
  * 设计稿更新时直接覆盖即可。
  */
 
+/* React 挂在 <div id="root"> 里，设计稿里 .app 直接在 body 下。#root 也要撑满，
+   .app 的 height: 100% 才有参照，简洁风宽屏时才是 .app 自己滚动（而不是整个页面） */
+#root { height: 100%; }
+
 /* 发送按钮不可用（没输入内容或正在提交） */
 .send:disabled { opacity: 0.35; cursor: default; }
 

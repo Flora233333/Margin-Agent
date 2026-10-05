@@ -33,7 +33,7 @@ from .settings import get_settings
 
 DEV_USER_ID = 1  # 迁移预置的开发用户；M3 改成从登录 cookie 解析
 # SSE 平时等“有新事件”的通知（event_hub.py）；最多等 10 秒也查一次库（兜底：通知不持久，
-# LISTEN 连接重连期间会丢），同时发一行注释保活，防止中间的代理把“安静”的连接断掉
+# LISTEN 连接重连期间会丢），同时发一个心跳事件（见 stream_events 里 event: ping 的说明）
 SSE_FALLBACK_SECONDS = 10.0
 FINISHED = {"completed", "failed"}
 RECENT_RUNS = 50  # 历史列表最多返回几道题
@@ -239,7 +239,13 @@ async def stream_events(
                     try:
                         item = await asyncio.wait_for(inbox.get(), SSE_FALLBACK_SECONDS)
                     except TimeoutError:
-                        yield ": ping\n\n"  # 冒号开头是 SSE 注释，浏览器忽略，只为让连接保持有数据
+                        # 心跳：10 秒没有任何数据就发一个。两个作用：
+                        # 中间的代理不会把“安静”的连接当成空闲断掉；
+                        # 前端超过 25 秒什么都没收到，就知道连接已经“半死”（例如 API 进程被杀、
+                        # 中间的代理却没把浏览器那一侧关掉），主动重连。
+                        # 所以要用具名事件而不是 SSE 注释（": ping"）：注释浏览器不交给 JS。
+                        # 不带 id，不影响 Last-Event-ID
+                        yield "event: ping\ndata: {}\n\n"
                         item = NEW_EVENTS  # 兜底：10 秒没动静也查一次库
                     if item == NEW_EVENTS:
                         # 查库期间到达的通知会再放一个标记进收件箱，下一轮立刻再查，不会漏

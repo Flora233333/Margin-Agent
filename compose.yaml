@@ -119,7 +119,9 @@ services:
 
   api:
     <<: *app
-    command: uvicorn margin.api:app --host 0.0.0.0 --port 8000
+    # --timeout-graceful-shutdown：停止时最多等 5 秒就断开还开着的 SSE 连接（它们自己不会结束），
+    # 否则要等到 docker 10 秒后强杀；前端会带着 ?after= 重连，不丢事件
+    command: uvicorn margin.api:app --host 0.0.0.0 --port 8000 --timeout-graceful-shutdown 5
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

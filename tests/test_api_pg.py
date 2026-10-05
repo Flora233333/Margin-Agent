@@ -11,7 +11,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from margin import lease, live
+from margin import api, lease, live
 from margin.api import app, current_user, get_db, get_hub, get_redis_url
 from margin.harness import Step
 
@@ -127,12 +127,31 @@ def test_sse_forwards_live_thinking_without_event_id(client, db, live_redis):
         lease.finish(db, held, {"name": "finalize", "submitted": ["120.50"]}, None)
 
     threading.Thread(target=worker_progress).start()
-    blocks = [b for b in client.get("/runs/1/events").text.split("\n\n") if not b.startswith(":")]
+    blocks = [b for b in client.get("/runs/1/events").text.split("\n\n")
+              if not b.startswith("event: ping")]
 
     assert [b.splitlines()[0] for b in blocks if b] == [
         "id: 1", "id: 2", "event: delta", "id: 3"]
     delta_block = next(b for b in blocks if b.startswith("event: delta"))
     assert json.loads(delta_block.splitlines()[1].removeprefix("data: ")) == delta
+
+
+def test_idle_sse_sends_heartbeat_event_without_id(client, db, monkeypatch):
+    """一段时间没有任何事件（模型在想）时发心跳 event: ping：前端靠它判断连接还活着，
+    长时间收不到就重连。心跳不带 id，否则会改掉浏览器记的 Last-Event-ID，重连时跳过持久事件。"""
+    monkeypatch.setattr(api, "SSE_FALLBACK_SECONDS", 0.2)
+    submit(client)
+    held = lease.claim(db, 1, "worker-a")
+
+    def worker_progress():
+        time.sleep(0.7)
+        lease.finish(db, held, {"name": "finalize", "submitted": ["120.50"]}, None)
+
+    threading.Thread(target=worker_progress).start()
+    blocks = [b for b in client.get("/runs/1/events").text.split("\n\n") if b]
+
+    assert "event: ping\ndata: {}" in blocks
+    assert [b.splitlines()[0] for b in blocks if b.startswith("id:")] == ["id: 1", "id: 2", "id: 3"]
 
 
 def test_sse_still_streams_persistent_events_when_redis_is_down(client, db):
