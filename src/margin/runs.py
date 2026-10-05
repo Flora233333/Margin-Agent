@@ -131,6 +131,16 @@ def regenerate(engine: Engine, owner_id: int, run_id: int) -> int:
         return attempt_no
 
 
+def list_runs(engine: Engine, owner_id: int, limit: int) -> list[dict[str, Any]]:
+    """这个用户最近提交的题目（新的在前），给前端左侧的历史列表用。"""
+    with Session(engine) as session:
+        rows = session.execute(
+            select(Run.id, Run.question, Run.status, Run.created_at)
+            .where(Run.owner_id == owner_id).order_by(Run.id.desc()).limit(limit)
+        ).all()
+        return [row._asdict() for row in rows]
+
+
 def get_run(engine: Engine, owner_id: int, run_id: int) -> dict[str, Any]:
     """一道题的完整记录：题目、状态、每次执行及其每一步。"""
     with Session(engine) as session:

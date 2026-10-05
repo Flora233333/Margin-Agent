@@ -147,3 +147,30 @@ def test_sse_still_streams_persistent_events_when_redis_is_down(client, db):
     assert response.status_code == 200
     assert [b.splitlines()[1] for b in response.text.split("\n\n") if b] == [
         "event: attempt_queued", "event: attempt_started", "event: attempt_finished"]
+
+
+def test_new_event_source_resumes_with_after_param(client, db):
+    """点“重新生成”后前端新开 EventSource（设置不了 Last-Event-ID 头）：用 ?after= 只拿之后的事件；
+    浏览器自动重连时头里的 Last-Event-ID 更新、地址里的 after 还是旧值，以大的为准，不会重复推。"""
+    submit(client)
+    held = lease.claim(db, 1, "worker-a")
+    lease.finish(db, held, {"name": "finalize", "submitted": ["120.50"]}, None)
+
+    def ids(response):
+        return [b.splitlines()[0] for b in response.text.split("\n\n") if b]
+
+    assert ids(client.get("/runs/1/events?after=1")) == ["id: 2", "id: 3"]
+    assert ids(client.get("/runs/1/events?after=1", headers={"Last-Event-ID": "2"})) == ["id: 3"]
+
+
+def test_run_list_shows_only_my_runs_newest_first(client):
+    """左侧历史列表：最新的在前；别人的题不出现（M3 加登录后这一条更关键）。"""
+    submit(client, key="k1")
+    submit(client, key="k2", body={**QUESTION, "question": "乙公司的票面利率是多少？"})
+    app.dependency_overrides[current_user] = lambda: 999
+    assert client.get("/runs").json() == []
+    app.dependency_overrides.pop(current_user)
+
+    listed = client.get("/runs").json()
+    assert [(r["id"], r["question"], r["status"]) for r in listed] == [
+        (2, "乙公司的票面利率是多少？", "queued"), (1, QUESTION["question"], "queued")]

@@ -1,9 +1,10 @@
 """HTTP 接口（FastAPI）。只负责收请求、校验、读写数据库，不执行 Agent——执行在后台 worker 里。
 
     POST /runs                      提交一道题（需要 Idempotency-Key 请求头），立即返回 202
+    GET  /runs                      最近提交的题目（前端左侧历史列表）
     GET  /runs/{run_id}             题目、状态、每次执行及其每一步
     POST /runs/{run_id}/regenerate  重新生成：新建一次执行
-    GET  /runs/{run_id}/events      SSE 事件流，断线重连带 Last-Event-ID 从断点补发
+    GET  /runs/{run_id}/events      SSE 事件流，断线重连带 Last-Event-ID（或 ?after=）从断点补发
 
 运行（开发）：conda run -n margin --no-capture-output uvicorn margin.api:app --reload
 接口文档：启动后打开 http://127.0.0.1:8000/docs（FastAPI 按下面的类型自动生成）
@@ -18,7 +19,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI, Header, Request
+from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,6 +36,7 @@ DEV_USER_ID = 1  # 迁移预置的开发用户；M3 改成从登录 cookie 解�
 # LISTEN 连接重连期间会丢），同时发一行注释保活，防止中间的代理把“安静”的连接断掉
 SSE_FALLBACK_SECONDS = 10.0
 FINISHED = {"completed", "failed"}
+RECENT_RUNS = 50  # 历史列表最多返回几道题
 
 
 @asynccontextmanager
@@ -114,6 +116,13 @@ class AttemptOut(BaseModel):
     steps: list[StepOut]
 
 
+class RunSummary(BaseModel):
+    id: int
+    question: str
+    status: str
+    created_at: datetime
+
+
 class RunDetail(BaseModel):
     id: int
     question: str
@@ -164,6 +173,12 @@ def create_run(
     return RunAccepted(run_id=run_id)
 
 
+@app.get("/runs")
+def list_runs(db: DB, user: User) -> list[RunSummary]:
+    """最近 50 道题，前端左侧的历史列表。只返回自己的（M3 加登录后按真实用户过滤）。"""
+    return [RunSummary.model_validate(r) for r in runs.list_runs(db, user, RECENT_RUNS)]
+
+
 @app.get("/runs/{run_id}")
 def get_run(run_id: int, db: DB, user: User) -> RunDetail:
     return RunDetail.model_validate(runs.get_run(db, user, run_id))
@@ -178,6 +193,7 @@ def regenerate(run_id: int, db: DB, user: User) -> RegenerateAccepted:
 async def stream_events(
     run_id: int, db: DB, user: User, hub: Hub, redis_url: RedisURL,
     last_event_id: Annotated[int, Header()] = 0,
+    after: Annotated[int, Query(ge=0)] = 0,
 ) -> StreamingResponse:
     """SSE（Server-Sent Events）：一个不结束的 HTTP 响应，服务端有新事件就往里写一段。
 
@@ -194,13 +210,18 @@ async def stream_events(
 
     这里是 async 路由：等待时 await 让出，不占线程；查库仍是同步代码，
     用 run_in_threadpool 放到线程池执行，不阻塞事件循环。
+
+    ?after=N：和 Last-Event-ID 作用相同。前端新开一个 EventSource（例如点“重新生成”后，原来的流
+    已在执行结束时关闭）没法自己设置 Last-Event-ID 请求头，就用这个参数。两者都有时取大的：
+    浏览器自动重连时会带上更新的 Last-Event-ID，而地址里的 after 还是最初的值。
     """
+    start = max(last_event_id, after)
     # 先查一次：run 不存在或不属于这个用户时，在开始推流之前就返回 404
-    first = await run_in_threadpool(runs.events_after, db, user, run_id, last_event_id)
+    first = await run_in_threadpool(runs.events_after, db, user, run_id, start)
 
     async def generate() -> AsyncIterator[str]:
         events, status = first
-        last_seq = last_event_id
+        last_seq = start
         # 收件箱里有两种东西：NEW_EVENTS（库里有新的持久事件）和实时片段（JSON 字符串）
         with hub.watch(run_id) as inbox:
             async with live.forward_deltas(redis_url, run_id, inbox):
