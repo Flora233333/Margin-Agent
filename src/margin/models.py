@@ -134,12 +134,16 @@ class Outbox(Base):
         # 以后巡检给“消息丢了”的 attempt 补投递时，重复补也只会有一条生效
         Index("ux_outbox_pending_attempt", "attempt_id", unique=True,
               postgresql_where=text("status = 'pending'")),
+        # 对账的水位线查询按 sent_at 找最近投递的记录；只索引已发送的行（迁移 0002）
+        Index("ix_outbox_sent_at", "sent_at", postgresql_where=text("status = 'sent'")),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     attempt_id: Mapped[int] = mapped_column(ForeignKey("attempts.id"))
     status: Mapped[str] = mapped_column(Text, server_default="pending")
-    tries: Mapped[int] = mapped_column(server_default="0")  # 投递失败过几次
+    tries: Mapped[int] = mapped_column(server_default="0")  # 投递失败过几次（算退避时间用）
+    # 对账判定“消息丢了”后补发过几次（改回 pending 重新投递）；到上限就把 attempt 判失败
+    redeliveries: Mapped[int] = mapped_column(server_default="0")
     # 下次允许投递的时间：投递失败后往后推，Redis 挂了时不会每秒疯狂重试
     next_attempt_at: Mapped[datetime] = mapped_column(server_default=func.now())
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
