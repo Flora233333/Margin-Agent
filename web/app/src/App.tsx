@@ -52,7 +52,9 @@ export function App() {
       <IconSprite />
       <Sidebar runs={runs} activeId={route.page === 'run' ? route.runId : null} />
       {route.page === 'new' && <NewRunPage onCreated={onCreated} />}
-      {route.page === 'run' && <RunPage runId={route.runId} onCreated={onCreated} />}
+      {route.page === 'run' && (
+        <RunPage runId={route.runId} onCreated={onCreated} onRunsChanged={reloadRuns} />
+      )}
       {route.page === 'not-found' && <NotFound />}
     </div>
   )

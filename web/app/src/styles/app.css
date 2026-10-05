@@ -61,3 +61,11 @@
   color: var(--ink);
 }
 .empty-code { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }
+
+/* 过程区：工具出错的那一行、连接中断的提示 */
+.step-detail.is-error { color: var(--danger); }
+.main-meta.is-warn { color: var(--warn); }
+
+/* 重新生成过的题：每次执行一组，上面一行小标题 */
+.attempt { display: grid; gap: var(--space-3); }
+.attempt-head { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-faint); }
