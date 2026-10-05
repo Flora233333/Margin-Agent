@@ -68,7 +68,9 @@ def claim(engine: Engine, attempt_id: int, worker: str) -> Lease | None:
         if row is None:
             return None
         session.execute(update(Run).where(Run.id == row.run_id).values(status="running"))
-        add_event(session, row.run_id, "attempt_started", {"attempt_id": attempt_id})
+        # epoch 也告诉前端：实时片段带着 (attempt_id, epoch)，前端只显示和当前执行一致的片段
+        add_event(session, row.run_id, "attempt_started",
+                  {"attempt_id": attempt_id, "epoch": row.lease_epoch})
         run = session.execute(select(Run).where(Run.id == row.run_id)).scalar_one()
         task = {"question": run.question, "options": run.options,
                 "answer_format": run.answer_format}

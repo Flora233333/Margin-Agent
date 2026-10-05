@@ -3,6 +3,7 @@
 默认不跑；运行：conda run -n margin pytest -m integration
 """
 
+import json
 import threading
 import time
 from datetime import UTC, datetime
@@ -13,7 +14,7 @@ from fakes import FakeLLM, call
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from margin import runs
+from margin import live, runs
 from margin.dispatcher import (
     MAX_WAIT_SECONDS,
     dispatch_once,
@@ -21,6 +22,7 @@ from margin.dispatcher import (
     make_publisher,
     wait_for_notify,
 )
+from margin.live import make_redis
 from margin.models import Outbox, Run
 from margin.worker import execute
 
@@ -49,7 +51,7 @@ class BrokenGateway:
                                     response=httpx.Response(502, request=request))
 
 
-def test_worker_runs_attempt_and_persists_every_step(db, corpus, retriever):
+def test_worker_runs_attempt_and_persists_every_step(db, corpus, retriever, live_redis):
     """提交 -> worker 执行 -> 每一步和最终答案都在库里，刷新页面能看到完整过程。"""
     run_id = submit(db)
     llm = FakeLLM([
@@ -58,7 +60,7 @@ def test_worker_runs_attempt_and_persists_every_step(db, corpus, retriever):
         call("finalize", answers=["120.5"]),
     ])
 
-    execute(db, corpus, retriever, lambda model: llm, 1, "worker-a")
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
 
     detail = runs.get_run(db, OWNER, run_id)
     attempt = detail["attempts"][0]
@@ -70,11 +72,11 @@ def test_worker_runs_attempt_and_persists_every_step(db, corpus, retriever):
     assert attempt["steps"][0]["reasoning"] == "先找年报"
 
 
-def test_gateway_error_fails_attempt_but_keeps_finished_steps(db, corpus, retriever):
+def test_gateway_error_fails_attempt_but_keeps_finished_steps(db, corpus, retriever, live_redis):
     """网关中途报错：这次执行判为失败（用户可重新生成），已完成的步骤保留，错误信息不带网关地址。"""
     run_id = submit(db)
 
-    execute(db, corpus, retriever, lambda model: BrokenGateway(), 1, "worker-a")
+    execute(db, corpus, retriever, lambda model: BrokenGateway(), live_redis, 1, "worker-a")
 
     detail = runs.get_run(db, OWNER, run_id)
     attempt = detail["attempts"][0]
@@ -82,14 +84,14 @@ def test_gateway_error_fails_attempt_but_keeps_finished_steps(db, corpus, retrie
     assert len(attempt["steps"]) == 1
 
 
-def test_duplicate_delivery_does_not_call_the_model_again(db, corpus, retriever):
+def test_duplicate_delivery_does_not_call_the_model_again(db, corpus, retriever, live_redis):
     """同一个 attempt 的第二条消息：领取失败，直接跳过，不会再调用模型。"""
     submit(db)
     execute(db, corpus, retriever, lambda model: FakeLLM([call("finalize", answers=["1"])]),
-            1, "worker-a")
+            live_redis, 1, "worker-a")
     second = FakeLLM([])
 
-    execute(db, corpus, retriever, lambda model: second, 1, "worker-b")
+    execute(db, corpus, retriever, lambda model: second, live_redis, 1, "worker-b")
     assert second.requests == []
 
 
@@ -152,3 +154,40 @@ def test_rolled_back_submission_does_not_wake_dispatcher(db, listener):
 
     assert not wait_for_notify(listener, timeout=1)
     assert dispatch_once(db, lambda attempt_id: None) == 0
+
+
+# ---- 实时片段（Redis pub/sub）----
+
+def test_worker_publishes_thinking_tagged_with_attempt_and_epoch(db, corpus, retriever,
+                                                                live_redis):
+    """思考片段带着 attempt_id、epoch、轮次发到这个 run 的频道：
+    前端靠前两个丢弃旧执行残留的片段。"""
+    run_id = submit(db)
+    pubsub = live_redis.pubsub()
+    pubsub.subscribe(live.channel(run_id))
+    pubsub.get_message(timeout=1)  # 第一条是“订阅成功”的确认
+    llm = FakeLLM([call("search_docs", reasoning="先找年报", query="甲公司 营业收入"),
+                   call("finalize", reasoning="可以提交了", answers=["120.5"])])
+
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
+
+    messages = []
+    while message := pubsub.get_message(timeout=1):
+        messages.append(json.loads(message["data"]))
+    pubsub.close()
+    assert [(m["turn"], m["kind"], m["text"]) for m in messages] == [
+        (0, "reasoning", "先找年报"), (1, "reasoning", "可以提交了")]
+    assert {(m["attempt_id"], m["epoch"]) for m in messages} == {(1, 1)}
+
+
+def test_redis_down_does_not_fail_the_attempt(db, corpus, retriever):
+    """Redis 挂了：实时片段发不出去，但这道题照常执行完、每一步照常落库（持久事件不依赖 Redis）。"""
+    run_id = submit(db)
+    llm = FakeLLM([call("search_docs", reasoning="先找年报", query="甲公司 营业收入"),
+                   call("finalize", reasoning="可以提交了", answers=["120.5"])])
+
+    execute(db, corpus, retriever, lambda model: llm, make_redis("redis://127.0.0.1:1/0"), 1,
+            "worker-a")
+
+    detail = runs.get_run(db, OWNER, run_id)
+    assert (detail["status"], len(detail["attempts"][0]["steps"])) == ("completed", 2)

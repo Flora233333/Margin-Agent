@@ -24,9 +24,9 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine
 
-from . import runs
+from . import live, runs
 from .db import get_engine
-from .event_hub import EventHub
+from .event_hub import NEW_EVENTS, EventHub
 from .runs import IdempotencyConflict, RunBusy, RunNotFound
 from .settings import get_settings
 
@@ -64,9 +64,15 @@ def get_hub(request: Request) -> EventHub:
     return request.app.state.hub
 
 
+def get_redis_url() -> str:
+    """实时片段从哪个 Redis 订阅。每个 SSE 连接用它建自己的订阅连接（live.forward_deltas）。"""
+    return get_settings().redis_url
+
+
 DB = Annotated[Engine, Depends(get_db)]
 User = Annotated[int, Depends(current_user)]
 Hub = Annotated[EventHub, Depends(get_hub)]
+RedisURL = Annotated[str, Depends(get_redis_url)]
 
 
 # ---- 请求 / 响应的数据格式（Pydantic 校验用户输入，不合格自动返回 422）----
@@ -170,7 +176,7 @@ def regenerate(run_id: int, db: DB, user: User) -> RegenerateAccepted:
 
 @app.get("/runs/{run_id}/events")
 async def stream_events(
-    run_id: int, db: DB, user: User, hub: Hub,
+    run_id: int, db: DB, user: User, hub: Hub, redis_url: RedisURL,
     last_event_id: Annotated[int, Header()] = 0,
 ) -> StreamingResponse:
     """SSE（Server-Sent Events）：一个不结束的 HTTP 响应，服务端有新事件就往里写一段。
@@ -180,8 +186,11 @@ async def stream_events(
     连续编号、并且存进数据库的原因。执行结束（completed / failed）后关闭流。
 
     什么时候去查新事件：worker 每提交一个事件，PG 发一个“run N 有新事件”的通知（runs.add_event），
-    event_hub 收到后 set 这里的 wake；没有通知时最多等 10 秒也查一次（兜底）。
+    event_hub 收到后往这个连接的收件箱里放一个 NEW_EVENTS；没有通知时最多等 10 秒也查一次（兜底）。
     M1 是每个连接每秒查一次库，看的人越多查询越多；现在只有真的有新事件时才查。
+
+    两层事件（PLAN §5.4）：除了上面的持久事件，还转发模型逐字输出的思考片段（event: delta），
+    它们由 worker 发到 Redis（live.py），不落库、不补发，这一步结束后由持久事件里的完整思考替换。
 
     这里是 async 路由：等待时 await 让出，不占线程；查库仍是同步代码，
     用 run_in_threadpool 放到线程池执行，不阻塞事件循环。
@@ -192,24 +201,32 @@ async def stream_events(
     async def generate() -> AsyncIterator[str]:
         events, status = first
         last_seq = last_event_id
-        with hub.watch(run_id) as wake:
-            # first 是登记之前查的：查完到登记之间提交的事件不会叫醒我们，所以第一轮不等待、直接补查
-            wake.set()
-            while True:
-                for event in events:
-                    data = json.dumps(event.payload, ensure_ascii=False)
-                    yield f"id: {event.seq}\nevent: {event.type}\ndata: {data}\n\n"
-                    last_seq = event.seq
-                if status in FINISHED:
-                    return
-                try:
-                    await asyncio.wait_for(wake.wait(), SSE_FALLBACK_SECONDS)
-                except TimeoutError:
-                    yield ": ping\n\n"  # 冒号开头是 SSE 注释，浏览器忽略，只为让连接保持有数据
-                # 先清除再查库：查库期间到达的通知会重新 set，下一轮立刻再查，不会漏
-                wake.clear()
-                events, status = await run_in_threadpool(runs.events_after, db, user, run_id,
-                                                         last_seq)
+        # 收件箱里有两种东西：NEW_EVENTS（库里有新的持久事件）和实时片段（JSON 字符串）
+        with hub.watch(run_id) as inbox:
+            async with live.forward_deltas(redis_url, run_id, inbox):
+                # first 是登记之前查的：查完到登记之间提交的事件不会叫醒我们，所以先放一个标记，
+                # 第一轮直接补查
+                inbox.put_nowait(NEW_EVENTS)
+                while True:
+                    for event in events:
+                        data = json.dumps(event.payload, ensure_ascii=False)
+                        yield f"id: {event.seq}\nevent: {event.type}\ndata: {data}\n\n"
+                        last_seq = event.seq
+                    if status in FINISHED:
+                        return
+                    events = []
+                    try:
+                        item = await asyncio.wait_for(inbox.get(), SSE_FALLBACK_SECONDS)
+                    except TimeoutError:
+                        yield ": ping\n\n"  # 冒号开头是 SSE 注释，浏览器忽略，只为让连接保持有数据
+                        item = NEW_EVENTS  # 兜底：10 秒没动静也查一次库
+                    if item == NEW_EVENTS:
+                        # 查库期间到达的通知会再放一个标记进收件箱，下一轮立刻再查，不会漏
+                        events, status = await run_in_threadpool(runs.events_after, db, user,
+                                                                 run_id, last_seq)
+                    else:
+                        # 实时片段不带 id：浏览器重连时的 Last-Event-ID 只跟着持久事件走
+                        yield f"event: delta\ndata: {item}\n\n"
 
     # X-Accel-Buffering: no 让 Nginx（M6）不要攒满缓冲区才转发，否则事件会一批批延迟到达
     return StreamingResponse(generate(), media_type="text/event-stream",

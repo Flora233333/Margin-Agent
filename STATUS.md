@@ -264,6 +264,11 @@ M1.5 / M2 执行时遇到、计划里没写清的取舍。每条写“问题 →
    有测试 `test_attempt_failed_as_undelivered_does_not_raise_the_watermark` 保护。
 5. **读队列状态时队列不存在（`NotFound`）当作“没有消费者”**（M1.5-5）：只可能是 RabbitMQ 数据没了且 worker 不在线；
    不处理的话 dispatcher 会每 15 秒崩溃重启一次。
+6. **API 的事件通知用后台线程 + 同步 psycopg 做 LISTEN**（M2-1）：psycopg 异步连接不支持 Windows 的 Proactor 事件循环，
+   开发和测试都在 Windows 上。生产在 Linux 容器里，以后想换成异步版只改 `event_hub.py`。
+7. **实时片段每个 SSE 连接各自订阅 Redis**（M2-2），不像 PG 那样每进程一条再分发：Redis 连接便宜；
+   人多时（上千个同时观看）再改成每进程一个订阅。
+8. **Redis 不可用时只丢实时片段**（M2-2）：worker 第一次 publish 失败后这次执行不再发，API 订阅失败只记日志。
 
 ## 未决问题
 

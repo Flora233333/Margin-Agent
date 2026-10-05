@@ -20,6 +20,7 @@ from sqlalchemy.engine import make_url
 from margin.db import make_engine
 from margin.event_hub import EventHub
 from margin.harness import build_registry
+from margin.live import make_redis
 from margin.retrieval import Corpus, HybridRetriever
 from margin.retrieval.alias import Alias, AliasCatalog
 from margin.settings import get_settings
@@ -122,3 +123,11 @@ def db(engine):
         conn.execute(text("TRUNCATE runs, attempts, steps, events, outbox, block_vectors"
                           " RESTART IDENTITY"))
     return engine
+
+
+@pytest.fixture(scope="session")
+def live_redis():
+    """worker 发实时片段用的 Redis 客户端（compose 的 redis，本机 6379）。"""
+    client = make_redis(get_settings().redis_url)
+    yield client
+    client.close()

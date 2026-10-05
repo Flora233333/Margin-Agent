@@ -28,6 +28,8 @@ dependencies = [
     "uvicorn>=0.30",
     # 后台任务队列，RabbitMQ 作消息中间件（broker，D19）；AMQP 客户端是 Celery 的默认依赖，不用额外装
     "celery>=5.4",
+    # Redis 客户端：worker 把模型的思考片段 publish 出去，API 订阅后转给 SSE（M2，PLAN §5.4）
+    "redis>=5.0",
 ]
 
 [project.optional-dependencies]

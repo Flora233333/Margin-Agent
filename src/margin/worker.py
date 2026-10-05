@@ -18,6 +18,7 @@ from collections.abc import Callable
 from functools import cache
 
 import httpx
+import redis
 from celery import Celery
 from sqlalchemy import Engine
 
@@ -25,6 +26,7 @@ from . import lease
 from .assembly import build_llm, build_retriever
 from .db import get_engine
 from .harness import build_registry, run_episode
+from .live import DeltaPublisher, make_redis
 from .llm import ChatModel
 from .retrieval import Corpus, HybridRetriever
 from .settings import get_settings
@@ -68,6 +70,12 @@ def _llm(model: str) -> ChatModel:
     return build_llm(get_settings(), model)
 
 
+@cache
+def _live_redis() -> redis.Redis:
+    """发实时片段用的 Redis 客户端：每个子进程一个（内部是连接池，第一次 publish 时才连）。"""
+    return make_redis(get_settings().redis_url)
+
+
 def _describe(exc: Exception) -> str:
     """写进数据库、会展示给用户的错误说明。不用 str(exc)：httpx 的报错里带网关地址。"""
     if isinstance(exc, httpx.HTTPStatusError):
@@ -76,7 +84,8 @@ def _describe(exc: Exception) -> str:
 
 
 def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
-            make_llm: Callable[[str], ChatModel], attempt_id: int, worker: str) -> None:
+            make_llm: Callable[[str], ChatModel], live_redis: redis.Redis, attempt_id: int,
+            worker: str) -> None:
     """执行一个 attempt。拆成普通函数（而不是直接写在 Celery 任务里），测试可以直接调用。"""
     held = lease.claim(engine, attempt_id, worker)
     if held is None:
@@ -87,9 +96,9 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
         try:
             trace = run_episode(
                 held.task, make_llm(held.model), build_registry(held.task, corpus, retriever),
-                # M1 还不推送思考片段（M2 推到 Redis）；传一个空回调是为了走流式调用，
-                # 流式下“60 秒收不到数据就放弃”才能对每一块生效
-                on_delta=lambda turn, kind, text: None,
+                # 走流式调用：思考片段一到就 publish 到 Redis，前端逐字显示（live.py）；
+                # 流式下“60 秒收不到数据就放弃”也才能对每一块生效
+                on_delta=DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch),
                 on_step=lambda step: lease.commit_step(engine, held, step),
             )
         except lease.LeaseLost:
@@ -108,4 +117,4 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
 @celery_app.task(name="margin.execute_attempt")
 def execute_attempt(attempt_id: int) -> None:
     corpus, retriever = _components()
-    execute(get_engine(), corpus, retriever, _llm, attempt_id, worker_id())
+    execute(get_engine(), corpus, retriever, _llm, _live_redis(), attempt_id, worker_id())

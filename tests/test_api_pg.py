@@ -4,14 +4,15 @@
 TestClient 在进程内直接调用 app，不用真的起服务器。
 """
 
+import json
 import threading
 import time
 
 import pytest
 from fastapi.testclient import TestClient
 
-from margin import lease
-from margin.api import app, current_user, get_db, get_hub
+from margin import lease, live
+from margin.api import app, current_user, get_db, get_hub, get_redis_url
 from margin.harness import Step
 
 pytestmark = pytest.mark.integration
@@ -109,3 +110,40 @@ def test_sse_pushes_new_events_on_notify_without_waiting_for_fallback(client, db
     types = [b.splitlines()[1] for b in response.text.split("\n\n") if b.startswith("id:")]
     assert types == ["event: attempt_queued", "event: attempt_started", "event: step",
                      "event: attempt_finished"]
+
+
+def test_sse_forwards_live_thinking_without_event_id(client, db, live_redis):
+    """执行中的思考片段经 Redis 转发为 event: delta，且不带 id：
+    断线重连的 Last-Event-ID 只跟持久事件走，
+    否则浏览器会拿片段的位置去补发，跳过或重复持久事件。"""
+    submit(client)
+    held = lease.claim(db, 1, "worker-a")
+    delta = {"attempt_id": 1, "epoch": held.epoch, "turn": 0, "kind": "reasoning", "text": "先找"}
+
+    def worker_progress():
+        time.sleep(0.5)
+        live_redis.publish(live.channel(1), json.dumps(delta, ensure_ascii=False))
+        time.sleep(0.3)
+        lease.finish(db, held, {"name": "finalize", "submitted": ["120.50"]}, None)
+
+    threading.Thread(target=worker_progress).start()
+    blocks = [b for b in client.get("/runs/1/events").text.split("\n\n") if not b.startswith(":")]
+
+    assert [b.splitlines()[0] for b in blocks if b] == [
+        "id: 1", "id: 2", "event: delta", "id: 3"]
+    delta_block = next(b for b in blocks if b.startswith("event: delta"))
+    assert json.loads(delta_block.splitlines()[1].removeprefix("data: ")) == delta
+
+
+def test_sse_still_streams_persistent_events_when_redis_is_down(client, db):
+    """Redis 挂了：拿不到实时片段，但持久事件照常推送，页面不会白屏或报错。"""
+    app.dependency_overrides[get_redis_url] = lambda: "redis://127.0.0.1:1/0"
+    submit(client)
+    held = lease.claim(db, 1, "worker-a")
+    lease.finish(db, held, {"name": "finalize", "submitted": ["120.50"]}, None)
+
+    response = client.get("/runs/1/events")
+
+    assert response.status_code == 200
+    assert [b.splitlines()[1] for b in response.text.split("\n\n") if b] == [
+        "event: attempt_queued", "event: attempt_started", "event: attempt_finished"]

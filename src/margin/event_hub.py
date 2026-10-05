@@ -28,17 +28,18 @@ log = logging.getLogger(__name__)
 
 RECONNECT_SECONDS = 2  # LISTEN 连接断开后隔多久重连
 STOP_CHECK_SECONDS = 1  # 等通知时每隔多久看一眼“是否该停了”
+NEW_EVENTS = "new_events"  # 放进 inbox 的标记：“库里有新事件了，去查一下”
 
 
 class EventHub:
-    """用法：hub.start() 启动后台线程；
-    SSE 里 `with hub.watch(run_id) as wake: await wake.wait()`。
+    """用法：hub.start() 启动后台线程；SSE 里 `with hub.watch(run_id) as inbox:`，
+    之后 `await inbox.get()` 拿到 NEW_EVENTS 就去查库。
     """
 
     def __init__(self, database_url: str) -> None:
         self.database_url = database_url
-        # run_id -> 正在等这个 run 的 (事件循环, asyncio.Event)；一个 run 可以有多个人同时在看
-        self._watchers: dict[int, set[tuple[asyncio.AbstractEventLoop, asyncio.Event]]] = {}
+        # run_id -> 正在等这个 run 的 (事件循环, 收件箱)；一个 run 可以有多个人同时在看
+        self._watchers: dict[int, set[tuple[asyncio.AbstractEventLoop, asyncio.Queue]]] = {}
         # _watchers 会被两个线程访问（SSE 所在的事件循环线程增删，监听线程读取），用锁保护
         self._lock = threading.Lock()
         self._stop = threading.Event()
@@ -52,12 +53,13 @@ class EventHub:
         self._thread.join()
 
     @contextmanager
-    def watch(self, run_id: int) -> Iterator[asyncio.Event]:
-        """登记“我在看这个 run”，返回一个 asyncio.Event：有新事件时它会被 set。
+    def watch(self, run_id: int) -> Iterator[asyncio.Queue]:
+        """登记“我在看这个 run”，返回这个连接的收件箱：有新事件时会收到一个 NEW_EVENTS。
 
-        离开 with 时自动注销。
+        用队列而不是 asyncio.Event：SSE 还要等实时片段（live.forward_deltas 也往同一个收件箱里放），
+        两种消息进同一个队列，SSE 只需要 await 一个 inbox.get()。离开 with 时自动注销。
         """
-        entry = (asyncio.get_running_loop(), asyncio.Event())
+        entry = (asyncio.get_running_loop(), asyncio.Queue())
         with self._lock:
             self._watchers.setdefault(run_id, set()).add(entry)
         try:
@@ -72,8 +74,8 @@ class EventHub:
     def _wake(self, run_id: int) -> None:
         with self._lock:
             entries = list(self._watchers.get(run_id, ()))
-        for loop, event in entries:
-            loop.call_soon_threadsafe(event.set)
+        for loop, inbox in entries:
+            loop.call_soon_threadsafe(inbox.put_nowait, NEW_EVENTS)
 
     def _listen_forever(self) -> None:
         while not self._stop.is_set():
