@@ -34,7 +34,8 @@ ChatGPT 评审、`AFAC_Backend_Technical_Design.md` v2）以及 2026-10-03 的�
 | **PostgreSQL** | 关系数据库，系统的“账本” | 任务、步骤、事件、用户——唯一的事实来源 | MySQL |
 | **SQLAlchemy 2.0** | ORM，用 Python 对象操作数据库 | 读写表、事务 | MyBatis / JPA |
 | **Alembic** | 数据库表结构的版本管理 | 建表、改表都有迁移记录 | Flyway |
-| **Redis** | 内存数据库 | ① Celery 的消息队列 ② 限流计数 ③ 实时通知 ④ 缓存 | Redis（同） |
+| **RabbitMQ** | 专门的消息队列（消息中转站） | Celery 的任务队列：原生消息确认、持久化、发送确认（D19，替代 M1 的 Redis 队列） | RabbitMQ（同） |
+| **Redis** | 内存数据库 | ① 实时通知 ② 限流计数 ③ 缓存 | Redis（同） |
 | **Celery** | 后台任务框架 | 一道题要跑几分钟，不能在 HTTP 请求里跑完 | RocketMQ 消费者 / XXL-JOB |
 | **SSE** | 服务器单向推送（HTTP 长连接） | 前端实时看到 Agent 在干什么 | SseEmitter |
 | **Nginx** | 反向代理（大门） | 前端静态文件 + 转发 `/api` + SSE 关闭缓冲 | Nginx（同） |
@@ -53,7 +54,6 @@ ChatGPT 评审、`AFAC_Backend_Technical_Design.md` v2）以及 2026-10-03 的�
 | 不用 | 原因（面试时这样答） |
 |---|---|
 | Kafka | 它是可回放的日志流，适合每秒几十万条事件；本项目是少量长任务，要的是单条确认、重试、取消 |
-| RabbitMQ | 和 Redis 在这里干同一件事（Celery 的队列）。正确性由数据库租约保证，所以队列可替换；讲清原理即可 |
 | LangGraph | WeSeeker 项目已用过。本项目要讲“为什么手写”：需精确控制每步状态快照，并与训练轨迹对齐 |
 | 微服务 / K8s | 单机固定语料，用不上；能说清“什么时候会拆（例如把检索拆成独立服务）”比真拆更有说服力 |
 
@@ -69,9 +69,9 @@ flowchart TB
 
     R[("Redis")] -->|"订阅通知"| A
 
-    PG --> D["Dispatcher: 投递 outbox / 巡检过期租约"]
-    D --> R
-    R --> W["Celery Worker"]
+    PG --> D["Dispatcher: 投递 outbox / 巡检过期租约 / 对账补发"]
+    D --> MQ[("RabbitMQ: 任务队列")]
+    MQ --> W["Celery Worker"]
 
     W --> H["Margin Harness: RC6-C 循环 + 十工具"]
     H --> L["模型: DeepSeek API / vLLM 自训模型"]
@@ -86,7 +86,8 @@ flowchart TB
 一个问题的生命周期：
 
 1. `POST /runs`：在**一个事务**里写入 run、第一个 attempt、一条 outbox 记录，立即返回 202 和 run_id。
-2. Dispatcher 从 outbox 取出记录，往 Redis 队列发一条“请执行 attempt X”。
+2. Dispatcher 从 outbox 取出记录，往 RabbitMQ 队列发一条“请执行 attempt X”（收到发送确认才标记 sent；
+   消息丢了由巡检对账补发，见 5.7）。
 3. Worker 收到后先在数据库**领取租约**（条件更新），再跑 Harness；每完成一步，就把步骤、事件、断点在一个带 epoch 检查的事务里写库，
    提交后再往 Redis 发“有新事件”的通知。
 4. 浏览器通过 SSE 订阅这个 run 的事件：持久事件从数据库按序号补读，思考 token 从 Redis 实时转发。
@@ -152,6 +153,13 @@ flowchart TB
 
 每个 token 都写库会造成严重写放大，所以只有“结果”进库，“过程”走 Redis。
 
+**持久事件的“有新事件”通知（M2 决定，2026-10-06 review 时提出）**：现在每个 SSE 连接每秒查一次 events 表，
+用户越多查询越多。候选方案是 PG 的 LISTEN / NOTIFY：`add_event` 在同一事务里 `NOTIFY run_events, '<run_id>'`；
+**每个 API 进程只开一条 LISTEN 连接**（不能每个 SSE 连接各开一条，会耗尽 PG 连接），收到后在内存里转给关注这个
+run 的 SSE 连接，再由它们按 seq 查库。好处是通知来自事务提交，不会出现“通知到了、事件还没提交”；
+对比方案是原计划的 Redis 通知（worker 提交后再发）。M2 开工时比较两者，结论写进 DECISIONS。
+逐字片段仍走 Redis pub/sub：不落库、量大，NOTIFY 单条有 8KB 上限且会经过 PG。
+
 ### 5.5 多用户
 | 能力 | 做法 |
 |---|---|
@@ -168,6 +176,121 @@ Session 可以服务端随时吊销。
 只缓存“证据原文查询”（cache-aside：先查 Redis，没有再查库并回填，带过期时间）。
 **不缓存答案**：每次执行过程不同，缓存答案还会让人误以为结果被验证过。
 借这个场景准备缓存穿透 / 击穿 / 雪崩的面试题。
+
+### 5.7 队列切换到 RabbitMQ + 消息丢失对账（2026-10-06，D19）
+
+**问题（M1 review 发现）**：dispatcher 把消息发出去、outbox 标成 sent 之后，如果消息在消息中转站里丢了
+（Redis 重启、队列被清空），attempt 会永远停在 pending：没有 worker 收到消息，M1 的巡检只处理 running；
+用户点“重新生成”也会因为“还有 pending 的执行”返回 409。这道题就永远卡住了。
+
+**思路：两层。** 可靠的队列让消息尽量不丢；数据库对账保证丢了能补回来。PG 仍然是唯一的裁判，
+补发出来的重复消息由 `claim` 挡住，所以补发猜错的代价只是一条多余的消息。
+
+#### 第一层：RabbitMQ 配置（尽量不丢）
+
+| 配置 | 值 | 为什么 |
+|---|---|---|
+| 发送确认 | Celery `broker_transport_options={"confirm_publish": True}` | RabbitMQ 回复“收到了”，dispatcher 才标记 sent；没收到确认就按现有的退避规则重发 |
+| 队列 / 消息持久化 | 队列 durable、消息 persistent（Celery 用 RabbitMQ 时的默认值，保持不改） | RabbitMQ 重启后消息还在 |
+| 数据卷 + 固定主机名 | `rabbitmqdata:/var/lib/rabbitmq`，`hostname: rabbitmq` | RabbitMQ 的数据目录按节点名（取自主机名）区分，主机名变了会“找不到”旧数据 |
+| 确认期限 `consumer_timeout` | 1 小时（配置文件挂进 `/etc/rabbitmq/conf.d/`） | 超时会关闭整个通道、所有待确认消息回队列；必须大于 Celery 硬时限 25 分钟，保证永远不触发。超时分层：模型 180 秒 < 硬时限 25 分钟 < 确认期限 1 小时 |
+| 确认时机与预取 | 保留 `task_acks_late=True`、`worker_prefetch_multiplier=1` | 执行完才确认；每个子进程手上只有正在执行的一条 |
+| Redis 专用配置 | 删除 `visibility_timeout` | RabbitMQ 有原生确认，不需要模拟 |
+
+#### 第二层：巡检对账 `requeue_lost`（dispatcher 每 15 秒，和 `expire_leases` 同一轮）
+
+**候选**：attempt 是 pending、outbox 是 sent、投递已经超过**宽限期 2 分钟**。
+宽限期吸收两件事：几个子进程同时取消息时领取顺序的毫秒级抖动；子进程处理第一个任务前要加载语料和 BM25
+（有缓存约 2 秒，缓存丢失时要重建，更久，这种情况误判只会多一条消息）。
+
+**判定**：候选满足下面任意一条，就认为消息丢了：
+
+| 规则 | 条件 | 适用场景 |
+|---|---|---|
+| ① 水位线 | 存在**比我晚投递**、且已经被领取（attempt 不是 pending）的任务 | 有流量时的主规则。队列先进先出，后面的都被领走了，我还在等，说明我的消息丢了；流量越大发现越快 |
+| ② 队列为空 | RabbitMQ 里就绪消息数 = 0 | 没有流量时水位线不动，靠这一条 |
+| ③ 兜底 | 投递已经超过 30 分钟 | 前两条都判断不了时（例如查不到队列状态） |
+
+“就绪消息数”和“消费者数”用被动声明队列取得（`queue_declare(passive=True)`，只读，不改队列）。
+它只统计就绪消息，不含待确认的；正在执行的任务处于待确认状态，对应的 attempt 已经是 running，
+所以“队列为空 + 仍是 pending”只可能是丢了。查不到队列状态（RabbitMQ 连不上）时跳过规则 ②。
+**消费者数为 0 时不补发**：没有 worker 在线，补发也没人收，这是“worker 全挂了”，交给告警处理。
+
+**动作**：
+
+```sql
+-- 补发：复用同一行 outbox，改回 pending，下一秒 dispatch_once 就会投递
+UPDATE outbox SET status='pending', next_attempt_at=now(), redeliveries=redeliveries+1
+WHERE id=:id AND status='sent';
+```
+
+- 复用同一行：outbox 上“同一个 attempt 最多一条 pending”的部分唯一索引仍然成立；重新投递时 `sent_at` 会更新，
+  这条消息重新排到队尾，水位线按新时间计算。
+- **补发上限 3 次**：第 4 次判定丢失时不再补发，改为把 attempt 判失败
+  （`UPDATE attempts SET status='failed', error='delivery_lost', lease_epoch=lease_epoch+1 WHERE id=:id AND status='pending'`，
+  同一事务里 run 判失败、写 `attempt_failed` 事件）。用户可以点“重新生成”，同时触发告警。
+- 并发安全：所有更新都带状态条件。巡检判定的同时如果 worker 刚好领取了，attempt 已经是 running，
+  判失败那条更新 0 行；补发出去的那条消息到了 worker 手里，也会被 `claim` 挡住。
+- 每次补发记一条 warning 日志，并计数（M6 接到监控，“补发次数 > 0”就告警：说明消息中转站出了问题）。
+
+**查询**（水位线只看最近 1 小时，避免扫全表）：
+
+```sql
+-- 候选：数量很少
+SELECT o.id, o.attempt_id, o.sent_at, o.redeliveries
+FROM outbox o JOIN attempts a ON a.id = o.attempt_id
+WHERE o.status = 'sent' AND a.status = 'pending' AND o.sent_at < now() - interval '2 minutes';
+
+-- 水位线：已被领取的任务里最晚的投递时间
+SELECT max(o.sent_at)
+FROM outbox o JOIN attempts a ON a.id = o.attempt_id
+WHERE o.status = 'sent' AND a.status <> 'pending' AND o.sent_at > now() - interval '1 hour';
+-- 候选 sent_at < 水位线  →  规则 ① 成立
+```
+
+**表结构（迁移 0002）**：outbox 加 `redeliveries int not null default 0`（补发次数；不复用 `tries`，
+`tries` 是投递失败次数，用来算退避时间）；加部分索引 `outbox(sent_at) WHERE status='sent'`，供水位线查询使用。
+
+**前提与限制**：水位线依赖“同一个队列 + 先进先出”。以后加优先级队列或拆成多个队列，要按队列分别计算水位线。
+
+#### 测试（集成测试，真实 PG；队列状态作为参数传入，不依赖 RabbitMQ）
+
+1. 比我晚投递的任务已被领取、我仍 pending 且超过宽限期 → outbox 回到 pending，补发次数为 1
+2. 宽限期内（1 分钟前投递），即使水位线已越过也不补发（领取顺序抖动）
+3. 队列为空、pending 超过宽限期 → 补发
+4. 队列不空、水位线未越过、不到 30 分钟 → 不补发（正常排队）
+5. 已补发 3 次仍判定丢失 → attempt 判为 `delivery_lost` 失败、epoch + 1，之后可以重新生成
+6. 消费者数为 0 → 不补发
+7. （改造现有测试）RabbitMQ 连不上、或拒收（没有确认）时，outbox 保持 pending 并退避
+
+#### 切换步骤（M1.5）
+
+1. compose：新增 `rabbitmq` 服务（`rabbitmq:4-management-alpine`，5672 + 管理界面 15672 只绑 127.0.0.1，
+   数据卷、固定主机名、健康检查 `rabbitmq-diagnostics -q ping`、`consumer_timeout` 配置文件）；
+   worker、dispatcher 依赖它健康后再启动。
+2. 配置：新增 `MARGIN_BROKER_URL`（`amqp://...`），写进 `.env.example`；compose 里覆盖成容器内地址。
+3. `worker.py`：broker 改用新配置；删掉 `visibility_timeout`；打开发送确认。
+4. `dispatcher.py`：投递失败的异常范围加上“拒收 / 未确认”；新增 `requeue_lost` 和读取队列状态的函数，巡检时调用。
+5. 迁移 0002 + `models.py`。
+6. 依赖：`celery[redis]` 改为 `celery`（RabbitMQ 客户端是 Celery 的默认依赖）；Redis 客户端到 M2 做推流时再加。
+7. 文档：D19、本节、README 和 `review/01_运行链路.md` 里的队列描述。
+8. dispatcher 改为 LISTEN / NOTIFY 唤醒，见下一小节。
+
+#### dispatcher 用 LISTEN / NOTIFY 唤醒（代替每秒轮询）
+
+现在 `main()` 每轮 `time.sleep(1)` 后扫一次 outbox：空闲时每秒白查一次，有新任务时最多晚 1 秒才投递。
+
+- **发通知**：在写 outbox 的事务里执行 `NOTIFY outbox`。共两处：`runs._enqueue_attempt`（新任务），
+  和 `requeue_lost`（对账时把 outbox 改回 pending）。NOTIFY 是跟着事务走的：提交后才真正发出，回滚则取消，
+  所以 dispatcher 被叫醒时那一行一定已经能查到。同一事务里的多次相同通知会合并成一条。
+- **收通知**：dispatcher 另开一条**专用的自动提交连接**执行 `LISTEN outbox`（LISTEN 要求连接不在未提交的事务里，
+  所以不从连接池里借）；`time.sleep(1)` 改成用 psycopg 3 的 `notifies(timeout=...)` 等通知。
+- **定时扫描保留作兜底**：等待的上限 = min(距离最早一条退避记录到期还有多久, 10 秒)。
+  通知只负责“有新任务”，退避到期的重试、dispatcher 重启期间错过的通知（通知不持久，没人在听就丢了）都靠兜底扫描。
+- 15 秒一次的巡检（`expire_leases`、`requeue_lost`）不变。
+- 专用连接断开（PG 重启）时直接退出进程，由 compose 的 restart 策略拉起，和现在“数据库出错就退出”的策略一致。
+- **测试**：提交一个任务后，dispatcher 在 1 秒内（不靠兜底扫描）就把它投递出去；
+  事务回滚时不会收到通知、也不会投递。
 
 ---
 
@@ -194,11 +317,12 @@ Session 可以服务端随时吊销。
 | **M0 Harness 移植** ✅ | RC6-C 轻量移植、检索、模型客户端、44 个测试 | 测试通过；真实语料能检索 | Agent 循环、上下文管理、BM25/RRF |
 | **M0.5 真实运行** | 真实模型跑通几道题；LLM 客户端支持流式输出 | 3 类题各跑通一次 | OpenAI 接口、流式响应 |
 | **M1 最小服务闭环** ✅ | FastAPI + PG + Alembic + Celery/Redis；Outbox；幂等；步骤持久化（带 epoch 的提交）；最小巡检；重新生成；客户端超时；按 seq 的简单 SSE；Compose | 提交 → 后台执行 → 刷新可见；重复提交只建一个 run | 事务、索引、唯一约束、消息队列、幂等 |
+| **M1.5 队列切换与对账** | 消息队列换成 RabbitMQ；巡检对账补发丢失的消息（水位线 + 队列为空 + 兜底，补发上限后判失败）；迁移 0002；dispatcher 改为 LISTEN / NOTIFY 唤醒（见 5.7） | 清空队列后 pending 任务被补发并完成；对账 6 个场景的集成测试通过 | 消息确认、发送确认、通道、超时分层、对账 |
 | **M2 过程可视化** | 两层事件（实时片段带 epoch）；React 时间线（思考流式展开、工具卡片、引用批注） | 演示视频：思考逐字出现、刷新后历史完整 | SSE vs WebSocket、长连接、Nginx |
 | **M3 多用户与治理** | 登录、owner 隔离、配额、LLM 信号量、分层重试、开发者视图、证据缓存 | A 看不到 B；10 个并发任务模型并发不超限 | Session/JWT、XSS/CSRF、限流算法、Lua、缓存三问题 |
 | **M4 可靠性** | 接管（从断点继续）、监督者心跳（超时预算 + 卡死判定）、Inspector、取消、自动重试、故障注入集成测试（7 个场景，见 review/03） | kill worker 后任务被接管；取消后不再调用模型 | 分布式锁、fencing token、至少一次 vs 恰好一次 |
 | **M5 评测回放** | 固定题集作为批量任务跑同一条队列，产出准确率/步数/token 报告 | 一键回放 E80，报告可读 | 评测方法、批处理 |
-| **M6 交付** | Nginx、CI、README、演示视频、Locust 压测报告 | 一条命令启动；绿色 CI | 压测指标、部署 |
+| **M6 交付** | Nginx、CI、README、演示视频、Locust 压测报告；监控告警（`/metrics` + Prometheus + Grafana，规则见 review/m1_review.md 第四章第 10 节） | 一条命令启动；绿色 CI；面板能看到队列积压、补发次数、租约过期数，并能触发告警 | 压测指标、部署、可观测性（指标 / 日志 / 链路追踪）、告警设计 |
 
 **可选（时间够再做）**：B2 工具边界断点续跑（RC6-C 的笔记压缩让快照很小，比 RC6 好做）；
 把十个工具包装成 MCP Server；文档增量入库（pgvector）。
