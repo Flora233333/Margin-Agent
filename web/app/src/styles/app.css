@@ -1,0 +1,63 @@
+/*
+ * 设计稿（web/design）里没有、真实应用才需要的样式：表单控件、错误提示、空状态。
+ * tokens.css / base.css / clean.css 从设计稿原样复制（base.css 去掉了“设计评审面板”），不在那三个文件里改，
+ * 设计稿更新时直接覆盖即可。
+ */
+
+/* 发送按钮不可用（没输入内容或正在提交） */
+.send:disabled { opacity: 0.35; cursor: default; }
+
+/* 输入框底部：答案格式。chip 里放一个去掉外观的下拉框 */
+.composer-bar .chip { display: inline-flex; align-items: center; gap: 6px; }
+.composer-bar select {
+  font: inherit;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* 选择题的四个选项 */
+.composer-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-2);
+}
+.composer-options label { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); }
+.composer-options input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--space-2);
+}
+
+/* 错误提示：接口报错（422 字段错误、409、网络断开）时显示在输入框上方 */
+.form-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  max-width: var(--body-w, 760px);
+  font-size: var(--text-sm);
+  color: var(--danger);
+}
+
+/* 空状态：新提问页、404 页 */
+.empty { display: grid; gap: var(--space-3); justify-items: start; padding-top: var(--space-7); color: var(--ink-soft); }
+.empty p { margin: 0; }
+.empty .btn-new { width: auto; }
+.empty-title {
+  margin: 0;
+  font-family: var(--font-reading);
+  font-size: clamp(1.5rem, 1.1rem + 0.9vw, 2rem);
+  line-height: 1.35;
+  font-weight: 600;
+  color: var(--ink);
+}
+.empty-code { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }

@@ -1,0 +1,320 @@
+/*
+ * 简洁风「批注版式」：只在 <html data-style="clean"> 时生效，叠加在 base.css 之上。
+ *
+ * 思路：Margin = 页边批注。页面像一份带页边批注的研究稿，而不是聊天窗口。
+ *   1. 不对称的“跨页”：正文栏 + 右侧一条较窄的“页边”紧挨在一起，作为一个整体在页面居中，
+ *      多出的宽度分给左右两侧外边（像书页的外白边），中间不留空洞。
+ *      来源以旁注形式出现在引用它的那句话旁边，悬停时用一根细线把 [1] 和旁注连起来（由 demo.js 计算）。
+ *   2. 提问不再是气泡，而是这一页的大标题，下面一道主色短线。
+ *   3. 回答开头是“结论行”：大号数字 + 一行口径说明；运行信息变成回答底部的一行账目。
+ *   4. 左栏收成 56px 图标栏，悬停时展开成完整的历史列表（浮在内容上方，不挤压版面）。
+ *   5. 引用统一用“朱批”红，不随配色变化，作为整套设计的记忆点。
+ *
+ * 和默认布局最大的不同：整页（.app）一起滚动，正文和页边旁注才能保持对齐。
+ */
+
+:root[data-style="clean"] {
+  --rail: 56px;
+  --body-w: 720px;                         /* 正文一行的最大宽度，再宽就不好读了 */
+  --gutter: clamp(64px, 6vw, 96px);        /* 正文与页边旁注之间的间距：随屏宽略增，1440 宽时约 86px */
+  --margin-w: clamp(280px, 24vw, 360px);
+  --offset: 0px;                           /* 正文左侧内边距：宽屏由网格居中，不需要；窄屏见末尾 */
+  --cite: #b5381f;                         /* 朱批红 */
+  --cite-wash: #f8e2da;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-style="clean"]:not([data-theme="light"]) { --cite: #f08a70; --cite-wash: #3d2420; }
+}
+:root[data-style="clean"][data-theme="dark"] { --cite: #f08a70; --cite-wash: #3d2420; }
+
+/* 衬线版：只换“阅读字体”变量，界面部件仍是无衬线 */
+:root[data-style="clean"][data-font="serif"] { --font-reading: var(--font-serif); }
+
+/* ================================ 骨架：整页滚动 + 居中的跨页 ================================ */
+/*
+ * 五列：图标栏 | 左外白边 | 正文栏 | 页边旁注 | 右外白边
+ * 两个外白边都是 1fr，平分多出的宽度；正文栏和旁注之间只隔固定的 --gutter。
+ */
+:root[data-style="clean"] .app {
+  grid-template-columns:
+    var(--rail)
+    minmax(0, 1fr)
+    minmax(0, calc(var(--body-w) + var(--gutter)))
+    var(--margin-w)
+    minmax(0, 1fr);
+  overflow-y: auto;
+}
+/* 收起来源：页边列变成 44px 的竖排标签，跨页整体随之平滑回到居中 */
+:root[data-style="clean"] .app.is-sources-closed {
+  grid-template-columns:
+    var(--rail)
+    minmax(0, 1fr)
+    minmax(0, calc(var(--body-w) + var(--gutter)))
+    44px
+    minmax(0, 1fr);
+}
+:root[data-style="clean"] .sidebar { grid-column: 1; }
+:root[data-style="clean"] .main { grid-column: 3; }
+:root[data-style="clean"] .side-panel { grid-column: 4; }
+:root[data-style="clean"] .main,
+:root[data-style="clean"] .side-panel { overflow: visible; }
+:root[data-style="clean"] .main { min-height: 100vh; }
+
+/* ================================ 左：图标栏，悬停展开 ================================ */
+:root[data-style="clean"] .sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  width: var(--rail);
+  z-index: 6;
+  overflow: hidden;
+  padding: var(--space-4) 10px;
+  border-right: 1px solid var(--rule);
+  transition: width 0.35s var(--ease), box-shadow 0.35s var(--ease);
+}
+:root[data-style="clean"] .sidebar:hover,
+:root[data-style="clean"] .sidebar:focus-within {
+  width: 264px;
+  box-shadow: 16px 0 40px color-mix(in srgb, var(--ink) 10%, transparent);
+}
+/* 图标栏里只露出图标；文字在展开时稍晚淡入 */
+:root[data-style="clean"] .sidebar .label,
+:root[data-style="clean"] .brand-rest,
+:root[data-style="clean"] .history,
+:root[data-style="clean"] .quota {
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+}
+:root[data-style="clean"] .sidebar:is(:hover, :focus-within) :is(.label, .brand-rest, .history, .quota) {
+  opacity: 1;
+  transition-delay: 0.12s;
+}
+:root[data-style="clean"] .sidebar:not(:hover):not(:focus-within) .history { pointer-events: none; }
+
+:root[data-style="clean"] .brand { font-weight: 600; padding: 0 9px; font-family: var(--font-body); }
+:root[data-style="clean"] .brand-mark { color: var(--accent); }
+:root[data-style="clean"] .btn-new { padding: 7px 9px; border-radius: 10px; }
+
+/* 收起时代替历史列表的时钟图标，与展开后的列表同位置 */
+:root[data-style="clean"] .rail-history {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  top: 112px;
+  left: 10px;
+  width: 36px;
+  height: 32px;
+  color: var(--ink-soft);
+  transition: opacity 0.2s var(--ease);
+}
+:root[data-style="clean"] .sidebar:is(:hover, :focus-within) .rail-history { opacity: 0; }
+
+:root[data-style="clean"] .account { padding: var(--space-3) 4px 0; }
+:root[data-style="clean"] .avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--paper);
+  font-size: var(--text-xs);
+}
+
+/* ================================ 中：正文栏 ================================ */
+:root[data-style="clean"] .main-head {
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom-color: transparent;
+  padding-left: var(--offset);
+}
+:root[data-style="clean"] .main-title { font-weight: 400; font-size: var(--text-sm); color: var(--ink-faint); }
+
+:root[data-style="clean"] .thread {
+  max-width: calc(var(--body-w) + var(--gutter) + var(--offset));
+  margin: 0;
+  padding: var(--space-7) var(--gutter) var(--space-5) var(--offset);
+  gap: var(--space-6);
+}
+
+/* 提问 = 大标题 + 主色短线（短线从左向右长出来） */
+:root[data-style="clean"] .ask { justify-items: start; gap: var(--space-2); }
+:root[data-style="clean"] .ask-meta {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+:root[data-style="clean"] .bubble {
+  max-width: 100%;
+  background: none;
+  padding: 0;
+  border-radius: 0;
+  font-family: var(--font-reading);
+  font-size: clamp(1.5rem, 1.1rem + 0.9vw, 2rem);
+  line-height: 1.35;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  /* 中文标题优先在空格和标点处换行，避免把“增长率”拆成两行；实在放不下时才任意断开 */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+:root[data-style="clean"] .bubble::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 3px;
+  margin-top: var(--space-4);
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: left;
+  animation: rule-grow 0.8s var(--ease) 0.2s both;
+}
+@keyframes rule-grow { from { transform: scaleX(0); } }
+
+/* 过程区：去掉边框，只留底色；运行中左侧多一道主色细线 */
+:root[data-style="clean"] .work {
+  border-color: transparent;
+  border-radius: 14px;
+  transition: box-shadow 0.4s var(--ease);
+}
+:root[data-style="clean"] .work.is-running { box-shadow: inset 2px 0 0 var(--accent); }
+
+/* 结论行 */
+:root[data-style="clean"] .verdict {
+  display: block;
+  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--rule);
+}
+:root[data-style="clean"] .verdict-main { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2) var(--space-4); }
+:root[data-style="clean"] .verdict-figure {
+  font-family: "Inter", var(--font-body);   /* 等宽字体的小数点太宽，大号数字改用 Inter 的等宽数字 */
+  font-size: 2.75rem;
+  line-height: 1;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+:root[data-style="clean"] .verdict-unit { font-size: 0.55em; margin-left: 2px; }
+:root[data-style="clean"] .verdict-label { font-family: var(--font-body); font-size: var(--text-sm); color: var(--ink-soft); }
+:root[data-style="clean"][data-font="serif"] .verdict-figure {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+:root[data-style="clean"] .answer .lead { display: none; }   /* 结论行已经说了，正文不再重复 */
+:root[data-style="clean"][data-font="serif"] .answer { font-size: 1.125rem; line-height: 1.9; }
+
+/* 回答底部的账目行，替代右栏“运行信息” */
+:root[data-style="clean"] .answer-foot { flex-wrap: wrap; padding-top: var(--space-3); border-top: 1px solid var(--rule); }
+:root[data-style="clean"] .answer-foot .hint { display: none; }
+:root[data-style="clean"] .ledger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-2);
+  flex-basis: 100%;               /* 账目独占一行，操作按钮在下一行，不会被挤得零散换行 */
+  margin-bottom: var(--space-1);
+  font-family: var(--font-mono);
+  color: var(--ink-faint);
+}
+:root[data-style="clean"] .ledger > span + span::before { content: "·"; margin-right: var(--space-2); }
+:root[data-style="clean"] .facts-section { display: none; }
+
+/* 输入框与正文栏左对齐 */
+:root[data-style="clean"] .composer-wrap { padding-left: var(--offset); padding-right: var(--gutter); }
+:root[data-style="clean"] .composer { max-width: var(--body-w); margin: 0; }
+
+/* ================================ 右：页边旁注 ================================ */
+:root[data-style="clean"] .side-panel { border-left: 0; }
+:root[data-style="clean"] .panel-body { display: block; padding: 0 var(--space-5) var(--space-7) 0; }
+:root[data-style="clean"] .panel-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding: var(--space-3) 0;
+  background: color-mix(in srgb, var(--paper) 82%, transparent);
+  backdrop-filter: blur(10px);
+}
+/* 旁注在轨道里绝对定位，top 由 demo.js 算出：与引用它的那一行对齐，互相不重叠 */
+:root[data-style="clean"] .margin-track { position: relative; display: block; }
+:root[data-style="clean"] .margin-item {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  transition:
+    top 0.5s var(--ease),          /* 与过程区折叠、原文展开同样时长，和内容同步到达 */
+    grid-template-rows 0.5s var(--ease),
+    opacity 0.45s var(--ease) 0.08s,
+    transform 0.5s var(--ease);
+}
+/* 旁注出现时从左侧（正文方向）轻轻滑出，而不是从上方 */
+:root[data-style="clean"] .margin-item.is-hidden { transform: translateX(-12px); }
+/* 第一次定位的那一刻：去掉 top 的过渡（直接到位），其余过渡保留 */
+:root[data-style="clean"] .margin-item.is-placing {
+  transition:
+    grid-template-rows 0.5s var(--ease),
+    opacity 0.45s var(--ease) 0.08s,
+    transform 0.5s var(--ease);
+}
+:root[data-style="clean"] .source {
+  --card-bg: var(--paper);
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  padding: 10px var(--space-2) var(--space-3);
+}
+:root[data-style="clean"] .source:hover,
+:root[data-style="clean"] .source.is-linked { --card-bg: var(--surface-2); }
+:root[data-style="clean"] .source.is-linked { border-top-color: var(--cite); }
+:root[data-style="clean"] .source-no { font-weight: 600; }
+:root[data-style="clean"] .source.is-flash { animation: note-flash 1.2s var(--ease); }
+@keyframes note-flash { from { background-color: var(--cite-wash); } }
+:root[data-style="clean"] .group { padding: 0 var(--space-2); }
+
+/* 引用 → 旁注的连线：pathLength=1 + dashoffset 从 1 到 0，线像被画出来 */
+:root[data-style="clean"] .connector {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 4;
+}
+.connector path {
+  fill: none;
+  stroke: var(--cite);
+  stroke-width: 1;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 0.5s var(--ease);
+}
+.connector path.is-on { stroke-dashoffset: 0; }
+:root[data-style="clean"] .is-sources-closed .connector { display: none; }
+
+/* ================================ 窄屏 ================================ */
+@media (max-width: 1180px) {
+  /* 页边放到正文下方，旁注改为普通列表，不再对齐和连线 */
+  :root[data-style="clean"] .app,
+  :root[data-style="clean"] .app.is-sources-closed { grid-template-columns: var(--rail) minmax(0, 1fr); overflow: visible; }
+  :root[data-style="clean"] { --offset: clamp(24px, 6.5vw, 104px); }   /* 窄屏没有页边列：正文偏左，保留不对称 */
+  :root[data-style="clean"] .main,
+  :root[data-style="clean"] .side-panel { grid-column: 2; }
+  :root[data-style="clean"] .main { min-height: 0; }
+  :root[data-style="clean"] .panel-body { padding-left: var(--offset); max-width: calc(var(--body-w) + var(--offset)); }
+  :root[data-style="clean"] .margin-track { display: grid; gap: var(--space-5); }
+  :root[data-style="clean"] .margin-item { position: static; }
+  :root[data-style="clean"] .connector { display: none; }
+}
+@media (max-width: 760px) {
+  :root[data-style="clean"] { --offset: var(--space-4); }
+  :root[data-style="clean"] .verdict-figure { font-size: 2.25rem; }
+  :root[data-style="clean"] .bubble { word-break: normal; }   /* 窄屏放不下整段，交给浏览器按标点规则断行 */
+}
+:root[data-style="clean"] .source-no::before, :root[data-style="clean"] .source-no::after { content: none; }
