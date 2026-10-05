@@ -139,7 +139,7 @@ flowchart TB
   60 秒无回应判定卡死 → `os._exit` 结束子进程，Celery 补新进程，任务由别人接管；Celery 硬时限 25 分钟只防整个进程冻住。
 - **被取代的 worker**：续租 / 提交 / 主线程检查点任一处发现 epoch 不对就停止，不写任何东西；关闭 HTTP 流、回滚、
   释放模型并发名额（名额自带过期时间）。实时片段带 epoch，前端丢弃旧 epoch。
-- **Celery 配置**：`acks_late=True` + `prefetch_multiplier=1`（每个槽位只拿正在跑的那一条），`visibility_timeout` 2 小时；
+- **Celery 配置**：`acks_late=True` + `prefetch_multiplier=1`（每个槽位只拿正在跑的那一条），确认期限 `consumer_timeout` 1 小时（M1.5 起用 RabbitMQ，见 5.7；M1 用 Redis 时是 `visibility_timeout` 2 小时）；
   M1 一个 worker 容器 4 个子进程，扩容加容器。队列只是唤醒信号，谁执行由数据库决定。
 
 ### 5.3 幂等提交
@@ -244,7 +244,8 @@ WHERE o.status = 'sent' AND a.status = 'pending' AND o.sent_at < now() - interva
 -- 水位线：已被领取的任务里最晚的投递时间
 SELECT max(o.sent_at)
 FROM outbox o JOIN attempts a ON a.id = o.attempt_id
-WHERE o.status = 'sent' AND a.status <> 'pending' AND o.sent_at > now() - interval '1 hour';
+WHERE o.status = 'sent' AND a.started_at IS NOT NULL AND o.sent_at > now() - interval '1 hour';
+-- （实现时把原来的 a.status <> 'pending' 改成 started_at：判为 delivery_lost 的不算“已被领取”，D21）
 -- 候选 sent_at < 水位线  →  规则 ① 成立
 ```
 
@@ -269,7 +270,7 @@ WHERE o.status = 'sent' AND a.status <> 'pending' AND o.sent_at > now() - interv
    数据卷、固定主机名、健康检查 `rabbitmq-diagnostics -q ping`、`consumer_timeout` 配置文件）；
    worker、dispatcher 依赖它健康后再启动。
 2. 配置：新增 `MARGIN_BROKER_URL`（`amqp://...`），写进 `.env.example`；compose 里覆盖成容器内地址。
-3. `worker.py`：broker 改用新配置；删掉 `visibility_timeout`；打开发送确认。
+3. `worker.py`：broker 改用新配置；删掉 `visibility_timeout`。发送确认实际开在 dispatcher 自己的 publisher 上（D21）。
 4. `dispatcher.py`：投递失败的异常范围加上“拒收 / 未确认”；新增 `requeue_lost` 和读取队列状态的函数，巡检时调用。
 5. 迁移 0002 + `models.py`。
 6. 依赖：`celery[redis]` 改为 `celery`（RabbitMQ 客户端是 Celery 的默认依赖）；Redis 客户端到 M2 做推流时再加。
@@ -317,7 +318,7 @@ WHERE o.status = 'sent' AND a.status <> 'pending' AND o.sent_at > now() - interv
 | **M0 Harness 移植** ✅ | RC6-C 轻量移植、检索、模型客户端、44 个测试 | 测试通过；真实语料能检索 | Agent 循环、上下文管理、BM25/RRF |
 | **M0.5 真实运行** | 真实模型跑通几道题；LLM 客户端支持流式输出 | 3 类题各跑通一次 | OpenAI 接口、流式响应 |
 | **M1 最小服务闭环** ✅ | FastAPI + PG + Alembic + Celery/Redis；Outbox；幂等；步骤持久化（带 epoch 的提交）；最小巡检；重新生成；客户端超时；按 seq 的简单 SSE；Compose | 提交 → 后台执行 → 刷新可见；重复提交只建一个 run | 事务、索引、唯一约束、消息队列、幂等 |
-| **M1.5 队列切换与对账** | 消息队列换成 RabbitMQ；巡检对账补发丢失的消息（水位线 + 队列为空 + 兜底，补发上限后判失败）；迁移 0002；dispatcher 改为 LISTEN / NOTIFY 唤醒（见 5.7） | 清空队列后 pending 任务被补发并完成；对账 6 个场景的集成测试通过 | 消息确认、发送确认、通道、超时分层、对账 |
+| **M1.5 队列切换与对账** ✅ | 消息队列换成 RabbitMQ；巡检对账补发丢失的消息（水位线 + 队列为空 + 兜底，补发上限后判失败）；迁移 0002；dispatcher 改为 LISTEN / NOTIFY 唤醒（见 5.7） | 清空队列后 pending 任务被补发并完成；对账 6 个场景的集成测试通过 | 消息确认、发送确认、通道、超时分层、对账 |
 | **M2 过程可视化** | 两层事件（实时片段带 epoch）；React 时间线（思考流式展开、工具卡片、引用批注） | 演示视频：思考逐字出现、刷新后历史完整 | SSE vs WebSocket、长连接、Nginx |
 | **M3 多用户与治理** | 登录、owner 隔离、配额、LLM 信号量、分层重试、开发者视图、证据缓存 | A 看不到 B；10 个并发任务模型并发不超限 | Session/JWT、XSS/CSRF、限流算法、Lua、缓存三问题 |
 | **M4 可靠性** | 接管（从断点继续）、监督者心跳（超时预算 + 卡死判定）、Inspector、取消、自动重试、故障注入集成测试（7 个场景，见 review/03） | kill worker 后任务被接管；取消后不再调用模型 | 分布式锁、fencing token、至少一次 vs 恰好一次 |

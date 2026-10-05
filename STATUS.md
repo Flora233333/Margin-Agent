@@ -2,7 +2,7 @@
 
 更新：2026-10-06
 
-## 所在阶段：M1 完成并 review 结束；下一个会话连续执行 M1.5（队列换 RabbitMQ + 对账 + 通知唤醒）→ M2
+## 所在阶段：M1.5 完成（待作者 review）；正在执行 M2 过程可视化
 
 计划全文见 [docs/PLAN.md](docs/PLAN.md)。
 
@@ -77,7 +77,8 @@
 - 检索（`src/margin/retrieval/`）：BM25（scipy 稀疏矩阵）+ 实体别名 + 可选向量，RRF 融合。
   在真实语料上验证：17,596 个 block，首次建索引约 100 秒，缓存 41MB，之后加载 1.3 秒。
 - OpenAI 兼容模型客户端（`src/margin/llm/`），统一 reasoning_content / reasoning 字段。
-- 75 个测试：51 个单元测试（`conda run -n margin pytest`）+ 24 个接口 / 集成测试（`pytest -m integration`，连真实 PG），全部通过，ruff 无报错。
+- 84 个测试：51 个单元测试（`conda run -n margin pytest`）+ 33 个接口 / 集成测试（`pytest -m integration`，连真实 PG），全部通过，ruff 无报错。
+- M1.5：任务队列换成 RabbitMQ（发送确认、持久化）；巡检对账补发丢失的消息；dispatcher 由 LISTEN / NOTIFY 唤醒。
 - 前端设计稿第三版 `web/design/`，只在本地打开 `preview.html`：
   - 三种风格：简洁「批注版式」（`clean.css`，含衬线开关）、手绘（`sketch.css`，作者已认可，外观不再改）、
     瑞士 + 扁平矢量（`swiss.css`）；公共结构与动效在 `base.css`。
@@ -159,19 +160,45 @@ review 中发现的问题和决定：
 - **决定（D19）**：任务队列换成 RabbitMQ；巡检增加对账补发（水位线为主）。完整方案见 PLAN §5.7。
 - **决定**：M6 加监控告警（`/metrics` + Prometheus + Grafana），规则草稿在 review 第四章第 10 节。
 
-## 下一步：M1.5 队列切换与对账（PLAN §5.7，在 M2 之前做）
+## M1.5 记录（2026-10-06 完成，提交 e77012a … aa414b3 + 收尾，取舍见 D21）
 
-M2 要让 Redis 承担实时推流，所以先把任务队列从 Redis 拆出去。每一步一个小提交，连续推进，作者事后逐个 review；
-每步都要 `pytest`、`pytest -m integration`、`ruff check` 通过。
+逐个提交的说明、总览、测试地图在 [review/02_代码导读/M1.5_队列与对账.md](review/02_代码导读/M1.5_队列与对账.md)。
+
+做了什么（按提交顺序）：
+
+1. M1.5-1 迁移 0002：outbox 加 `redeliveries` + 部分索引 `ix_outbox_sent_at`；开发库 0001→0002 数据不丢。
+2. M1.5-2 compose 加 rabbitmq（`rabbitmq:4-management-alpine`、数据卷、`hostname: rabbitmq`、`consumer_timeout` 1 小时）。
+3. M1.5-3 worker / dispatcher 改用 RabbitMQ；dispatcher 用自己的 publisher 打开发送确认 + 超时；`clock_timestamp()`。
+4. M1.5-4 对账 `requeue_lost`：三条规则 + 补发。
+5. M1.5-5 补发上限 3 次后判 `delivery_lost`；被动声明读队列状态；接进巡检。
+6. M1.5-6 dispatcher 用 LISTEN / NOTIFY 唤醒。
+
+结束条件核对：
+
+1. 自动化：84 个测试（单元 51 + 集成 33，M1 的 75 个 + 新增 9 个）全部通过，ruff 无报错，`alembic check` 无差异。✅
+2. 故障演练（2026-10-06，compose 8 个服务 + 真实 DeepSeek）：✅
+   - **重启 RabbitMQ**：停 worker 后提交，队列就绪 1 条；`docker compose restart rabbitmq` 后仍是 1 条；启动 worker 后完成。
+     另外观察到：RabbitMQ 重启后 dispatcher 第一次投递失败（旧连接已断），2 秒退避后成功（取舍 2 预计的代价）。
+   - **清空队列**：停 worker、提交、管理接口清空队列；2 分 30 秒内消费者为 0 **不补发**；启动 worker 13 秒后巡检补发
+     （规则 ②“队列为空”），4 秒后被领取，10 秒完成，`redeliveries=1`。
+   - **执行中 kill worker**：第 3 步后 kill，RabbitMQ 立刻把未确认的消息放回队列；97 秒后判 `lease_expired`，3 步保留；
+     重启 worker 后收到那条消息，`claim` 拒绝并跳过。
+   - **LISTEN / NOTIFY**：提交到投递 8～43 毫秒；空闲 40 秒 dispatcher 只查了 6 次库（间隔 5～11 秒）。
+3. Redis 不再承担任务队列：worker / dispatcher 的 broker 和 `depends_on` 都是 rabbitmq；`MARGIN_REDIS_URL` 只留给 M2 推流。✅
+4. 文档：D19 与实现一致（差异记在 D21）；README、运行链路图更新为 8 个服务。作者 review 待进行。
+
+和方案的差异：见下方“执行中的取舍”1～5，以及 worker 临时队列改为独占（RabbitMQ 4 的要求）。
+
+原计划的步骤表（全部完成）：
 
 | 步骤 | 内容 | 这一步的完成标准 |
 |---|---|---|
 | 0. review 收尾 ✅ | 本轮文档（m1_review 五章、PLAN §5.4 / §5.7、D19、STATUS）已提交 | 作者已确认 review 结束 |
-| 1. 迁移 0002 | outbox 加 `redeliveries`（默认 0）+ 部分索引 `outbox(sent_at) WHERE status='sent'`；models.py 同步 | 空库 `upgrade head` 成功；已有 M1 数据的库从 0001 升到 0002 数据不丢；`alembic check` 无差异 |
-| 2. 接入 RabbitMQ | compose 加 `rabbitmq`（数据卷、固定主机名、健康检查、`consumer_timeout` 1 小时）；`MARGIN_BROKER_URL`；worker 改 broker、删 `visibility_timeout`、开发送确认；`celery[redis]` → `celery`；dispatcher 捕获“拒收 / 未确认” | `docker compose up` 全部健康；提交一道题能跑完；管理界面能看到队列和 4 个预取；改造后的“中转站不可用时退避”测试通过 |
-| 3. 对账 `requeue_lost` | 水位线 / 队列为空 / 30 分钟兜底三条规则；补发上限 3 次后判 `delivery_lost`；消费者为 0 不补发 | PLAN §5.7 的 6 个集成测试通过 |
-| 4. LISTEN / NOTIFY | `_enqueue_attempt`、`requeue_lost` 里 NOTIFY；dispatcher 专用连接 LISTEN，兜底扫描最长 10 秒 | “提交后 1 秒内投递（不靠兜底扫描）”“事务回滚不投递”两个测试通过 |
-| 5. 验收与文档 | 手动故障演练；README、`review/01_运行链路.md`、`review/02_代码导读` 加 M1.5；STATUS 记录 | 见下方结束条件 |
+| 1. 迁移 0002 ✅ | outbox 加 `redeliveries`（默认 0）+ 部分索引 `outbox(sent_at) WHERE status='sent'`；models.py 同步 | 空库 `upgrade head` 成功；已有 M1 数据的库从 0001 升到 0002 数据不丢；`alembic check` 无差异 |
+| 2. 接入 RabbitMQ ✅ | compose 加 `rabbitmq`（数据卷、固定主机名、健康检查、`consumer_timeout` 1 小时）；`MARGIN_BROKER_URL`；worker 改 broker、删 `visibility_timeout`、开发送确认；`celery[redis]` → `celery`；dispatcher 捕获“拒收 / 未确认” | `docker compose up` 全部健康；提交一道题能跑完；管理界面能看到队列和 4 个预取；改造后的“中转站不可用时退避”测试通过 |
+| 3. 对账 `requeue_lost` ✅ | 水位线 / 队列为空 / 30 分钟兜底三条规则；补发上限 3 次后判 `delivery_lost`；消费者为 0 不补发 | PLAN §5.7 的 6 个集成测试通过 |
+| 4. LISTEN / NOTIFY ✅ | `_enqueue_attempt`、`requeue_lost` 里 NOTIFY；dispatcher 专用连接 LISTEN，兜底扫描最长 10 秒 | “提交后 1 秒内投递（不靠兜底扫描）”“事务回滚不投递”两个测试通过 |
+| 5. 验收与文档 ✅ | 手动故障演练；README、`review/01_运行链路.md`、`review/02_代码导读` 加 M1.5；STATUS 记录 | 见下方结束条件 |
 
 **M1.5 结束条件（全部满足才算完成）：**
 
@@ -184,7 +211,7 @@ M2 要让 Redis 承担实时推流，所以先把任务队列从 Redis 拆出去
 3. Redis 不再承担任务队列（代码和 compose 里 worker / dispatcher 不再依赖 redis）。
 4. 文档：D19 与实现一致；README 的启动说明、运行链路图更新为 8 个服务；作者 review 完全部提交。
 
-## 再下一步：M2 过程可视化
+## 下一步：M2 过程可视化
 
 **开始写代码前必读（作者要求）**：AGENTS.md 的“代码风格”和“测试”两节。要点——
 中文注释讲清“为什么”和概念（读者是后端初学者）；**不写防御性代码**（只在模型参数、外部服务、用户输入这些边界处理错误，

@@ -184,3 +184,25 @@
 - **替代**：Redis 通知（worker 提交事务后再 publish）——要自己保证“先提交后通知”，且多一个依赖点；没选。
 - **不变**：模型逐字输出的思考片段仍走 Redis pub/sub（不落库、量大，NOTIFY 单条上限 8KB 且会经过 PG）。
 - **是否需要重新评测**：不需要。
+
+### D21 · 2026-10-06 · M1.5 实现时的取舍（待作者 review 确认）
+
+执行时作者不在场，按“选最稳妥的方案继续、记进 STATUS”处理；作者确认后本条即为定稿。细节和实测见
+`review/02_代码导读/M1.5_队列与对账.md`。
+
+- **发送确认开在 dispatcher 自己的 Celery 实例上**（`dispatcher.make_publisher`），不在 worker.py 的 `celery_app` 上：
+  只有 dispatcher 发任务消息；它的连接还要加 socket 读写超时，不想影响 worker 的连接。两处都用默认的任务队列 `celery`。
+- **发送要有超时，且关掉 Celery 内部重试**：实测（celery 5.6.3 / RabbitMQ 4.3.6）连不上、拒收、迟迟不确认三种失败都抛
+  `kombu.exceptions.OperationalError`，所以 except 范围不变；但 RabbitMQ 内存告警时，只设 `confirm_timeout` 会让
+  dispatcher 永远卡在关闭通道，加 `read_timeout` / `write_timeout` 10 秒后约 27 秒抛出。Celery 默认的 3 次立即重试会再放大 4 倍，
+  dispatcher 已有退避，所以 `task_publish_retry=False`。代价：RabbitMQ 重启后第一条投递失败一次、2 秒后重发（演练已见）。
+- **dispatcher 的时间用 `clock_timestamp()`**：`now()` 是事务开始时间，发送耗时超过退避时间时退避失效；同一批的 `sent_at`
+  完全相同会让水位线分不出先后。是 M1 就有的问题，被新的退避测试暴露。
+- **水位线的“已被领取”用 `attempts.started_at IS NOT NULL`**（PLAN §5.7 原写 `status <> 'pending'`）：判为
+  `delivery_lost` 的 attempt 不是 pending 但从未被领取，按状态算会抬高水位线、误判前面正常排队的任务。
+- **读队列状态时队列不存在当作“没有消费者”**：否则 `NotFound` 会让 dispatcher 每 15 秒崩溃一次。
+- **worker 的远程控制 / 事件队列改为独占**（`control_queue_exclusive`、`event_queue_exclusive`）：RabbitMQ 4 禁止
+  不持久又不独占的队列，worker 启动即报错。
+- **注意**：py-amqp 的 `read_timeout` 按 Linux 格式设置 `SO_RCVTIMEO`，在 Windows 上会被当成毫秒。
+  dispatcher 只跑在容器里不受影响；在 Windows 上做 RabbitMQ 实验时数字不可信。
+- **是否需要重新评测**：不需要，不涉及模型接口和检索。

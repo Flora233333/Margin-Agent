@@ -5,7 +5,7 @@
 用户对年报、债券募集说明书、保险条款等长文档提问（跨文档、跨年度、需要计算），
 Agent 自己检索、阅读原文、核对口径、计算，并给每个结论标注原文出处。
 
-> 当前阶段：M1 完成。提交 → 后台 worker 执行 → 每一步落库 → SSE 推送的服务闭环已跑通，前端在 M2。进度见 [STATUS.md](STATUS.md)。
+> 当前阶段：M1.5 完成。提交 → RabbitMQ → 后台 worker 执行 → 每一步落库 → SSE 推送的服务闭环已跑通，消息丢失能由巡检对账补回；前端在 M2。进度见 [STATUS.md](STATUS.md)。
 
 ## 结构
 
@@ -18,7 +18,7 @@ src/margin/
   runs.py       建任务（Outbox + 幂等）、查询、事件
   lease.py      租约 + epoch：领取、带 epoch 提交、续租、巡检
   worker.py     Celery worker：执行 Harness，每一步写库
-  dispatcher.py 把 outbox 投递到队列；租约巡检
+  dispatcher.py 把 outbox 投递到 RabbitMQ（LISTEN / NOTIFY 唤醒）；租约巡检、消息丢失对账
   models.py     数据库表；结构变更走 migrations/（Alembic）
   settings.py   配置（MARGIN_* 环境变量 / .env）
 tests/          pytest，假模型 FakeLLM 驱动，不调用真实模型；-m integration 连真实 PG
@@ -45,7 +45,7 @@ conda run -n margin --no-capture-output python scripts/run_episode.py "甲公司
 ## 启动整套服务
 
 ```bash
-# 在 WSL 的 Docker 里起 7 个服务：postgres、redis、embedding、migrate（迁移后退出）、api、worker、dispatcher
+# 在 WSL 的 Docker 里起 8 个服务：postgres、rabbitmq、redis、embedding、migrate（迁移后退出）、api、worker、dispatcher
 wsl -d Ubuntu-22.04 -- bash -lc "cd /mnt/d/competition/margin-agent && docker compose up -d --build --wait"
 # 只需一次：把 RC6-C 的向量导入 PG（表由迁移建好）
 conda run -n margin --no-capture-output python scripts/import_vectors.py .cache/chroma/rc6-local-qwen3emb06b-q8_0-v2/chroma
@@ -61,7 +61,9 @@ curl http://127.0.0.1:8000/runs/1                # 完整记录
 ```
 
 - embedding 模型 `models/Qwen3-Embedding-0.6B-Q8_0.gguf` 不进仓库，需要自己放进去（compose 只读挂载给容器）。
-- 集成测试：`conda run -n margin pytest -m integration`（会新建测试库 margin_test，不碰开发库）。
+- RabbitMQ 管理界面：http://127.0.0.1:15672（用户 `margin`，密码是 `.env` 的 `MARGIN_MQ_PASSWORD`，默认 `margin_dev`），
+  能看到任务队列 `celery` 的排队数、消费者数和预取数。
+- 集成测试：`conda run -n margin pytest -m integration`（会新建测试库 margin_test，不碰开发库；只需要 PG）。
 - WSL 空闲时会自动关机，服务随之停止；跑长任务时保持一个 WSL 终端开着。
 
 ## 文档
