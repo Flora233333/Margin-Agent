@@ -18,8 +18,8 @@
    一个测试对应一个会出事故的场景、只用 `conda run -n margin`）。
 2. 读这些已定下来的设计，不要重新讨论：
    - PLAN §5.7：RabbitMQ 配置、`requeue_lost` 三条规则、补发上限、查询 SQL、6 个测试、切换步骤、LISTEN / NOTIFY 小节；
-   - PLAN §5.4：M2 的“有新事件”通知用 PG NOTIFY 还是 Redis，**M2 开工时比较后写进 DECISIONS**；
-   - DECISIONS D19（为什么换 RabbitMQ、被放弃的方案）。
+   - PLAN §5.4：M2 的“有新事件”通知**已定用 PG LISTEN / NOTIFY**（D20），逐字片段走 Redis pub/sub；
+   - DECISIONS D19（为什么换 RabbitMQ、被放弃的方案）、D20。
 3. 背景（可选）：`review/m1_review.md` 第四、五章是作者 review 时的问答，讲清了租约、`_fence`、Celery 进程结构、
    RabbitMQ 预取与确认、水位线对账的来龙去脉。
 4. 确认基线：`conda run -n margin python -c "import sys; print(sys.prefix)"` 指向 margin 环境；
