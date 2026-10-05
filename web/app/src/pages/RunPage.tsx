@@ -6,10 +6,12 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ApiError, getRun, type RunDetail } from '../api'
+import { ApiError, getRun, regenerate, type RunDetail } from '../api'
 import { citationsOf } from '../citations'
 import { Answer } from '../components/Answer'
 import { Composer } from '../components/Composer'
+import { Failure } from '../components/Failure'
+import { Icon } from '../components/Icons'
 import { Sources } from '../components/Sources'
 import { Work } from '../components/Work'
 import { useRunStream } from '../useRunStream'
@@ -67,9 +69,11 @@ interface ViewProps {
 }
 
 function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
+  const [actionError, setActionError] = useState('') // 重新生成失败（409 等）的提示
   // 打开页面时题目还在执行：等它结束要刷新左侧列表的状态点。打开时已结束的题不用（列表本来就是对的）
   const watching = useRef(run.status === 'queued' || run.status === 'running')
-  const { timeline, connection } = useRunStream(run.id, () => {
+  const { timeline, connection, reopen } = useRunStream(run.id, () => {
+    setActionError('') // 例如执行中点重新生成得到的 409 提示，执行结束后就过时了
     if (watching.current) {
       watching.current = false
       onRunsChanged()
@@ -78,6 +82,24 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
   const thread = useRef<HTMLDivElement>(null)
   const [linked, setLinked] = useState<number | null>(null) // 鼠标停在哪个引用上：[n] 和旁注一起高亮
   const [flash, setFlash] = useState({ no: 0, count: 0 }) // 点了哪个 [n]：对应旁注展开并闪一下
+
+  /**
+   * 重新生成：后端新建一次执行（旧的执行和步骤都保留），前端重新打开事件流，从已收到的最后一个 seq 之后接着收。
+   * 按钮一直可以点，执行中点了由后端返回 409“这道题还在执行中”：是否允许以后端为准，
+   * 前端的状态可能是旧的（例如另一个标签页刚点过重新生成）。
+   */
+  async function onRegenerate() {
+    setActionError('')
+    try {
+      await regenerate(run.id)
+    } catch (e) {
+      setActionError(e instanceof ApiError ? e.message : String(e))
+      return
+    }
+    watching.current = true // 这次执行结束时要刷新左侧列表
+    onRunsChanged() // 列表里这道题变回“执行中”
+    reopen()
+  }
 
   // 来源只显示最近一次执行的引用；更早的执行只保留过程和结论，不再标引用编号
   const latest = timeline.attempts.at(-1)
@@ -92,6 +114,10 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
           <span className="main-title">{run.question}</span>
           {connection === 'retrying' && <span className="main-meta is-warn">连接中断，正在重连…</span>}
           <span className="main-meta">{run.model}</span>
+          <button className="icon-btn" type="button" onClick={() => void onRegenerate()}>
+            <Icon name="redo" />
+            重新生成
+          </button>
         </header>
         <div className="thread" ref={thread}>
           <div className="ask">
@@ -100,7 +126,6 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
           </div>
           {timeline.attempts.map((attempt) => {
             const isLatest = attempt === latest
-            const done = attempt.status === 'completed'
             return (
               <div className="attempt" key={attempt.id}>
                 {timeline.attempts.length > 1 && (
@@ -109,13 +134,14 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                   </div>
                 )}
                 <Work attempt={attempt} citeNos={isLatest ? citeNos : NO_CITES} />
-                {done && (
+                {attempt.status === 'failed' && <Failure error={attempt.error} />}
+                {attempt.status === 'completed' && (
                   <Answer
                     attempt={attempt}
                     format={run.answer_format}
                     options={run.options}
                     model={run.model}
-                    citations={isLatest ? citations : []}
+                    citations={isLatest ? citations : null}
                     linked={linked}
                     onCiteHover={setLinked}
                     onCiteClick={(no) => setFlash((f) => ({ no, count: f.count + 1 }))}
@@ -124,6 +150,12 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
               </div>
             )
           })}
+          {actionError && (
+            <p className="form-error" role="alert">
+              <Icon name="alert" />
+              {actionError}
+            </p>
+          )}
         </div>
         <Composer onCreated={onCreated} />
       </main>

@@ -3,6 +3,7 @@
  *   结论行  大号的答案 + 一行说明（简洁风的 .verdict）；
  *   依据    每条通过校验的引用一行，末尾是可点的编号 [n]，点了跳到右侧对应的来源旁注；
  *   账目行  模型、步数、引用数。
+ * 重新生成过的题，更早的执行只显示结论行（citations 传 null）：引用编号和右侧旁注只属于最近一次执行。
  * 模型交答案用的是 finalize 工具（answers 数组），不写一段自然语言回答，所以“正文”就是依据列表。
  */
 
@@ -30,7 +31,7 @@ interface Props {
   format: AnswerFormat
   options: Record<string, string> | null
   model: string
-  citations: Citation[]
+  citations: Citation[] | null
   linked: number | null
   onCiteHover: (no: number | null) => void
   onCiteClick: (no: number) => void
@@ -78,9 +79,13 @@ function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' 
 
 export function Answer(props: Props) {
   const { attempt, citations, model, linked, onCiteHover, onCiteClick } = props
+  const verdict = <Verdict attempt={attempt} format={props.format} options={props.options} />
+  if (citations === null) {
+    return <section className="answer is-earlier">{verdict}</section>
+  }
   return (
     <section className="answer">
-      <Verdict attempt={attempt} format={props.format} options={props.options} />
+      {verdict}
       {citations.length > 0 && (
         <ol className="evidence">
           {citations.map((c) => (

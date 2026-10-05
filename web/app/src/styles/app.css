@@ -89,3 +89,19 @@
 .source-line { white-space: pre-wrap; overflow-wrap: anywhere; }
 .source.is-expanded .source-text { max-height: 40em; }
 .sources-empty { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }
+
+/* 执行失败的说明 */
+.failure {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
+  border-radius: var(--radius);
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+.failure .icon { margin-top: 4px; }
+.failure p { margin: 0; }
+.failure-hint { color: var(--ink-soft); }
+/* 更早的执行：只留结论行，去掉分隔线 */
+:root[data-style="clean"] .answer.is-earlier .verdict { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
