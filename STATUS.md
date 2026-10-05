@@ -183,8 +183,8 @@ M2 要让 Redis 承担实时推流，所以先把任务队列从 Redis 拆出去
 M2 范围（PLAN §7）：
 
 1. 两层事件：worker 把思考片段（带 epoch）发到 Redis pub/sub；SSE 同时转发实时片段和持久事件；
-   API 改为收到“有新事件”的通知再查库，代替每秒轮询；通知用 PG LISTEN / NOTIFY 还是 Redis，开工时比较后
-   写进 DECISIONS（候选方案见 PLAN §5.4）。
+   API 改为收到“有新事件”的通知再查库，代替每秒轮询。**通知已定用 PG LISTEN / NOTIFY（D20，做法见 PLAN §5.4）**：
+   `add_event` 同事务 NOTIFY，每个 API 进程一条 LISTEN 连接、内存里转发给 SSE，保留低频兜底查询。
 2. React 前端（按 D14 选定的简洁风 + 衬线 + 石墨）：提交框、时间线（思考逐字展开、工具卡片、引用批注）、
    刷新后从库里恢复完整历史；联调时逐项检查显示和交互逻辑。
 3. Vite 开发代理到 API（同源，不开 CORS）。

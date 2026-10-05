@@ -153,11 +153,11 @@ flowchart TB
 
 每个 token 都写库会造成严重写放大，所以只有“结果”进库，“过程”走 Redis。
 
-**持久事件的“有新事件”通知（M2 决定，2026-10-06 review 时提出）**：现在每个 SSE 连接每秒查一次 events 表，
-用户越多查询越多。候选方案是 PG 的 LISTEN / NOTIFY：`add_event` 在同一事务里 `NOTIFY run_events, '<run_id>'`；
+**持久事件的“有新事件”通知：用 PG LISTEN / NOTIFY（D20，2026-10-06 定）**。现在每个 SSE 连接每秒查一次 events 表，
+用户越多查询越多。改为：`add_event` 在同一事务里 `NOTIFY run_events, '<run_id>'`；
 **每个 API 进程只开一条 LISTEN 连接**（不能每个 SSE 连接各开一条，会耗尽 PG 连接），收到后在内存里转给关注这个
-run 的 SSE 连接，再由它们按 seq 查库。好处是通知来自事务提交，不会出现“通知到了、事件还没提交”；
-对比方案是原计划的 Redis 通知（worker 提交后再发）。M2 开工时比较两者，结论写进 DECISIONS。
+run 的 SSE 连接，再由它们按 seq 查库。通知来自事务提交，不会出现“通知到了、事件还没提交”。
+SSE 仍保留低频兜底查询（例如每 10 秒），防止错过通知（通知不持久，LISTEN 连接重连期间会丢）。
 逐字片段仍走 Redis pub/sub：不落库、量大，NOTIFY 单条有 8KB 上限且会经过 PG。
 
 ### 5.5 多用户
