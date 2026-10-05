@@ -5,9 +5,12 @@
  *      之后的边发生边推。所以刷新页面、从历史列表点进来、正在执行中，都是同一条代码路径。
  */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, getRun, type RunDetail } from '../api'
+import { citationsOf } from '../citations'
+import { Answer } from '../components/Answer'
 import { Composer } from '../components/Composer'
+import { Sources } from '../components/Sources'
 import { Work } from '../components/Work'
 import { useRunStream } from '../useRunStream'
 import { NotFound } from './NotFound'
@@ -72,31 +75,91 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
       onRunsChanged()
     }
   })
+  const thread = useRef<HTMLDivElement>(null)
+  const [linked, setLinked] = useState<number | null>(null) // 鼠标停在哪个引用上：[n] 和旁注一起高亮
+  const [flash, setFlash] = useState({ no: 0, count: 0 }) // 点了哪个 [n]：对应旁注展开并闪一下
+
+  // 来源只显示最近一次执行的引用；更早的执行只保留过程和结论，不再标引用编号
+  const latest = timeline.attempts.at(-1)
+  const citations = useMemo(() => citationsOf(latest?.steps ?? []), [latest?.steps])
+  const citeNos = useMemo(() => new Map(citations.map((c) => [c.stepNo, c.no])), [citations])
+  useFollowBottom(latest?.status === 'running', timeline)
 
   return (
-    <main className="main">
-      <header className="main-head">
-        <span className="main-title">{run.question}</span>
-        {connection === 'retrying' && <span className="main-meta is-warn">连接中断，正在重连…</span>}
-        <span className="main-meta">{run.model}</span>
-      </header>
-      <div className="thread">
-        <div className="ask">
-          <span className="ask-meta">提问 · {formatTime(run.created_at)}</span>
-          <h1 className="bubble">{run.question}</h1>
-        </div>
-        {timeline.attempts.map((attempt) => (
-          <div className="attempt" key={attempt.id}>
-            {timeline.attempts.length > 1 && (
-              <div className="attempt-head">
-                第 {attempt.no} 次执行{attempt.trigger === 'regenerate' && '（重新生成）'}
-              </div>
-            )}
-            <Work attempt={attempt} />
+    <>
+      <main className="main">
+        <header className="main-head">
+          <span className="main-title">{run.question}</span>
+          {connection === 'retrying' && <span className="main-meta is-warn">连接中断，正在重连…</span>}
+          <span className="main-meta">{run.model}</span>
+        </header>
+        <div className="thread" ref={thread}>
+          <div className="ask">
+            <span className="ask-meta">提问 · {formatTime(run.created_at)}</span>
+            <h1 className="bubble">{run.question}</h1>
           </div>
-        ))}
-      </div>
-      <Composer onCreated={onCreated} />
-    </main>
+          {timeline.attempts.map((attempt) => {
+            const isLatest = attempt === latest
+            const done = attempt.status === 'completed'
+            return (
+              <div className="attempt" key={attempt.id}>
+                {timeline.attempts.length > 1 && (
+                  <div className="attempt-head">
+                    第 {attempt.no} 次执行{attempt.trigger === 'regenerate' && '（重新生成）'}
+                  </div>
+                )}
+                <Work attempt={attempt} citeNos={isLatest ? citeNos : NO_CITES} />
+                {done && (
+                  <Answer
+                    attempt={attempt}
+                    format={run.answer_format}
+                    options={run.options}
+                    model={run.model}
+                    citations={isLatest ? citations : []}
+                    linked={linked}
+                    onCiteHover={setLinked}
+                    onCiteClick={(no) => setFlash((f) => ({ no, count: f.count + 1 }))}
+                  />
+                )}
+              </div>
+            )
+          })}
+        </div>
+        <Composer onCreated={onCreated} />
+      </main>
+      <Sources citations={citations} thread={thread} linked={linked} flash={flash} onHover={setLinked} />
+    </>
   )
+}
+
+const NO_CITES = new Map<number, number>()
+
+/** 当前负责滚动的元素：简洁风宽屏时是 .app，窄屏时 .app 不滚动，滚的是整个页面 */
+function scroller(): Element {
+  const app = document.querySelector('.app')!
+  return getComputedStyle(app).overflowY === 'auto' ? app : document.scrollingElement!
+}
+
+/**
+ * 执行中自动滚到最新一步，像终端输出一样；用户往上翻看时不打扰（离底部超过 80px 就不再跟随，滚回底部又恢复）。
+ */
+function useFollowBottom(running: boolean, content: unknown) {
+  const stick = useRef(true)
+
+  useEffect(() => {
+    const onScroll = () => {
+      const el = scroller()
+      stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+    }
+    // 滚动事件不冒泡，用捕获阶段在 document 上统一监听 .app 和整页的滚动
+    document.addEventListener('scroll', onScroll, true)
+    return () => document.removeEventListener('scroll', onScroll, true)
+  }, [])
+
+  useEffect(() => {
+    if (running && stick.current) {
+      const el = scroller()
+      el.scrollTop = el.scrollHeight
+    }
+  }, [running, content])
 }

@@ -47,7 +47,7 @@ const CHECK = (
   </svg>
 )
 
-function describe(step: StepEvent): Card {
+function describe(step: StepEvent, citeNo?: number): Card {
   const args = parseArgs(step.arguments)
   const data: Json = (step.result.data as Json) ?? {}
   switch (step.tool_name) {
@@ -86,7 +86,7 @@ function describe(step: StepEvent): Card {
     case 'cite':
       return {
         icon: <Icon name="cite" />,
-        title: <>引用 {q(args.quote)}</>,
+        title: <>引用 {citeNo && `[${citeNo}] `}{q(args.quote)}</>,
         detail: data.grounded ? (data.level === 'exact' ? '原文逐字匹配' : '原文匹配（忽略空白和标点）') : '没有在原文中找到',
       }
     case 'compute':
@@ -156,12 +156,18 @@ export function ThoughtItem({ text, current = false }: { text: string; current?:
   )
 }
 
-export function ToolItem({ step, current }: { step: StepEvent; current: boolean }) {
-  const card = describe(step)
+interface ToolProps {
+  step: StepEvent
+  current: boolean
+  citeNo?: number // 通过校验的引用的编号；右侧来源旁注在回答出来之前对齐到这一步（data-cite）
+}
+
+export function ToolItem({ step, current, citeNo }: ToolProps) {
+  const card = describe(step, citeNo)
   const failed = step.result.ok === false
   const isCheck = step.tool_name === 'finalize' && !failed
   return (
-    <li className={current ? 'step is-current' : 'step'} data-step={step.step_no}>
+    <li className={current ? 'step is-current' : 'step'} data-cite={citeNo}>
       <div className="reveal-inner">
         <div className="step-inner">
           <span className={isCheck ? 'step-node is-check' : 'step-node'}>{card.icon}</span>

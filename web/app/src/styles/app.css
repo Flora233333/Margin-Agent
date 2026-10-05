@@ -69,3 +69,23 @@
 /* 重新生成过的题：每次执行一组，上面一行小标题 */
 .attempt { display: grid; gap: var(--space-3); }
 .attempt-head { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-faint); }
+
+/* 回答里的依据列表：每条引文一行，末尾是引用编号 */
+.evidence {
+  margin: 0 0 var(--space-4);
+  padding-left: 1.4em;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  line-height: 1.8;
+  color: var(--ink-soft);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.evidence li + li { margin-top: var(--space-1); }
+/* 没有答案（放弃作答 / 停止条件）时结论行不用主色 */
+:root[data-style="clean"] .verdict.is-empty .verdict-figure { color: var(--ink-soft); font-size: 1.75rem; }
+
+/* 来源旁注：原文保留换行（表格行）；展开时放开 3 行的限制 */
+.source-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+.source.is-expanded .source-text { max-height: 40em; }
+.sources-empty { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }

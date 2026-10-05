@@ -25,7 +25,7 @@ function label(attempt: Attempt): string {
   }
 }
 
-export function Work({ attempt }: { attempt: Attempt }) {
+export function Work({ attempt, citeNos }: { attempt: Attempt; citeNos: Map<number, number> }) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const active = attempt.status === 'queued' || attempt.status === 'running'
   const open = userOpen ?? active
@@ -55,7 +55,7 @@ export function Work({ attempt }: { attempt: Attempt }) {
                 const last = running && !live && i === attempt.steps.length - 1
                 return [
                   step.reasoning && <ThoughtItem key={`t${step.step_no}`} text={step.reasoning} />,
-                  <ToolItem key={`s${step.step_no}`} step={step} current={last} />,
+                  <ToolItem key={`s${step.step_no}`} step={step} current={last} citeNo={citeNos.get(step.step_no)} />,
                 ]
               })}
               {/* key 和 step 到达后的完整思考相同：React 原地换掉文字，不会删掉重建、重播出现动画 */}
