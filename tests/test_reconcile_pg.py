@@ -9,7 +9,7 @@ from sqlalchemy import select, text
 
 from margin import lease, runs
 from margin.dispatcher import QueueState, requeue_lost
-from margin.models import Outbox
+from margin.models import Attempt, Outbox
 
 pytestmark = pytest.mark.integration
 
@@ -42,7 +42,7 @@ def test_later_message_already_claimed_means_mine_was_lost(db):
     mark_sent(db, 2, minutes_ago=4)
     lease.claim(db, 2, "worker-a")
 
-    assert requeue_lost(db, BUSY_QUEUE) == [1]
+    assert requeue_lost(db, BUSY_QUEUE) == ([1], [])
     row = outbox_of(db, 1)
     assert (row.status, row.redeliveries) == ("pending", 1)
 
@@ -55,7 +55,7 @@ def test_no_requeue_within_grace_period(db):
     mark_sent(db, 2, minutes_ago=0.5)
     lease.claim(db, 2, "worker-a")
 
-    assert requeue_lost(db, BUSY_QUEUE) == []
+    assert requeue_lost(db, BUSY_QUEUE) == ([], [])
     assert outbox_of(db, 1).status == "sent"
 
 
@@ -64,7 +64,7 @@ def test_empty_queue_with_pending_attempt_means_lost(db):
     submit(db, "k1")
     mark_sent(db, 1, minutes_ago=3)
 
-    assert requeue_lost(db, QueueState(ready=0, consumers=1)) == [1]
+    assert requeue_lost(db, QueueState(ready=0, consumers=1)) == ([1], [])
     assert outbox_of(db, 1).status == "pending"
 
 
@@ -75,7 +75,7 @@ def test_normal_backlog_is_not_requeued(db):
     mark_sent(db, 1, minutes_ago=10)
     mark_sent(db, 2, minutes_ago=9)
 
-    assert requeue_lost(db, BUSY_QUEUE) == []
+    assert requeue_lost(db, BUSY_QUEUE) == ([], [])
     assert (outbox_of(db, 1).status, outbox_of(db, 2).status) == ("sent", "sent")
 
 
@@ -84,5 +84,37 @@ def test_no_requeue_when_no_worker_is_consuming(db):
     submit(db, "k1")
     mark_sent(db, 1, minutes_ago=40)
 
-    assert requeue_lost(db, QueueState(ready=0, consumers=0)) == []
+    assert requeue_lost(db, QueueState(ready=0, consumers=0)) == ([], [])
     assert outbox_of(db, 1).redeliveries == 0
+
+
+def test_gives_up_after_three_redeliveries_and_allows_regenerate(db):
+    """补发 3 次仍判定丢失：attempt 判为 delivery_lost 失败、epoch+1，页面能看到失败原因；
+    之后用户点“重新生成”可以正常建新的执行（不再被“还有执行没结束”挡住）。"""
+    submit(db, "k1")
+    mark_sent(db, 1, minutes_ago=3)
+    with db.begin() as conn:
+        conn.execute(text("UPDATE outbox SET redeliveries = 3 WHERE attempt_id = 1"))
+
+    assert requeue_lost(db, QueueState(ready=0, consumers=1)) == ([], [1])
+    with db.connect() as conn:
+        attempt = conn.execute(select(Attempt).where(Attempt.id == 1)).one()
+    assert (attempt.status, attempt.error, attempt.lease_epoch) == ("failed", "delivery_lost", 1)
+    events, status = runs.events_after(db, OWNER, 1, after_seq=0)
+    assert status == "failed"
+    assert (events[-1].type, events[-1].payload["error"]) == ("attempt_failed", "delivery_lost")
+    assert runs.regenerate(db, OWNER, 1) == 2
+
+
+def test_attempt_failed_as_undelivered_does_not_raise_the_watermark(db):
+    """判为 delivery_lost 的 attempt 从来没被领取过，不能算进水位线：
+    否则排在它前面、正常排队的任务会被误判丢失，白白耗掉补发次数。"""
+    submit(db, "k1")
+    submit(db, "k2")
+    mark_sent(db, 1, minutes_ago=5)
+    mark_sent(db, 2, minutes_ago=4)
+    with db.begin() as conn:
+        conn.execute(text("UPDATE attempts SET status = 'failed', error = 'delivery_lost'"
+                          " WHERE id = 2"))
+
+    assert requeue_lost(db, BUSY_QUEUE) == ([], [])

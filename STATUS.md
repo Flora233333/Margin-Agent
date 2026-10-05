@@ -232,6 +232,11 @@ M1.5 / M2 执行时遇到、计划里没写清的取舍。每条写“问题 →
    代价：RabbitMQ 重启后第一条消息可能失败一次、等 2 秒退避后再发。
 3. **dispatcher 的时间改用 `clock_timestamp()`**（M1.5-3）：修复 M1 遗留——`now()` 是事务开始时间，
    发送耗时超过退避时间时退避失效；同一批的 `sent_at` 相同会让水位线分不出先后。
+4. **水位线的“已被领取”用 `attempts.started_at IS NOT NULL`，不用 PLAN 写的 `status <> 'pending'`**（M1.5-4）：
+   判为 `delivery_lost` 的 attempt 状态是 failed 但从没被领取，按状态算会抬高水位线、让前面正常排队的任务被误判丢失。
+   有测试 `test_attempt_failed_as_undelivered_does_not_raise_the_watermark` 保护。
+5. **读队列状态时队列不存在（`NotFound`）当作“没有消费者”**（M1.5-5）：只可能是 RabbitMQ 数据没了且 worker 不在线；
+   不处理的话 dispatcher 会每 15 秒崩溃重启一次。
 
 ## 未决问题
 
