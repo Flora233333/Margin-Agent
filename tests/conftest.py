@@ -18,6 +18,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
 from margin.db import make_engine
+from margin.event_hub import EventHub
 from margin.harness import build_registry
 from margin.retrieval import Corpus, HybridRetriever
 from margin.retrieval.alias import Alias, AliasCatalog
@@ -97,6 +98,21 @@ def engine():
     engine = make_engine(url)
     yield engine
     engine.dispose()
+
+
+@pytest.fixture(scope="session")
+def database_url(engine) -> str:
+    """测试库的连接串（psycopg 直接用的格式），给需要专用连接的 LISTEN 用。"""
+    return engine.url.set(drivername="postgresql").render_as_string(hide_password=False)
+
+
+@pytest.fixture(scope="session")
+def hub(database_url):
+    """API 的事件通知中心，监听测试库。整个测试会话共用一个后台线程。"""
+    hub = EventHub(database_url)
+    hub.start()
+    yield hub
+    hub.stop()
 
 
 @pytest.fixture

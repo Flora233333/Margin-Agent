@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from .models import Attempt, Event, Outbox, Run, Step
 
 OUTBOX_CHANNEL = "outbox"  # LISTEN / NOTIFY 的频道名：有新的 outbox 待投递
+RUN_EVENTS_CHANNEL = "run_events"  # 频道名：某个 run 有新事件（附带 run_id），见 event_hub.py
 
 
 class RunNotFound(Exception):
@@ -42,6 +43,11 @@ def add_event(session: Session, run_id: int, type_: str, payload: dict[str, Any]
         .returning(Run.last_seq)
     ).scalar_one()
     session.add(Event(run_id=run_id, seq=seq, type=type_, payload=payload))
+    # 通知 API 进程“这个 run 有新事件了”（D20）。和 outbox 的通知一样跟着事务走：提交后才发出，
+    # 所以 SSE 被叫醒去查库时一定查得到这条事件。payload 只带 run_id，事件内容仍然从库里按 seq 读。
+    # 同一事务里同一个 run 的多次通知会被 PG 合并成一条
+    session.execute(text("SELECT pg_notify(:channel, :run_id)"),
+                    {"channel": RUN_EVENTS_CHANNEL, "run_id": str(run_id)})
     return seq
 
 

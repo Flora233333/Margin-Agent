@@ -122,10 +122,9 @@ def test_broker_down_keeps_outbox_pending_and_backs_off(db):
 # ---- LISTEN / NOTIFY 唤醒 ----
 
 @pytest.fixture
-def listener(db):
+def listener(db, database_url):
     """dispatcher 的专用 LISTEN 连接，连测试库。"""
-    url = db.url.set(drivername="postgresql").render_as_string(hide_password=False)
-    conn = listen(url)
+    conn = listen(database_url)
     yield conn
     conn.close()
 

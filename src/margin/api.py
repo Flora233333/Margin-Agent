@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
@@ -25,15 +26,28 @@ from sqlalchemy import Engine
 
 from . import runs
 from .db import get_engine
+from .event_hub import EventHub
 from .runs import IdempotencyConflict, RunBusy, RunNotFound
 from .settings import get_settings
 
 DEV_USER_ID = 1  # 迁移预置的开发用户；M3 改成从登录 cookie 解析
-SSE_POLL_SECONDS = 1.0  # SSE 每秒查一次新事件（M2 改成 Redis 通知，有新事件才查）
-SSE_PING_EVERY = 15  # 连续 15 次没有新事件就发一行注释，防止中间的代理把“安静”的连接断掉
+# SSE 平时等“有新事件”的通知（event_hub.py）；最多等 10 秒也查一次库（兜底：通知不持久，
+# LISTEN 连接重连期间会丢），同时发一行注释保活，防止中间的代理把“安静”的连接断掉
+SSE_FALLBACK_SECONDS = 10.0
 FINISHED = {"completed", "failed"}
 
-app = FastAPI(title="Margin")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """进程启动时开始监听事件通知，退出时停止。yield 之前是启动，之后是关闭。"""
+    hub = EventHub(get_settings().database_url)
+    hub.start()
+    app.state.hub = hub
+    yield
+    hub.stop()
+
+
+app = FastAPI(title="Margin", lifespan=lifespan)
 
 
 # ---- 依赖：路由函数通过参数声明“我需要什么”，FastAPI 负责提供；测试里可以整体替换 ----
@@ -46,8 +60,13 @@ def current_user() -> int:
     return DEV_USER_ID
 
 
+def get_hub(request: Request) -> EventHub:
+    return request.app.state.hub
+
+
 DB = Annotated[Engine, Depends(get_db)]
 User = Annotated[int, Depends(current_user)]
+Hub = Annotated[EventHub, Depends(get_hub)]
 
 
 # ---- 请求 / 响应的数据格式（Pydantic 校验用户输入，不合格自动返回 422）----
@@ -151,7 +170,7 @@ def regenerate(run_id: int, db: DB, user: User) -> RegenerateAccepted:
 
 @app.get("/runs/{run_id}/events")
 async def stream_events(
-    run_id: int, db: DB, user: User,
+    run_id: int, db: DB, user: User, hub: Hub,
     last_event_id: Annotated[int, Header()] = 0,
 ) -> StreamingResponse:
     """SSE（Server-Sent Events）：一个不结束的 HTTP 响应，服务端有新事件就往里写一段。
@@ -160,7 +179,11 @@ async def stream_events(
     自动重连，并在请求头 Last-Event-ID 里带上最后收到的 id，这里从它之后补发——这就是事件要
     连续编号、并且存进数据库的原因。执行结束（completed / failed）后关闭流。
 
-    这里是 async 路由：等待新事件时用 asyncio.sleep 让出，不占线程；查库仍是同步代码，
+    什么时候去查新事件：worker 每提交一个事件，PG 发一个“run N 有新事件”的通知（runs.add_event），
+    event_hub 收到后 set 这里的 wake；没有通知时最多等 10 秒也查一次（兜底）。
+    M1 是每个连接每秒查一次库，看的人越多查询越多；现在只有真的有新事件时才查。
+
+    这里是 async 路由：等待时 await 让出，不占线程；查库仍是同步代码，
     用 run_in_threadpool 放到线程池执行，不阻塞事件循环。
     """
     # 先查一次：run 不存在或不属于这个用户时，在开始推流之前就返回 404
@@ -169,21 +192,24 @@ async def stream_events(
     async def generate() -> AsyncIterator[str]:
         events, status = first
         last_seq = last_event_id
-        idle = 0
-        while True:
-            for event in events:
-                data = json.dumps(event.payload, ensure_ascii=False)
-                yield f"id: {event.seq}\nevent: {event.type}\ndata: {data}\n\n"
-                last_seq = event.seq
-            if status in FINISHED:
-                return
-            idle = 0 if events else idle + 1
-            if idle >= SSE_PING_EVERY:
-                yield ": ping\n\n"  # 冒号开头是 SSE 注释，浏览器忽略，只为让连接保持有数据
-                idle = 0
-            await asyncio.sleep(SSE_POLL_SECONDS)
-            events, status = await run_in_threadpool(runs.events_after, db, user, run_id,
-                                                     last_seq)
+        with hub.watch(run_id) as wake:
+            # first 是登记之前查的：查完到登记之间提交的事件不会叫醒我们，所以第一轮不等待、直接补查
+            wake.set()
+            while True:
+                for event in events:
+                    data = json.dumps(event.payload, ensure_ascii=False)
+                    yield f"id: {event.seq}\nevent: {event.type}\ndata: {data}\n\n"
+                    last_seq = event.seq
+                if status in FINISHED:
+                    return
+                try:
+                    await asyncio.wait_for(wake.wait(), SSE_FALLBACK_SECONDS)
+                except TimeoutError:
+                    yield ": ping\n\n"  # 冒号开头是 SSE 注释，浏览器忽略，只为让连接保持有数据
+                # 先清除再查库：查库期间到达的通知会重新 set，下一轮立刻再查，不会漏
+                wake.clear()
+                events, status = await run_in_threadpool(runs.events_after, db, user, run_id,
+                                                         last_seq)
 
     # X-Accel-Buffering: no 让 Nginx（M6）不要攒满缓冲区才转发，否则事件会一批批延迟到达
     return StreamingResponse(generate(), media_type="text/event-stream",

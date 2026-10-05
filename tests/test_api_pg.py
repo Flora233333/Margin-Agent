@@ -4,11 +4,14 @@
 TestClient 在进程内直接调用 app，不用真的起服务器。
 """
 
+import threading
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
 from margin import lease
-from margin.api import app, current_user, get_db
+from margin.api import app, current_user, get_db, get_hub
 from margin.harness import Step
 
 pytestmark = pytest.mark.integration
@@ -17,8 +20,9 @@ QUESTION = {"question": "甲公司2023年营业收入是多少亿元？", "answe
 
 
 @pytest.fixture
-def client(db):
+def client(db, hub):
     app.dependency_overrides[get_db] = lambda: db  # 接口改用测试库
+    app.dependency_overrides[get_hub] = lambda: hub  # 事件通知也监听测试库
     yield TestClient(app)
     app.dependency_overrides.clear()
 
@@ -83,3 +87,25 @@ def test_sse_resumes_after_last_event_id_and_closes_when_finished(client, db):
     assert [b.splitlines()[:2] for b in blocks] == [
         ["id: 3", "event: step"], ["id: 4", "event: attempt_finished"]]
     assert '"submitted": ["120.50"]' in blocks[1]
+
+
+def test_sse_pushes_new_events_on_notify_without_waiting_for_fallback(client, db):
+    """执行中有新步骤提交：SSE 被 PG 通知叫醒立刻推出去，不用等 10 秒一次的兜底查询；结束后关闭。"""
+    submit(client)
+    held = lease.claim(db, 1, "worker-a")
+    step = Step(0, "先检索", "search_docs", '{"query": "甲公司"}', {"ok": True, "data": {}}, 1.0)
+
+    def worker_progress():  # 模拟 worker：连接建立后 0.5 秒提交一步，再过 0.5 秒结束
+        time.sleep(0.5)
+        lease.commit_step(db, held, step)
+        time.sleep(0.5)
+        lease.finish(db, held, {"name": "finalize", "submitted": ["120.50"]}, None)
+
+    threading.Thread(target=worker_progress).start()
+    start = time.monotonic()
+    response = client.get("/runs/1/events")
+
+    assert time.monotonic() - start < 3  # 靠兜底的话至少要 10 秒
+    types = [b.splitlines()[1] for b in response.text.split("\n\n") if b.startswith("id:")]
+    assert types == ["event: attempt_queued", "event: attempt_started", "event: step",
+                     "event: attempt_finished"]
