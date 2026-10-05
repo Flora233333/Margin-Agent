@@ -1,11 +1,11 @@
-"""后台 worker：从 Redis 队列收到 attempt_id，领取执行权，运行 Harness，每一步写进数据库。
+"""后台 worker：从 RabbitMQ 队列收到 attempt_id，领取执行权，运行 Harness，每一步写进数据库。
 
 启动（Linux / 容器里；Celery 的多进程模式不支持 Windows）：
     celery -A margin.worker worker --concurrency 4 --loglevel INFO
 --concurrency 4 = 4 个子进程，每个同一时间只执行一个任务。
 
-Celery 是什么：Python 的后台任务框架。dispatcher 用它往 Redis 里放一条消息
-“执行 attempt 12”，worker 进程从 Redis 取消息、调用下面的 execute_attempt(12)。
+Celery 是什么：Python 的后台任务框架。dispatcher 往 RabbitMQ 的队列里放一条消息
+“执行 attempt 12”，worker 进程从队列取消息、调用下面的 execute_attempt(12)。
 队列只负责“叫醒 worker”；这个 attempt 该不该由我执行，由数据库里的租约决定（lease.py）。
 """
 
@@ -31,18 +31,24 @@ from .settings import get_settings
 
 log = logging.getLogger(__name__)
 
-celery_app = Celery("margin", broker=get_settings().redis_url)
+celery_app = Celery("margin", broker=get_settings().broker_url)
 celery_app.conf.update(
-    # 任务执行完才确认（ack）消息。默认是“取到就确认”：worker 进程取到后崩溃，消息就丢了
+    # 任务执行完才确认（ack）消息。默认是“取到就确认”：worker 进程取到后崩溃，消息就丢了。
+    # RabbitMQ 的确认是原生的：worker 的连接一断（进程被杀、容器重启），它没确认的消息立刻回到队列，
+    # 不用像 Redis 那样等“可见性超时”。确认期限 consumer_timeout 见 deploy/rabbitmq/margin.conf
     task_acks_late=True,
-    # 每个子进程只预取 1 条：手上只有正在执行的那一条，不会把别的任务压在自己这里排队
+    # 每个子进程只预取 1 条：手上只有正在执行的那一条，不会把别的任务压在自己这里排队。
+    # 在管理界面里看：4 个子进程，这个 worker 的通道上预取数是 4
     worker_prefetch_multiplier=1,
-    # 消息被取走后 2 小时还没确认，Redis 会把它重新交给别的 worker（要大于任务最长执行时间）
-    broker_transport_options={"visibility_timeout": 2 * 3600},
     # 硬时限：一个任务超过 25 分钟，Celery 直接杀掉这个子进程（只防整个进程冻住）。
     # 被杀后库里的 attempt 还是 running，但没人续租了，租约过期后由巡检判为失败
     task_time_limit=25 * 60,
     task_ignore_result=True,  # 结果写在 PG 里，不需要 Celery 再存一份
+    # 除了任务队列，worker 还会给自己建两个临时队列：远程控制（celery inspect 等命令）和事件广播。
+    # 它们默认“不持久、不独占”，RabbitMQ 4 起禁止这种队列（实测启动即报 transient_nonexcl_queues）。
+    # 改成独占（exclusive）：只属于建它的那条连接，连接断开自动删除——本来就是临时队列该有的样子
+    control_queue_exclusive=True,
+    event_queue_exclusive=True,
 )
 
 

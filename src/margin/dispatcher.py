@@ -1,4 +1,4 @@
-"""Dispatcher：把 outbox 里待投递的 attempt 发到 Celery 队列；顺带做租约巡检。
+"""Dispatcher：把 outbox 里待投递的 attempt 发到 RabbitMQ 队列；顺带做租约巡检。
 
 启动：python -m margin.dispatcher（compose 里的 dispatcher 服务）
 
@@ -8,8 +8,8 @@ API 只负责把“要投递”写进 outbox 表（和建任务同一个事务�
 投递语义是“至少一次”：消息发出去了、但标记 sent 的事务没提交成功（例如这时进程崩溃），
 下一轮会再发一次。重复的消息没关系——worker 领取执行权时只有一个能成功（lease.claim）。
 
-出错策略：发消息失败（Redis 连不上）是预期内的外部故障，记下失败次数、推迟下次投递时间；
-数据库出错则让进程直接退出，由 compose 的 restart 策略重新拉起。
+出错策略：发消息失败（RabbitMQ 连不上、拒收、迟迟不确认）是预期内的外部故障，记下失败次数、
+推迟下次投递时间；数据库出错则让进程直接退出，由 compose 的 restart 策略重新拉起。
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ import time
 from collections.abc import Callable
 from datetime import timedelta
 
+from celery import Celery
 from kombu.exceptions import OperationalError
 from sqlalchemy import Engine, func, select
 from sqlalchemy.orm import Session
@@ -26,7 +27,7 @@ from sqlalchemy.orm import Session
 from . import lease
 from .db import get_engine
 from .models import Outbox
-from .worker import celery_app
+from .settings import get_settings
 
 log = logging.getLogger(__name__)
 
@@ -34,6 +35,8 @@ POLL_SECONDS = 1.0
 INSPECT_EVERY_SECONDS = 15  # 每 15 秒巡检一次过期租约
 BATCH = 50  # 一轮最多投递多少条
 MAX_BACKOFF_SECONDS = 60
+CONFIRM_TIMEOUT_SECONDS = 5  # 发出一条消息后最多等 RabbitMQ 的“收到了”（发送确认）多久
+SOCKET_TIMEOUT_SECONDS = 10  # 和 RabbitMQ 之间单次网络读 / 写最多等多久
 
 
 def dispatch_once(engine: Engine, publish: Callable[[int], None]) -> int:
@@ -41,6 +44,11 @@ def dispatch_once(engine: Engine, publish: Callable[[int], None]) -> int:
 
     FOR UPDATE SKIP LOCKED：锁住取出的行，别的 dispatcher 进程跳过它们去取别的行。
     现在只有一个 dispatcher，但以后多开几个也不会把同一条记录发两次。
+
+    时间用 clock_timestamp() 而不是 now()：PG 的 now() 是“事务开始的时间”，整个事务里都不变。
+    这一轮的事务从取记录开始，中间要等发送（失败时最多等 5 秒确认），用 now() 的话：
+    退避“2 秒后再试”写进去时已经过期，等于没退避；同一批发出的记录 sent_at 也都一样，
+    对账的水位线就分不出谁先谁后。clock_timestamp() 是语句真正执行时的时间。
     """
     with Session(engine) as session, session.begin():
         rows = session.execute(
@@ -54,26 +62,58 @@ def dispatch_once(engine: Engine, publish: Callable[[int], None]) -> int:
             try:
                 publish(row.attempt_id)
             except OperationalError:
-                # 消息中间件连不上：这条推迟 2、4、8……最多 60 秒再试，本轮剩下的也先不发了
+                # 发送失败（连不上、拒收、等确认超时，实测都是这一个异常，见 make_publisher）：
+                # 这条推迟 2、4、8……最多 60 秒再试，本轮剩下的也先不发了
                 row.tries += 1
                 delay = timedelta(seconds=min(2 ** row.tries, MAX_BACKOFF_SECONDS))
-                row.next_attempt_at = func.now() + delay
+                row.next_attempt_at = func.clock_timestamp() + delay
                 log.exception("投递 attempt %s 失败（第 %s 次）", row.attempt_id, row.tries)
                 break
             row.status = "sent"
-            row.sent_at = func.now()
+            row.sent_at = func.clock_timestamp()
             sent += 1
         return sent
 
 
-def publish(attempt_id: int) -> None:
-    # send_task 按任务名发消息，不在这里执行任务代码。测试里换成一个假的 publish
-    celery_app.send_task("margin.execute_attempt", args=[attempt_id])
+def make_publisher(broker_url: str) -> Callable[[int], None]:
+    """返回一个“把 attempt_id 发到队列、等到 RabbitMQ 确认收到才返回”的函数。
+
+    只用来发消息的 Celery 实例：send_task 按任务名发送，不需要导入 worker 的任务代码。
+    任务名、队列名（默认 celery）和 worker 那边一致，消息就会进同一个队列。
+
+    发送确认（publisher confirm）：RabbitMQ 把消息写进队列（持久化消息要先写盘）后回一个“收到了”，
+    这里收到才返回，dispatcher 才把 outbox 标记为 sent。没有确认时 sent 只代表“交给了网络”。
+    三种失败实测都抛 kombu 的 OperationalError（2026-10-06，celery 5.6、RabbitMQ 4.3）：
+        连不上              原因是 ConnectionRefusedError
+        拒收（nack）        原因是 MessageNacked，例如队列满了且设置为拒收新消息
+        迟迟不确认          原因是 TimeoutError，例如 RabbitMQ 内存 / 磁盘告警时会暂停所有发送方
+    后两种必须设超时：等确认默认不设上限；而且实测只设 confirm_timeout 不够——超时后 kombu 关闭通道时
+    还要等 RabbitMQ 回复，告警期间等不到，dispatcher 会永远卡在这里。socket 读写超时兜住这一步。
+
+    task_publish_retry=False：Celery 默认会在发送失败时立即重试 3 次。dispatcher 自己有退避重试，
+    再叠一层会让一次失败卡住 4 倍时间（告警时 4 × 5 秒），所以关掉，失败直接交给 dispatch_once。
+    """
+    app = Celery("margin", broker=broker_url)
+    app.conf.update(
+        broker_transport_options={
+            "confirm_publish": True,
+            "read_timeout": SOCKET_TIMEOUT_SECONDS,
+            "write_timeout": SOCKET_TIMEOUT_SECONDS,
+        },
+        task_publish_retry=False,
+    )
+
+    def publish(attempt_id: int) -> None:
+        app.send_task("margin.execute_attempt", args=[attempt_id],
+                      confirm_timeout=CONFIRM_TIMEOUT_SECONDS)
+
+    return publish
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     engine = get_engine()
+    publish = make_publisher(get_settings().broker_url)
     last_inspect = 0.0
     log.info("dispatcher 启动")
     while True:

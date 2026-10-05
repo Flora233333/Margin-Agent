@@ -1,4 +1,4 @@
-"""worker 执行与 dispatcher 投递的集成测试（真实 PostgreSQL；模型用 FakeLLM，不连 Redis）。
+"""worker 执行与 dispatcher 投递的集成测试（真实 PostgreSQL；模型用 FakeLLM，不连 RabbitMQ）。
 
 默认不跑；运行：conda run -n margin pytest -m integration
 """
@@ -8,11 +8,10 @@ from datetime import UTC, datetime
 import httpx
 import pytest
 from fakes import FakeLLM, call
-from kombu.exceptions import OperationalError
 from sqlalchemy import select
 
 from margin import runs
-from margin.dispatcher import dispatch_once
+from margin.dispatcher import dispatch_once, make_publisher
 from margin.models import Outbox
 from margin.worker import execute
 
@@ -96,15 +95,16 @@ def test_dispatcher_publishes_each_pending_attempt_once(db):
 
 
 def test_broker_down_keeps_outbox_pending_and_backs_off(db):
-    """Redis 挂了：记录保持 pending、记下失败次数并推迟重试，不会每秒疯狂重发；恢复后照常投递。"""
+    """RabbitMQ 连不上：记录保持 pending、记下失败次数并推迟重试，不会每秒疯狂重发。
+
+    用真实的 make_publisher 连一个没人监听的端口，确认真正抛出的异常能被 dispatch_once 接住
+    （拒收、等确认超时抛的是同一个异常，实测记录在 make_publisher 的注释里）。
+    """
     submit(db)
 
-    def broker_down(attempt_id):
-        raise OperationalError("redis 连接被拒绝")
-
-    assert dispatch_once(db, broker_down) == 0
+    assert dispatch_once(db, make_publisher("amqp://margin:x@127.0.0.1:1//")) == 0
     with db.connect() as conn:
         row = conn.execute(select(Outbox)).one()
-    assert (row.status, row.tries) == ("pending", 1)
+    assert (row.status, row.tries, row.sent_at) == ("pending", 1, None)
     assert row.next_attempt_at > datetime.now(UTC)
     assert dispatch_once(db, lambda attempt_id: None) == 0  # 还没到重试时间

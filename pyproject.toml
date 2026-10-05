@@ -26,8 +26,8 @@ dependencies = [
     # HTTP 接口；uvicorn 是运行它的 ASGI 服务器
     "fastapi>=0.115",
     "uvicorn>=0.30",
-    # 后台任务队列，Redis 作消息中间件（broker）
-    "celery[redis]>=5.4",
+    # 后台任务队列，RabbitMQ 作消息中间件（broker，D19）；AMQP 客户端是 Celery 的默认依赖，不用额外装
+    "celery>=5.4",
 ]
 
 [project.optional-dependencies]

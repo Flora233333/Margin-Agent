@@ -224,7 +224,14 @@ M2 范围（PLAN §7）：
 M1.5 / M2 执行时遇到、计划里没写清的取舍。每条写“问题 → 选了什么 → 为什么 → 不同意时怎么改”，
 作者 review 时逐条确认，确认后移进 DECISIONS。
 
-（暂无）
+1. **发送确认开在 dispatcher 自己的 Celery 实例上，而不是 worker.py 的 celery_app**（M1.5-3）：
+   只有 dispatcher 发任务消息；同时要给连接加 socket 读写超时（实测不加时，RabbitMQ 告警会让 dispatcher
+   永远卡在关闭通道），这个超时不想加到 worker 的连接上。代价：两处 Celery 实例要保持任务名、队列名一致（都用默认）。
+   不同意的话：把 confirm_publish 和超时挪进 worker.py 的 celery_app，dispatcher 改回导入它。
+2. **关闭 Celery 自带的发送重试**（`task_publish_retry=False`，M1.5-3）：dispatcher 已有退避，叠加后一次失败会卡 20 秒。
+   代价：RabbitMQ 重启后第一条消息可能失败一次、等 2 秒退避后再发。
+3. **dispatcher 的时间改用 `clock_timestamp()`**（M1.5-3）：修复 M1 遗留——`now()` 是事务开始时间，
+   发送耗时超过退避时间时退避失效；同一批的 `sent_at` 相同会让水位线分不出先后。
 
 ## 未决问题
 
