@@ -17,16 +17,17 @@ from __future__ import annotations
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import timedelta
 
 from celery import Celery
 from kombu.exceptions import OperationalError
-from sqlalchemy import Engine, func, select
+from sqlalchemy import Engine, func, select, update
 from sqlalchemy.orm import Session
 
 from . import lease
 from .db import get_engine
-from .models import Outbox
+from .models import Attempt, Outbox
 from .settings import get_settings
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,10 @@ BATCH = 50  # 一轮最多投递多少条
 MAX_BACKOFF_SECONDS = 60
 CONFIRM_TIMEOUT_SECONDS = 5  # 发出一条消息后最多等 RabbitMQ 的“收到了”（发送确认）多久
 SOCKET_TIMEOUT_SECONDS = 10  # 和 RabbitMQ 之间单次网络读 / 写最多等多久
+# ---- 对账（requeue_lost）----
+GRACE = timedelta(minutes=2)  # 投递后至少等这么久才可能判“丢了”
+WATERMARK_WINDOW = timedelta(hours=1)  # 水位线只看最近 1 小时投递的记录，不扫全表
+FALLBACK = timedelta(minutes=30)  # 前两条规则都判断不了时，投递超过 30 分钟就算丢了
 
 
 def dispatch_once(engine: Engine, publish: Callable[[int], None]) -> int:
@@ -108,6 +113,73 @@ def make_publisher(broker_url: str) -> Callable[[int], None]:
                       confirm_timeout=CONFIRM_TIMEOUT_SECONDS)
 
     return publish
+
+
+@dataclass
+class QueueState:
+    """RabbitMQ 里任务队列此刻的状态。"""
+
+    ready: int  # 就绪消息数：排队等着被取走的（不含已经推给 worker、还没确认的）
+    consumers: int  # 消费者数：正在监听这个队列的 worker 通道
+
+
+def requeue_lost(engine: Engine, queue: QueueState | None) -> list[int]:
+    """对账：找出“消息已投递、却一直没人领取”的 attempt，把它的 outbox 改回 pending 重新投递。
+
+    queue 是 RabbitMQ 队列此刻的状态；读不到（RabbitMQ 连不上）时传 None，跳过“队列为空”这条规则。
+    返回补发了的 attempt id。
+
+    为什么需要：outbox 标成 sent 之后，消息还可能在 RabbitMQ 里丢掉（队列被清空、磁盘损坏），
+    attempt 就会永远停在 pending——没有 worker 收到消息，重新生成也因为“还有执行没结束”被拒绝。
+    PG 是唯一的裁判：判断错了的代价只是多一条消息，worker 领取时（lease.claim）会把重复的挡掉。
+
+    候选：attempt 是 pending、outbox 是 sent、投递已超过宽限期 2 分钟。宽限期吸收两件事：
+    几个 worker 子进程同时取消息时领取顺序的毫秒级抖动；子进程第一次执行任务前要加载语料（约 2 秒，
+    缓存丢失时更久）。候选满足下面任一条就判定丢了：
+        ① 水位线：有比我晚投递的消息已经被领取了。队列先进先出，后面的都被取走了我还在，说明我丢了；
+        ② 队列为空：RabbitMQ 里没有就绪消息，我却还没被领取（正在执行的消息是“已推送未确认”，
+           不算就绪；它们对应的 attempt 已经是 running，不会是候选）；
+        ③ 兜底：投递超过 30 分钟（前两条都判断不了时，例如读不到队列状态、又没有新流量）。
+    消费者数为 0 时什么都不做：没有 worker 在线，补发了也没人收——这是“worker 全挂了”，交给告警。
+    """
+    if queue is not None and queue.consumers == 0:
+        return []
+    with Session(engine) as session, session.begin():
+        candidates = session.execute(
+            select(Outbox.id, Outbox.attempt_id, Outbox.sent_at)
+            .join(Attempt, Attempt.id == Outbox.attempt_id)
+            .where(Outbox.status == "sent", Attempt.status == "pending",
+                   Outbox.sent_at < func.now() - GRACE)
+        ).all()
+        if not candidates:
+            return []
+        # 水位线 = 已被领取的消息里最晚的投递时间。“已被领取”看 started_at（lease.claim 时写入），
+        # 不看 status：判为 delivery_lost 的 attempt 状态也不是 pending，但它从来没被领取过
+        watermark = session.scalar(
+            select(func.max(Outbox.sent_at))
+            .join(Attempt, Attempt.id == Outbox.attempt_id)
+            .where(Outbox.status == "sent", Attempt.started_at.is_not(None),
+                   Outbox.sent_at > func.now() - WATERMARK_WINDOW)
+        )
+        now = session.scalar(select(func.now()))
+        requeued = []
+        for outbox_id, attempt_id, sent_at in candidates:
+            lost = ((watermark is not None and sent_at < watermark)
+                    or (queue is not None and queue.ready == 0)
+                    or sent_at < now - FALLBACK)
+            if not lost:
+                continue
+            # 复用同一行 outbox：改回 pending，下一轮 dispatch_once 就会投递
+            # （sent_at 随之更新，重新排到队尾）。不新插一行：outbox 上
+            # “同一个 attempt 最多一条 pending”的部分唯一索引仍然成立。
+            # 带 status='sent' 条件：和 dispatcher 自己的投递不会互相覆盖
+            session.execute(
+                update(Outbox).where(Outbox.id == outbox_id, Outbox.status == "sent")
+                .values(status="pending", next_attempt_at=func.now(),
+                        redeliveries=Outbox.redeliveries + 1)
+            )
+            requeued.append(attempt_id)
+        return requeued
 
 
 def main() -> None:
