@@ -1,18 +1,27 @@
-"""worker 执行与 dispatcher 投递的集成测试（真实 PostgreSQL；模型用 FakeLLM，不连 RabbitMQ）。
+"""worker 执行、dispatcher 投递与唤醒的集成测试（真实 PostgreSQL；FakeLLM；不连 RabbitMQ）。
 
 默认不跑；运行：conda run -n margin pytest -m integration
 """
 
+import threading
+import time
 from datetime import UTC, datetime
 
 import httpx
 import pytest
 from fakes import FakeLLM, call
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from margin import runs
-from margin.dispatcher import dispatch_once, make_publisher
-from margin.models import Outbox
+from margin.dispatcher import (
+    MAX_WAIT_SECONDS,
+    dispatch_once,
+    listen,
+    make_publisher,
+    wait_for_notify,
+)
+from margin.models import Outbox, Run
 from margin.worker import execute
 
 pytestmark = pytest.mark.integration
@@ -108,3 +117,39 @@ def test_broker_down_keeps_outbox_pending_and_backs_off(db):
     assert (row.status, row.tries, row.sent_at) == ("pending", 1, None)
     assert row.next_attempt_at > datetime.now(UTC)
     assert dispatch_once(db, lambda attempt_id: None) == 0  # 还没到重试时间
+
+
+# ---- LISTEN / NOTIFY 唤醒 ----
+
+@pytest.fixture
+def listener(db):
+    """dispatcher 的专用 LISTEN 连接，连测试库。"""
+    url = db.url.set(drivername="postgresql").render_as_string(hide_password=False)
+    conn = listen(url)
+    yield conn
+    conn.close()
+
+
+def test_new_submission_wakes_dispatcher_within_one_second(db, listener):
+    """提交后 dispatcher 立刻被通知叫醒并投递，不用等 10 秒一次的兜底扫描。"""
+    threading.Timer(0.2, submit, args=[db]).start()  # 0.2 秒后另一个线程提交
+    start = time.monotonic()
+
+    assert wait_for_notify(listener, timeout=MAX_WAIT_SECONDS)
+    assert time.monotonic() - start < 1
+    published = []
+    assert dispatch_once(db, published.append) == 1
+
+
+def test_rolled_back_submission_does_not_wake_dispatcher(db, listener):
+    """建任务的事务中途出错回滚：通知随事务一起取消，dispatcher 不会醒，也没有东西可投递。"""
+    with pytest.raises(RuntimeError), Session(db) as session, session.begin():
+        run = Run(owner_id=OWNER, idempotency_key="k1", question="甲公司营业收入？",
+                  answer_format="num", model="DeepSeek")
+        session.add(run)
+        session.flush()
+        runs._enqueue_attempt(session, run.id, 1, "submit", "DeepSeek")
+        raise RuntimeError("写完 outbox 之后出错")
+
+    assert not wait_for_notify(listener, timeout=1)
+    assert dispatch_once(db, lambda attempt_id: None) == 0

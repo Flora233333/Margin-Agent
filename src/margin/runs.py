@@ -8,11 +8,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlalchemy import Engine, func, select, update
+from sqlalchemy import Engine, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from .models import Attempt, Event, Outbox, Run, Step
+
+OUTBOX_CHANNEL = "outbox"  # LISTEN / NOTIFY 的频道名：有新的 outbox 待投递
 
 
 class RunNotFound(Exception):
@@ -43,6 +45,16 @@ def add_event(session: Session, run_id: int, type_: str, payload: dict[str, Any]
     return seq
 
 
+def notify_outbox(session: Session) -> None:
+    """通知 dispatcher：“outbox 里有新的待投递记录了”（PG 的 LISTEN / NOTIFY）。
+
+    NOTIFY 跟着事务走：事务提交后才真正发出，回滚则取消。所以 dispatcher 被叫醒时，
+    这一行 outbox 一定已经能查到。同一事务里发多次相同的通知，PG 只会送出一条。
+    dispatcher 那边一条专用连接执行了 LISTEN outbox，见 dispatcher.listen。
+    """
+    session.execute(text(f"NOTIFY {OUTBOX_CHANNEL}"))
+
+
 def _enqueue_attempt(session: Session, run_id: int, attempt_no: int, trigger: str,
                      model: str) -> None:
     """新建一次执行，并在同一个事务里写一条 outbox 记录（“要把它投递给 worker”）。
@@ -55,6 +67,7 @@ def _enqueue_attempt(session: Session, run_id: int, attempt_no: int, trigger: st
     session.add(attempt)
     session.flush()  # 先把 INSERT 发给数据库，拿到自增的 attempt.id（事务还没提交）
     session.add(Outbox(attempt_id=attempt.id))
+    notify_outbox(session)
     session.execute(update(Run).where(Run.id == run_id).values(status="queued"))
     add_event(session, run_id, "attempt_queued",
               {"attempt_id": attempt.id, "attempt_no": attempt_no, "trigger": trigger})

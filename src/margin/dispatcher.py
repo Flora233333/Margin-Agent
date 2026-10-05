@@ -1,9 +1,10 @@
-"""Dispatcher：把 outbox 里待投递的 attempt 发到 RabbitMQ 队列；顺带做租约巡检。
+"""Dispatcher：把 outbox 里待投递的 attempt 发到 RabbitMQ 队列；顺带做租约巡检和消息丢失对账。
 
 启动：python -m margin.dispatcher（compose 里的 dispatcher 服务）
 
 为什么不在 API 里直接发 Celery 消息：见 runs._enqueue_attempt 的 Outbox 说明。
-API 只负责把“要投递”写进 outbox 表（和建任务同一个事务），这里每秒扫一次，发出去后标记 sent。
+API 只负责把“要投递”写进 outbox 表（和建任务同一个事务）并 NOTIFY；这里平时在 LISTEN 上等通知，
+被叫醒就扫一次 outbox，发出去后标记 sent。最多等 10 秒也会自己扫一次（兜底，见 main）。
 
 投递语义是“至少一次”：消息发出去了、但标记 sent 的事务没提交成功（例如这时进程崩溃），
 下一轮会再发一次。重复的消息没关系——worker 领取执行权时只有一个能成功（lease.claim）。
@@ -20,6 +21,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import timedelta
 
+import psycopg
 from amqp.exceptions import NotFound
 from celery import Celery
 from kombu import Connection
@@ -30,13 +32,13 @@ from sqlalchemy.orm import Session
 from . import lease
 from .db import get_engine
 from .models import Attempt, Outbox, Run
-from .runs import add_event
+from .runs import OUTBOX_CHANNEL, add_event, notify_outbox
 from .settings import get_settings
 
 log = logging.getLogger(__name__)
 
-POLL_SECONDS = 1.0
-INSPECT_EVERY_SECONDS = 15  # 每 15 秒巡检一次过期租约
+MAX_WAIT_SECONDS = 10.0  # 没有通知时最多等这么久也扫一次 outbox（兜底）
+INSPECT_EVERY_SECONDS = 15  # 每 15 秒巡检一次：过期租约 + 消息丢失对账
 BATCH = 50  # 一轮最多投递多少条
 MAX_BACKOFF_SECONDS = 60
 CONFIRM_TIMEOUT_SECONDS = 5  # 发出一条消息后最多等 RabbitMQ 的“收到了”（发送确认）多久
@@ -215,6 +217,8 @@ def requeue_lost(engine: Engine, queue: QueueState | None) -> tuple[list[int], l
                         redeliveries=Outbox.redeliveries + 1)
             )
             requeued.append(attempt_id)
+        if requeued:
+            notify_outbox(session)  # 改回 pending 也是“有新的待投递”，叫醒投递循环
         return requeued, failed
 
 
@@ -238,11 +242,53 @@ def _fail_undelivered(session: Session, attempt_id: int) -> bool:
     return True
 
 
+def listen(database_url: str) -> psycopg.Connection:
+    """开一条专用连接，在上面 LISTEN outbox 频道。
+
+    为什么专用、不从连接池借：LISTEN 是“这条连接”在听，通知只会送到这条连接上；
+    池里的连接用完就还回去给别人用了。另外 PG 只在连接不处于未提交的事务里时才把通知交出来，
+    所以用自动提交（autocommit）模式：每条语句执行完就提交，连接永远不会卡在一个打开的事务里。
+    """
+    conn = psycopg.connect(database_url, autocommit=True)
+    conn.execute(f"LISTEN {OUTBOX_CHANNEL}")
+    return conn
+
+
+def wait_for_notify(listener: psycopg.Connection, timeout: float) -> bool:
+    """最多等 timeout 秒，收到 outbox 通知就立刻返回 True，超时返回 False。
+
+    notifies() 在等待期间不占 CPU（阻塞在 socket 上），和 time.sleep 一样省，但有通知时马上醒。
+    连接断了（PG 重启）会抛 psycopg.OperationalError：不捕获，让进程退出、由 compose 重启，
+    重启后重新 LISTEN；中间错过的通知由兜底扫描补上（通知不持久，没人在听就丢了）。
+    """
+    for _ in listener.notifies(timeout=timeout, stop_after=1):
+        return True
+    return False
+
+
+def seconds_until_due(engine: Engine) -> float:
+    """离最早一条 pending 记录可以投递还有几秒（最多 MAX_WAIT_SECONDS）。
+
+    通知只负责“有新任务”。投递失败后退避的记录到期时不会有人发通知，所以等待时间不能超过它的到期时间；
+    已经到期的（例如一轮超过 BATCH 条没发完）返回 0，马上再扫一轮。
+    """
+    with Session(engine) as session:
+        due = session.scalar(
+            select(func.extract("epoch", func.min(Outbox.next_attempt_at) - func.now()))
+            .where(Outbox.status == "pending")
+        )
+    if due is None:
+        return MAX_WAIT_SECONDS
+    return max(0.0, min(float(due), MAX_WAIT_SECONDS))
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     settings = get_settings()
     engine = get_engine()
     publish = make_publisher(settings.broker_url)
+    # 先 LISTEN 再进循环：启动前就已经在 outbox 里的记录由第一轮扫描处理，之后的靠通知
+    listener = listen(settings.database_url)
     last_inspect = 0.0
     log.info("dispatcher 启动")
     while True:
@@ -260,7 +306,9 @@ def main() -> None:
             if failed:
                 log.error("补发 %s 次仍未送达，判为失败：attempt %s", MAX_REDELIVERIES, failed)
             last_inspect = time.monotonic()
-        time.sleep(POLL_SECONDS)
+        # 等到：有通知、或最早的退避记录到期、或该巡检了、或 10 秒——哪个先到算哪个
+        until_inspect = INSPECT_EVERY_SECONDS - (time.monotonic() - last_inspect)
+        wait_for_notify(listener, max(0.0, min(seconds_until_due(engine), until_inspect)))
 
 
 if __name__ == "__main__":
