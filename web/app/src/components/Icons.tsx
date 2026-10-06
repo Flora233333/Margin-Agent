@@ -18,6 +18,8 @@ export function IconSprite() {
       <symbol id="i-up" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5" /></symbol>
       <symbol id="i-redo" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12.5 8a4.5 4.5 0 1 1-1.3-3.2M12.5 2.5v3h-3" /></symbol>
       <symbol id="i-copy" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"><rect x="5" y="5" width="8" height="8" rx="1.5" /><path d="M3 10.5V3h7.5" /></symbol>
+      <symbol id="i-panel" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"><rect x="2.5" y="3" width="11" height="10" rx="1.5" /><path d="M10 3v10" /></symbol>
+      <symbol id="i-chev-left" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"><path d="M10 3.5 5.5 8l4.5 4.5" /></symbol>
       <symbol id="i-alert" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"><circle cx="8" cy="8" r="5.5" /><path d="M8 5v3.5M8 11h.01" /></symbol>
     </svg>
   )

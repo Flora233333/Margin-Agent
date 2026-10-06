@@ -9,6 +9,7 @@
  * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
  * 执行中每出现一张新卡片，从过程区里引用它的那一步画一条线过去，1.5 秒后收回（useAnnounce），表示“这条证据从这里来”。
  * 卡片下面是“检索命中的其他文档”（OtherDocs），可折叠，排在所有卡片之后；没有引用时右栏至少有它。
+ * 整栏可以收起成一条竖排的“来源 n”标签（.app.is-sources-closed，列宽过渡见 base.css / clean.css），正文回到居中。
  * 算法来自设计稿 web/design/demo.js 第 4 部分。
  */
 
@@ -315,17 +316,32 @@ interface Props {
 export function Sources({ citations, others, live, thread, linked, flash, onHover }: Props) {
   const track = useRef<HTMLDivElement>(null)
   const line = useRef<SVGPathElement>(null)
+  const [closed, setClosed] = useState(false)
+  // 收起状态是整个三栏布局的类（.app 在 App.tsx 里），这里直接加在 .app 上；离开这道题（组件卸载）时去掉
+  useEffect(() => {
+    const app = document.querySelector('.app')!
+    app.classList.toggle('is-sources-closed', closed)
+    return () => app.classList.remove('is-sources-closed')
+  }, [closed])
   useMarginLayout(track, thread, citations.length, others.length > 0, live)
   useAnnounce(line, citations.length, live)
   return (
     <>
       <aside className="side-panel" aria-label="来源">
+        <button className="panel-tab" type="button" aria-label="展开来源" onClick={() => setClosed(false)}>
+          <Icon name="chev-left" />
+          来源 <span className="num">{citations.length}</span>
+        </button>
         {/* is-live 类由 useMarginLayout 切换（要和卡片位置的调整在同一时刻发生），这里不写 */}
         <div className="panel-body">
           <div className="panel-head">
             <h2 className="panel-title">
               来源 <span className="num">{citations.length}</span>
             </h2>
+            <button className="icon-btn panel-toggle" type="button" aria-expanded={!closed} onClick={() => setClosed(true)}>
+              <Icon name="panel" />
+              收起
+            </button>
           </div>
           {/* 放在轨道外面：轨道里的卡片绝对定位、从顶部排起，放在里面会和“其他文档”叠在一起 */}
           {citations.length === 0 && (
