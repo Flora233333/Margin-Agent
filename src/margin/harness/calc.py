@@ -205,9 +205,11 @@ def calculate_date(
 ) -> dict[str, str]:
     """按起算规则计算期限的到期日。
 
-    count_from:
+    count_from（只对按日计算有意义，工具说明里也这样写）:
         next_day  起算日当天不算，第二天是第 1 天（法律文书里最常见的算法）
         same_day  起算日当天就是第 1 天
+    按月、按年不看 count_from：到期月 / 年的对应日就是最后一天（民法典第二百零二条），
+    2026-01-20 起 6 个月是 2026-07-20。
     calendar=working 时按工作日（只排除周末）逐天数。
     roll 用于“到期日遇周末顺延/提前”。
     """
@@ -221,15 +223,13 @@ def calculate_date(
                 remaining -= 1
                 result = current
             current += timedelta(days=1)
-    else:
+    elif unit == "day":
         # same_day 把起算日算作第 1 天，所以比 next_day 少加 1。
-        count = max(0, duration - (0 if count_from == "next_day" else 1))
-        if unit == "day":
-            result = start + timedelta(days=count)
-        elif unit == "month":
-            result = _add_months(start, count)
-        else:
-            result = _add_months(start, count * 12)
+        result = start + timedelta(days=max(0, duration - (0 if count_from == "next_day" else 1)))
+    elif unit == "month":
+        result = _add_months(start, duration)
+    else:
+        result = _add_months(start, duration * 12)
 
     if roll == "next_working_day":
         while not _is_working_day(result):
