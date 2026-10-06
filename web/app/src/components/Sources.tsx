@@ -7,6 +7,7 @@
  *   结束后  页边旁注（D14）：每张卡片和回答里的 [n] 对齐，互不重叠。过程区展开时也不去追里面的步骤，
  *           卡片只跟着回答走，展开 / 收起过程区时和回答一起平移。
  * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
+ * 执行中每出现一张新卡片，从过程区里引用它的那一步画一条线过去，1.5 秒后收回（useAnnounce），表示“这条证据从这里来”。
  * 算法来自设计稿 web/design/demo.js 第 4 部分。
  */
 
@@ -151,6 +152,58 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
   }, [track, thread, count, live])
 }
 
+const ANNOUNCE_DELAY = 550 // 等卡片入场动画（0.5 秒）基本播完再画线，线的终点才是卡片的最终位置
+const ANNOUNCE_MS = 1500 // 线停留多久后收回
+
+/**
+ * 执行中新卡片出现时画一条连线：起点是过程区里“引用”那一步的标题行（线从过程区右边缘出发，只穿过空白，不压在文字上），
+ * 终点是卡片左上。线画在 .app 的内容坐标里（.app 是滚动容器），用户这时滚动页面，线跟着内容走。
+ * pathLength=1 + stroke-dashoffset 从 1 过渡到 0，线像被画出来（clean.css 的 .connector）。
+ */
+function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live: boolean) {
+  const seen = useRef(count) // 打开页面时已经有的卡片不画
+  useEffect(() => {
+    const before = seen.current
+    seen.current = count
+    if (!live || count <= before || !matchMedia(WIDE).matches) {
+      return
+    }
+    const line = path.current!
+    const no = String(count) // 编号按出现顺序，最新的卡片就是编号最大的那张
+    const draw = setTimeout(() => {
+      const step = document.querySelector(`.step[data-cite="${no}"]`)
+      const card = document.querySelector(`.source[data-src="${no}"]`)
+      if (!step || !isShown(step) || !card) {
+        return // 用户把过程区收起来了：起点看不见，就不画
+      }
+      const app = document.querySelector('.app')!
+      const base = app.getBoundingClientRect()
+      const a = (step.querySelector('.step-row') ?? step).getBoundingClientRect()
+      const b = card.getBoundingClientRect()
+      const x1 = step.closest('.work')!.getBoundingClientRect().right - base.left + 12
+      const y1 = a.top + a.height / 2 - base.top + app.scrollTop
+      const x2 = b.left - base.left - 4
+      const y2 = b.top + 18 - base.top + app.scrollTop
+      const mid = (x1 + x2) / 2
+      line.parentElement!.style.height = `${app.scrollHeight}px`
+      // 先在“无过渡”状态下把线收回到长度 0，再恢复过渡画出；否则上一条线还没收完时，新线会整条直接出现
+      line.style.transition = 'none'
+      line.classList.remove('is-on')
+      line.setAttribute('d', `M${x1} ${y1} C${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`)
+      void line.getBoundingClientRect()
+      line.style.transition = ''
+      line.classList.add('is-on')
+    }, ANNOUNCE_DELAY)
+    const hide = setTimeout(() => line.classList.remove('is-on'), ANNOUNCE_DELAY + ANNOUNCE_MS)
+    return () => {
+      // 1.5 秒内又来了新卡片、或执行结束：收回这条线，由下一次重新画
+      clearTimeout(draw)
+      clearTimeout(hide)
+      line.classList.remove('is-on')
+    }
+  }, [path, count, live])
+}
+
 interface CardProps {
   citation: Citation
   linked: boolean
@@ -225,32 +278,40 @@ interface Props {
 
 export function Sources({ citations, live, thread, linked, flash, onHover }: Props) {
   const track = useRef<HTMLDivElement>(null)
+  const line = useRef<SVGPathElement>(null)
   useMarginLayout(track, thread, citations.length, live)
+  useAnnounce(line, citations.length, live)
   return (
-    <aside className="side-panel" aria-label="来源">
-      {/* is-live 类由 useMarginLayout 切换（要和卡片位置的调整在同一时刻发生），这里不写 */}
-      <div className="panel-body">
-        <div className="panel-head">
-          <h2 className="panel-title">
-            来源 <span className="num">{citations.length}</span>
-          </h2>
-        </div>
-        <div className="margin-track" ref={track}>
-          {citations.length === 0 && <p className="sources-empty">模型引用原文后，来源会出现在这里。</p>}
-          {citations.map((c) => (
-            <div className="reveal margin-item" key={c.no} data-src={c.no}>
-              <div className="reveal-inner">
-                <SourceCard
-                  citation={c}
-                  linked={linked === c.no}
-                  flash={flash.no === c.no ? flash.count : 0}
-                  onHover={onHover}
-                />
+    <>
+      <aside className="side-panel" aria-label="来源">
+        {/* is-live 类由 useMarginLayout 切换（要和卡片位置的调整在同一时刻发生），这里不写 */}
+        <div className="panel-body">
+          <div className="panel-head">
+            <h2 className="panel-title">
+              来源 <span className="num">{citations.length}</span>
+            </h2>
+          </div>
+          <div className="margin-track" ref={track}>
+            {citations.length === 0 && <p className="sources-empty">模型引用原文后，来源会出现在这里。</p>}
+            {citations.map((c) => (
+              <div className="reveal margin-item" key={c.no} data-src={c.no}>
+                <div className="reveal-inner">
+                  <SourceCard
+                    citation={c}
+                    linked={linked === c.no}
+                    flash={flash.no === c.no ? flash.count : 0}
+                    onHover={onHover}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+      {/* 连线画在整个 .app 上（绝对定位，跨过正文和右栏），只在简洁风宽屏显示 */}
+      <svg className="connector" aria-hidden="true">
+        <path pathLength={1} ref={line} />
+      </svg>
+    </>
   )
 }

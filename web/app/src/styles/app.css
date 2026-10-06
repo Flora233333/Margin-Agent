@@ -100,6 +100,10 @@
 /* 来源旁注：原文保留换行（表格行）；展开后的高度由 Sources.tsx 量出来写在行内样式里 */
 .source-line { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* 执行中右栏是顺序列表、整栏吸在屏幕顶部（类名由 Sources.tsx 切换）；卡片多到超出一屏时右栏自己滚动 */
+/* 卡片出现时从左侧（正文方向）滑入、淡入。设计稿用 .is-hidden 类 + 过渡做，这里用 CSS 动画：
+   元素一插入就自动播放，不用等 React 渲染完再去掉类 */
+:root[data-style="clean"] .margin-item { animation: note-in 0.5s var(--ease) both; }
+@keyframes note-in { from { opacity: 0; transform: translateX(-12px); } }
 :root[data-style="clean"] .panel-body.is-live {
   position: sticky;
   top: 0;
