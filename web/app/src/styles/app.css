@@ -75,17 +75,15 @@
 
 /* 来源旁注：原文保留换行（表格行）；展开后的高度由 Sources.tsx 量出来写在行内样式里 */
 .source-line { white-space: pre-wrap; overflow-wrap: anywhere; }
-/* 执行中右栏是顺序列表、整栏吸在屏幕顶部（类名由 Sources.tsx 切换）；卡片多到超出一屏时右栏自己滚动 */
 /* 卡片出现时从左侧（正文方向）滑入、淡入。设计稿用 .is-hidden 类 + 过渡做，这里用 CSS 动画：
    元素一插入就自动播放，不用等 React 渲染完再去掉类 */
 :root[data-style="clean"] .margin-item { animation: note-in 0.5s var(--ease) both; }
 @keyframes note-in { from { opacity: 0; transform: translateX(-12px); } }
-:root[data-style="clean"] .panel-body.is-live {
-  position: sticky;
-  top: 0;
-  max-height: 100vh;
-  overflow-y: auto;
-}
+/* 执行中卡片轨道吸顶（类名由 Sources.tsx 切换，top / max-height 也由它按过程区的位置算出来）。
+   sticky 只能在父元素的内容区里移动：右栏内容本身很矮，所以执行中把 .panel-body 撑到整栏高；
+   底部内边距也去掉，否则滚到页面底部时，卡片会被这段内边距顶上去、钻到标题下面 */
+:root[data-style="clean"] .panel-body.is-live { min-height: 100%; padding-bottom: 0; }
+:root[data-style="clean"] .panel-body.is-live .margin-track { position: sticky; overflow-y: auto; }
 .sources-empty { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }
 /* 简洁风：和卡片、“其他文档”的文字左对齐（它们都有 --space-2 的内边距），并和下面的分组隔开 */
 :root[data-style="clean"] .sources-empty { padding: 0 var(--space-2); margin-bottom: var(--space-4); }
@@ -115,3 +113,30 @@
   font-size: var(--text-sm);
   color: var(--ink-faint);
 }
+
+/* 理解题目的图标（StepItem.tsx 的 UnderstandItem）：理解中是一段旋转的弧（主色）；
+   理解完弧长过渡成整圈、圆心的点弹出来，颜色回到普通步骤的灰。旋转一直开着，整圈转起来看不出来 */
+.step-node.is-target { color: var(--accent); }
+.step-node.is-target.is-done { color: var(--ink-faint); }
+.target-draw { width: 17px; height: 17px; overflow: visible; }
+.target-ring {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-dasharray: 0.28 1;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: target-spin 0.9s linear infinite;
+  transition: stroke-dasharray 0.45s var(--ease);
+}
+.is-done .target-ring { stroke-dasharray: 1 0; }
+.target-dot {
+  fill: currentColor;
+  transform: scale(0);
+  transform-origin: center;
+  transform-box: fill-box;
+  transition: transform 0.4s var(--ease-spring) 0.35s;
+}
+.is-done .target-dot { transform: scale(1); }
+@keyframes target-spin { to { transform: rotate(360deg); } }

@@ -4,7 +4,7 @@
  *           开放问题（text）没有一个“数”可以放大，不显示结论行，正文第一句就是结论；
  *   正文    撰写的回答（compose.py），事实后面跟着可点的 [n]，点了跳到右侧对应的来源旁注；
  *           以“口径说明”开头的一段小号灰字；
- *   账目行  模型、步数、引用数；“复制”按钮。
+ *   账目行  模型、步数、引用数、耗时；“复制”按钮。
  * 撰写失败（或 M2.5 之前的旧题，没有撰写的回答）时退回原来的样子：依据列表，每条引文一行。
  * 执行中撰写的正文逐字出现；结束后换成后端校验过的文字（timeline.ts 规则 3）。
  * 结论是单个数字时，出现时从 0 滚动到这个数（CountUp，设计稿的 countUp）。
@@ -35,6 +35,7 @@ interface Props {
   label: string | null // 结论旁边的说明，例如“广晟控股 · 2022 年营业收入（亿元）”
   options: Record<string, string> | null
   model: string
+  seconds: number | null // 这次执行的耗时（领取到结束）
   citations: Citation[] | null
   linked: number | null
   onCiteHover: (no: number | null) => void
@@ -116,6 +117,14 @@ function Verdict({ attempt, format, label, options }: Pick<Props, 'attempt' | 'f
       </div>
     </div>
   )
+}
+
+/** 38.6 秒；一分钟以上写成 2 分 56 秒 */
+function formatSeconds(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds.toFixed(1)} 秒`
+  }
+  return `${Math.floor(seconds / 60)} 分 ${Math.round(seconds % 60)} 秒`
 }
 
 /** 复制按钮：成功后图标换成 ✓、文字变“已复制”，1.5 秒后恢复 */
@@ -220,6 +229,7 @@ export function Answer(props: Props) {
             <span>{model}</span>
             <span>{attempt.steps.length} 步</span>
             <span>{citations.length} 处引用</span>
+            {props.seconds !== null && <span>{formatSeconds(props.seconds)}</span>}
           </span>
           <CopyButton text={plainText(attempt, format, citations)} />
         </div>

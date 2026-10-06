@@ -1,12 +1,13 @@
 /*
  * 右侧来源：每条引用一张卡片（文档、位置、原文里标出引文）。
  *
- * 简洁风宽屏时，右栏有两种排法（useMarginLayout）：
- *   执行中  顺序列表，整栏“吸”在屏幕顶部（.panel-body.is-live，CSS sticky）。页面一直在往下滚、过程区一直在变长，
- *           卡片如果去对齐过程区里的步骤，会跟着滚出屏幕、被后来的卡片推开，看起来在乱飘（M2 逐帧截图 run 32）；
- *   结束后  从最近一次执行的过程区顶部（收起时那个框的上沿）开始，按编号往下排（D14 修订，2026-10-06）。
- *           过程区展开是往下长的，它的上沿不动，所以展开 / 收起过程区时卡片不动。
- *           原来是每张卡片对齐回答里的 [n]：展开过程区时回答被推下去，卡片跟着整栏下移，作者试用后改成现在这样。
+ * 简洁风宽屏时，卡片都从最近一次执行的过程区上沿（收起时那个框的上沿）开始，按编号往下排（D24）。
+ * 过程区展开是往下长的，上沿不动，所以展开 / 收起过程区时卡片不动。
+ * 原来是每张卡片对齐回答里的 [n]：展开过程区时回答被推下去，卡片跟着整栏下移，作者试用后改成现在这样。
+ * 执行中和结束后的区别只在滚动（useMarginLayout）：
+ *   执行中  卡片轨道是 sticky：先跟着页面一起往上走，到达右栏标题下方就停住（.panel-body.is-live）。
+ *           页面一直在往下滚、过程区一直在变长，卡片不停住的话会滚出屏幕，执行中就看不到新来的证据；
+ *   结束后  轨道就在页面里，跟着正文一起滚动。
  * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
  * 执行中每出现一张新卡片，从过程区里引用它的那一步画一条线过去，1.5 秒后收回（useAnnounce），表示“这条证据从这里来”。
  * 结束后鼠标停在回答里的 [n] 或卡片上，两边一起高亮，并从 [n] 画一条线到卡片（useLinkLine）。
@@ -75,7 +76,9 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
   count: number, hasGroup: boolean, live: boolean) {
   useLayoutEffect(() => {
     const trackEl = track.current!
-    const body = trackEl.parentElement! // .panel-body：执行中整栏吸顶
+    const body = trackEl.parentElement! // .panel-body
+    // 轨道前面一个不吸顶的空元素：量“轨道本来在哪里”。执行中轨道吸顶，它自己的位置会随滚动变化
+    const mark = trackEl.previousElementSibling!
     const items = [...trackEl.querySelectorAll<HTMLElement>('.margin-item')]
 
     /*
@@ -99,17 +102,16 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
       if (!matchMedia(WIDE).matches) {
         body.classList.remove('is-live')
         items.forEach((item) => (item.style.top = ''))
-        trackEl.style.height = ''
+        Object.assign(trackEl.style, { height: '', top: '', maxHeight: '' })
         return
       }
       if (body.classList.contains('is-live') !== live) {
         switchMode()
       }
-      const trackTop = trackEl.getBoundingClientRect().top
-      // 起点：执行中是轨道顶部（整栏吸顶）；结束后是最近一次过程区的上沿。卡片按 DOM 顺序（编号顺序，
-      // “其他文档”在最后）一张接一张往下排
-      const start = live ? null : startOf()
-      let floor = start ? Math.max(0, start.getBoundingClientRect().top - trackTop + workShift(start)) : 0
+      // 起点：最近一次过程区的上沿，换算成轨道里的位置（lead）。卡片按 DOM 顺序（编号顺序，“其他文档”在最后）往下排
+      const start = startOf()
+      const lead = start ? Math.max(0, start.getBoundingClientRect().top - mark.getBoundingClientRect().top + workShift(start)) : 0
+      let floor = lead
       for (const item of items) {
         const top = floor
         if (!item.dataset.placed) {
@@ -125,6 +127,16 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
         floor = top + finalItemHeight(item) + GAP
       }
       trackEl.style.height = `${floor}px` // 卡片都是绝对定位，不占高度，要自己把轨道撑开
+      if (live) {
+        // 吸顶位置 = 标题高度 - lead：轨道顶部可以滚到屏幕上方 lead 那么多，正好让第一张卡片停在标题下面。
+        // 能看到的卡片区域是一屏减去标题；卡片多了在轨道里自己滚动
+        const head = body.querySelector<HTMLElement>('.panel-head')!.offsetHeight
+        trackEl.style.top = `${head - lead}px`
+        trackEl.style.maxHeight = `calc(100vh - ${head - lead}px)`
+      } else {
+        trackEl.style.top = ''
+        trackEl.style.maxHeight = ''
+      }
     }
 
     // 同一帧里多次触发只算一次
@@ -189,13 +201,21 @@ function drawConnector(line: SVGPathElement, from: Element, card: Element) {
   line.classList.add('is-on')
 }
 
-/** 执行中新卡片出现时，从过程区里“引用”那一步的标题行画一条线过去，1.5 秒后收回，表示“这条证据从这里来” */
-function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live: boolean) {
-  const seen = useRef(count) // 打开页面时已经有的卡片不画
+/**
+ * 执行中新卡片出现时，从过程区里“引用”那一步的标题行画一条线过去，1.5 秒后收回，表示“这条证据从这里来”。
+ * 只给实时出现的卡片画：执行中刷新页面时，历史事件一下子补发完，卡片数从 0 涨上去，
+ * 那些不算“新出现”（那时引用那一步多半已经滚出屏幕，线会从屏幕上方斜着画下来）。
+ * caughtUp（服务端补发完历史的标记）变成 true 的那一次只记下当时的卡片数，之后增加的才画。
+ */
+function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live: boolean, caughtUp: boolean) {
+  const seen = useRef(count)
+  const ready = useRef(false)
   useEffect(() => {
     const before = seen.current
     seen.current = count
-    if (!live || count <= before || !matchMedia(WIDE).matches) {
+    const baseline = !ready.current // 追上之后的第一次：可能和最后一批历史事件同一次渲染，当成起点不画
+    ready.current = caughtUp
+    if (!caughtUp || baseline || !live || count <= before || !matchMedia(WIDE).matches) {
       return
     }
     const line = path.current!
@@ -215,7 +235,7 @@ function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live
       clearTimeout(hide)
       line.classList.remove('is-on')
     }
-  }, [path, count, live])
+  }, [path, count, live, caughtUp])
 }
 
 /**
@@ -332,13 +352,14 @@ interface Props {
   citations: Citation[]
   others: SearchedDoc[]
   live: boolean // 最近一次执行还没结束
+  caughtUp: boolean // 事件流已补发完历史（useRunStream）
   thread: RefObject<HTMLElement | null>
   linked: number | null
   flash: { no: number; count: number }
   onHover: (no: number | null) => void
 }
 
-export function Sources({ citations, others, live, thread, linked, flash, onHover }: Props) {
+export function Sources({ citations, others, live, caughtUp, thread, linked, flash, onHover }: Props) {
   const track = useRef<HTMLDivElement>(null)
   const line = useRef<SVGPathElement>(null)
   const [closed, setClosed] = useState(false)
@@ -349,7 +370,7 @@ export function Sources({ citations, others, live, thread, linked, flash, onHove
     return () => app.classList.remove('is-sources-closed')
   }, [closed])
   useMarginLayout(track, thread, citations.length, others.length > 0, live)
-  useAnnounce(line, citations.length, live)
+  useAnnounce(line, citations.length, live, caughtUp)
   useLinkLine(line, linked, live)
   return (
     <>
@@ -373,6 +394,7 @@ export function Sources({ citations, others, live, thread, linked, flash, onHove
           {citations.length === 0 && (
             <p className="sources-empty">{live ? '模型引用原文后，来源会出现在这里。' : '这次执行没有引用原文。'}</p>
           )}
+          <div className="margin-track-mark" />
           <div className="margin-track" ref={track}>
             {citations.map((c) => (
               <div className="reveal margin-item" key={c.no} data-src={c.no}>

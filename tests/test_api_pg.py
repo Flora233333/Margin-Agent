@@ -121,10 +121,11 @@ def test_sse_pushes_new_events_on_notify_without_waiting_for_fallback(client, db
                      "event: attempt_finished"]
 
 
-def test_sse_forwards_live_thinking_without_event_id(client, db, live_redis):
-    """执行中的思考片段经 Redis 转发为 event: delta，且不带 id：
-    断线重连的 Last-Event-ID 只跟持久事件走，
-    否则浏览器会拿片段的位置去补发，跳过或重复持久事件。"""
+def test_sse_marks_end_of_backlog_then_forwards_live_thinking(client, db, live_redis):
+    """执行中打开页面：先补发历史事件，再发 caught_up 标记，之后才是实时的思考片段和新事件。
+    前端靠这个标记区分回放和实时（回放出来的来源卡片不画连线）。
+    caught_up 和思考片段（event: delta）都不带 id：断线重连的 Last-Event-ID 只跟持久事件走，
+    否则浏览器会拿它们的位置去补发，跳过或重复持久事件。"""
     submit(client)
     held = lease.claim(db, 1, "worker-a")
     delta = {"attempt_id": 1, "epoch": held.epoch, "turn": 0, "kind": "reasoning", "text": "先找"}
@@ -140,7 +141,7 @@ def test_sse_forwards_live_thinking_without_event_id(client, db, live_redis):
               if not b.startswith("event: ping")]
 
     assert [b.splitlines()[0] for b in blocks if b] == [
-        "id: 1", "id: 2", "event: delta", "id: 3"]
+        "id: 1", "id: 2", "event: caught_up", "event: delta", "id: 3"]
     delta_block = next(b for b in blocks if b.startswith("event: delta"))
     assert json.loads(delta_block.splitlines()[1].removeprefix("data: ")) == delta
 

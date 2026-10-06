@@ -11,7 +11,7 @@ import { type ReactNode, useState } from 'react'
 import { type AnswerFormat, FORMAT_LABEL } from '../api'
 import type { Attempt } from '../timeline'
 import { Icon } from './Icons'
-import { StageItem, ThoughtItem, ToolItem } from './StepItem'
+import { StageItem, ThoughtItem, ToolItem, UnderstandItem } from './StepItem'
 
 /** Harness 已经交了答案或放弃作答：之后就是撰写回答 */
 function ended(attempt: Attempt): boolean {
@@ -63,7 +63,14 @@ function SwapLabel({ text }: { text: string }) {
   )
 }
 
-export function Work({ attempt, citeNos }: { attempt: Attempt; citeNos: Map<number, number> }) {
+interface Props {
+  attempt: Attempt
+  citeNos: Map<number, number>
+  // 这次执行正在理解题目（第一次执行、标题还没有）：第一项先占位转圈，结果到了原地换成标题
+  understanding: boolean
+}
+
+export function Work({ attempt, citeNos, understanding }: Props) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const active = attempt.status === 'queued' || attempt.status === 'running'
   const open = userOpen ?? active
@@ -76,12 +83,16 @@ export function Work({ attempt, citeNos }: { attempt: Attempt; citeNos: Map<numb
   const written = attempt.written
 
   const items: ReactNode[] = []
+  // 理解题目和 Harness 并行：执行一开始就占住第一项（转圈），下面的思考照常出现；
+  // 结果到了同一个条目（key 不变）原地换成标题，不会在顶上突然插进一条、把下面整体往下推
   if (understood) {
     const detail = [`答案格式：${FORMAT_LABEL[understood.answer_format as AnswerFormat]}`, understood.label]
     items.push(
-      <StageItem key="understood" icon="read" title={<>理解题目 <q>{understood.title}</q></>}
-        detail={detail.filter(Boolean).join(' · ')} current={false} />,
+      <UnderstandItem key="understood" title={<>理解题目 <q>{understood.title}</q></>}
+        detail={detail.filter(Boolean).join(' · ')} done />,
     )
+  } else if (understanding) {
+    items.push(<UnderstandItem key="understood" title="正在理解题目…" done={false} />)
   }
   attempt.steps.forEach((step, i) => {
     const last = running && !live && !composing && i === attempt.steps.length - 1

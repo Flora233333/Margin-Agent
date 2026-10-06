@@ -12,6 +12,8 @@
  *      浏览器以为连接还在，永远等下去，也不会触发重连。服务端空闲时每 10 秒发一个心跳（event: ping），
  *      所以超过 25 秒什么都没收到，就认定连接已断，关掉重建。
  *   4. 重新打开：用户点“重新生成”时流已经关了，reopen() 新建一个，同样从 lastSeq 之后接收。
+ * 另外返回 caughtUp：服务端补发完历史事件时发 event: caught_up，之后到的才是“正在发生”的。
+ * 执行中刷新页面，历史事件一下子全部到达，界面上要区分回放和实时的地方用它（例如新来源卡片的连线）。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -31,6 +33,7 @@ export function useRunStream(runId: number, onSettled: () => void) {
   const [timeline, setTimeline] = useState<Timeline>(EMPTY_TIMELINE)
   const [connection, setConnection] = useState<Connection>('connecting')
   const [generation, setGeneration] = useState(0) // 加 1 就重新打开一个 EventSource
+  const [caughtUp, setCaughtUp] = useState(false)
   // 事件处理函数里要读“最新的”时间线（判断是否已结束、从哪个 seq 接上），state 在下次渲染前读不到新值，所以另存一份在 ref 里
   const timelineRef = useRef(EMPTY_TIMELINE)
   // 回调也存进 ref：每次渲染传进来的是新函数，但不应该因此关掉重开 EventSource
@@ -76,6 +79,10 @@ export function useRunStream(runId: number, onSettled: () => void) {
       }
       source.addEventListener('delta', (e) => apply({ type: 'delta', data: JSON.parse(e.data) }))
       source.addEventListener('ping', alive)
+      source.addEventListener('caught_up', () => {
+        alive()
+        setCaughtUp(true)
+      })
       source.onerror = () => {
         if (isSettled(timelineRef.current)) {
           clearTimeout(silenceTimer)
@@ -101,5 +108,5 @@ export function useRunStream(runId: number, onSettled: () => void) {
   }, [runId, generation])
 
   const reopen = useCallback(() => setGeneration((g) => g + 1), [])
-  return { timeline, connection, reopen }
+  return { timeline, connection, caughtUp, reopen }
 }

@@ -218,6 +218,9 @@ async def stream_events(
     这里是 async 路由：等待时 await 让出，不占线程；查库仍是同步代码，
     用 run_in_threadpool 放到线程池执行，不阻塞事件循环。
 
+    event: caught_up：执行中打开页面，先一次性补发历史事件，补发完发这个标记（不带 id），
+    之后才是新发生的。前端靠它区分“回放”和“实时”：例如来源卡片出现时的连线动画，只给实时出现的卡片画。
+
     ?after=N：和 Last-Event-ID 作用相同。前端新开一个 EventSource（例如点“重新生成”后，原来的流
     已在执行结束时关闭）没法自己设置 Last-Event-ID 请求头，就用这个参数。两者都有时取大的：
     浏览器自动重连时会带上更新的 Last-Event-ID，而地址里的 after 还是最初的值。
@@ -229,6 +232,7 @@ async def stream_events(
     async def generate() -> AsyncIterator[str]:
         events, status = first
         last_seq = start
+        caught_up = False
         # 收件箱里有两种东西：NEW_EVENTS（库里有新的持久事件）和实时片段（JSON 字符串）
         with hub.watch(run_id) as inbox:
             async with live.forward_deltas(redis_url, run_id, inbox):
@@ -242,6 +246,9 @@ async def stream_events(
                         last_seq = event.seq
                     if status in FINISHED:
                         return
+                    if not caught_up:
+                        caught_up = True
+                        yield "event: caught_up\ndata: {}\n\n"
                     events = []
                     try:
                         item = await asyncio.wait_for(inbox.get(), SSE_FALLBACK_SECONDS)

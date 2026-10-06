@@ -8,7 +8,7 @@
  */
 
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
-import { type AnswerFormat, ApiError, getRun, regenerate, type RunDetail } from '../api'
+import { type AnswerFormat, ApiError, type AttemptOut, getRun, regenerate, type RunDetail } from '../api'
 import { citationsOf, searchedDocsOf } from '../citations'
 import { Answer } from '../components/Answer'
 import { Composer } from '../components/Composer'
@@ -75,11 +75,15 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
   const [actionError, setActionError] = useState('') // 重新生成失败（409 等）的提示
   // 打开页面时题目还在执行：等它结束要刷新左侧列表的状态点。打开时已结束的题不用（列表本来就是对的）
   const watching = useRef(run.status === 'queued' || run.status === 'running')
-  const { timeline, connection, reopen } = useRunStream(run.id, () => {
+  // 每次执行的开始 / 结束时间（账目行的“耗时”）：事件里不带时间，用 GET /runs/{id} 的 started_at / finished_at。
+  // 打开页面时已经结束的执行直接有；看着它跑完的，结束时再取一次
+  const [times, setTimes] = useState(run.attempts)
+  const { timeline, connection, caughtUp, reopen } = useRunStream(run.id, () => {
     setActionError('') // 例如执行中点重新生成得到的 409 提示，执行结束后就过时了
     if (watching.current) {
       watching.current = false
       onRunsChanged()
+      getRun(run.id).then((r) => setTimes(r.attempts), () => {}) // 取不到就不显示耗时
     }
   })
   const thread = useRef<HTMLDivElement>(null)
@@ -150,7 +154,11 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                     第 {attempt.no} 次执行{attempt.trigger === 'regenerate' && '（重新生成）'}
                   </div>
                 )}
-                <Work attempt={attempt} citeNos={isLatest ? citeNos : NO_CITES} />
+                <Work
+                  attempt={attempt}
+                  citeNos={isLatest ? citeNos : NO_CITES}
+                  understanding={isLatest && attempt.status === 'running' && !understood && run.title === null}
+                />
                 {attempt.status === 'failed' && <Failure error={attempt.error} />}
                 {/* 执行中撰写的回答也显示（逐字出现），结束后换成校验过的文字 */}
                 {(attempt.status === 'completed' || attempt.answer !== '') && (
@@ -160,6 +168,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                     label={label}
                     options={run.options}
                     model={run.model}
+                    seconds={secondsOf(times.find((t) => t.attempt_no === attempt.no))}
                     citations={isLatest ? citations : null}
                     linked={linked}
                     onCiteHover={setLinked}
@@ -182,6 +191,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
         citations={citations}
         others={others}
         live={latest?.status === 'running' || latest?.status === 'queued'}
+        caughtUp={caughtUp}
         thread={thread}
         linked={linked}
         flash={flash}
@@ -192,6 +202,14 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
 }
 
 const NO_CITES = new Map<number, number>()
+
+/** 一次执行从 worker 领取到结束用了多少秒；还没结束（或没取到时间）为 null */
+function secondsOf(attempt: AttemptOut | undefined): number | null {
+  if (!attempt?.started_at || !attempt.finished_at) {
+    return null
+  }
+  return (Date.parse(attempt.finished_at) - Date.parse(attempt.started_at)) / 1000
+}
 
 /** 当前负责滚动的元素：简洁风宽屏时是 .app，窄屏时 .app 不滚动，滚的是整个页面 */
 function scroller(): Element {

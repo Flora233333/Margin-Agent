@@ -249,3 +249,36 @@ export function StageItem({ icon, title, detail, current }: StageProps) {
     </li>
   )
 }
+
+interface UnderstandProps {
+  title: ReactNode
+  detail?: string
+  done: boolean
+}
+
+/**
+ * 第一项“理解题目”。图标是一个圆：理解中是一段旋转的弧；理解完弧闭合成整圆、圆心点出一个点（像对准了靶心）。
+ * 不用勾：勾留给最后的“提交答案”。
+ * 两种状态是同一个 SVG，只换类名，弧长（stroke-dasharray）用过渡从一段长到一整圈；
+ * 旋转动画一直开着——整圆转起来看不出来，停掉的话弧会在闭合的那一刻跳回起始角度（app.css 的 .target-draw）。
+ */
+export function UnderstandItem({ title, detail, done }: UnderstandProps) {
+  return (
+    <li className="step">
+      <div className="reveal-inner">
+        <div className="step-inner">
+          <span className={done ? 'step-node is-target is-done' : 'step-node is-target'}>
+            <svg className="target-draw" viewBox="0 0 20 20" aria-hidden="true">
+              <circle className="target-ring" cx="10" cy="10" r="7" pathLength={1} />
+              <circle className="target-dot" cx="10" cy="10" r="2.2" />
+            </svg>
+          </span>
+          <div className="step-row">
+            <span className="step-title">{title}</span>
+          </div>
+          {detail && <div className="step-detail">{detail}</div>}
+        </div>
+      </div>
+    </li>
+  )
+}
