@@ -1,0 +1,12 @@
+[
+  {"id": "open01", "question": "广晟控股这次发行公司债券，募集资金打算用在哪些方面？", "expected_format": "text"},
+  {"id": "open02", "question": "金融机构对存量客户的受益所有人识别有什么时间要求？", "expected_format": "text"},
+  {"id": "open03", "question": "美的集团 2025 年年报里提到公司面临哪些主要风险？", "expected_format": "text"},
+  {"id": "open04", "question": "反洗钱法对客户身份资料和交易记录的保存期限是怎么规定的？", "expected_format": "text"},
+  {"id": "open05", "question": "比亚迪 2024 年研发投入多少，占营业收入的比例是多少？", "expected_format": "text"},
+  {"id": "open06", "question": "中国移动 2025 年的利润分配方案是什么？", "expected_format": "text"},
+  {"id": "open07", "question": "中国建筑 2024 年新签合同额是多少亿元？", "expected_format": "num"},
+  {"id": "open08", "question": "广晟控股的主体信用评级是 AAA 吗？", "expected_format": "tf"},
+  {"id": "open09", "question": "美的集团 2025 年的资产负债率是多少？", "expected_format": "pct"},
+  {"id": "open10", "question": "金融机构客户尽职调查和客户身份资料保存管理办法是从哪天开始施行的？", "expected_format": "date"}
+]
