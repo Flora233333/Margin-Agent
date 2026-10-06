@@ -35,6 +35,7 @@ PROMPT = (Path(__file__).parent / "prompts" / "compose.txt").read_text(encoding=
 MAX_TOKENS = 4000  # 思考 + 300 字以内的回答；E2 里最长的回复远小于这个数
 CONTEXT_CHARS = 60  # 引用原文前后各带多少字，让模型知道这个数字是哪一行、哪一列
 
+TABLE_RULE = re.compile(r"\|(\s*:?-+:?\s*\|)+")  # 表格的分隔行，例如 | --- | --- |
 CITE = re.compile(r"\[(\d+)\]")
 NUMBER = re.compile(r"\d[\d,，]*(?:\.\d+)?")
 
@@ -54,12 +55,31 @@ def citations_of(steps: list[Step]) -> list[dict[str, Any]]:
         for text in _read_texts(steps, data["doc_id"], data["block_id"]):
             at = text.find(match)
             if at >= 0:
-                before = text[max(0, at - CONTEXT_CHARS):at]
+                before = _table_head(text, at) or text[max(0, at - CONTEXT_CHARS):at]
                 after = text[at + len(match):at + len(match) + CONTEXT_CHARS]
                 break
         citations.append({"no": no, "doc_id": data["doc_id"], "block_id": data["block_id"],
                           "match": match, "before": before, "after": after})
     return citations
+
+
+def _table_head(text: str, at: int) -> str | None:
+    """引文是表格里的一行时，前文换成这张表的表头行 + 分隔行（中间隔着的行写成 …）。
+
+    不是表格返回 None。按字数截的前文常常截掉表头：run 94 引的是“| 不良贷款率 | 0.94 | 0.95 | …”，
+    前 60 个字只剩“…| 本年末比上年末增减 | 2023年12月31日 |”，看不出哪一列是 2024 年。
+    撰写的模型就在思考里反复推列的顺序，4000 个 token 全用在思考上，没写出正文
+    （重放 6 次 1 次这样）；带上表头后重放 12 次，思考中位数约 375 token，没有一次写不出来。
+    """
+    row_start = text.rfind("\n", 0, at) + 1
+    if not text.startswith("|", row_start):
+        return None
+    lines = text[:row_start].split("\n")[:-1]  # 引文所在行之前的各行
+    for i in range(len(lines) - 1, 0, -1):
+        if TABLE_RULE.fullmatch(lines[i].strip()):
+            gap = "…\n" if i < len(lines) - 1 else ""
+            return f"{lines[i - 1]}\n{lines[i]}\n{gap}{text[row_start:at]}"
+    return None
 
 
 def _read_texts(steps: list[Step], doc_id: str, block_id: str) -> list[str]:
@@ -150,12 +170,13 @@ def compose(llm: ChatModel, question: str, final: dict[str, Any], steps: list[St
             on_text(text)
 
     try:
-        reply = llm.complete(messages, MAX_TOKENS, on_delta=forward).content or ""
+        response = llm.complete(messages, MAX_TOKENS, on_delta=forward)
     except Exception as exc:  # 外部模型调用：任何失败都退回短答案，不影响这道题
         log.warning("撰写回答失败：%s", describe_error(exc))
         return {"error": describe_error(exc)}
+    reply = response.content or ""
     if not reply.strip():
-        # 思考型模型偶尔把 max_tokens 全用在思考上，正文是空的
-        log.warning("撰写回答失败：模型没有输出正文")
+        # 思考型模型偶尔把 max_tokens 全用在思考上，正文是空的（finish_reason = length）
+        log.warning("撰写回答失败：模型没有输出正文（finish_reason=%s）", response.finish_reason)
         return {"error": "empty_reply"}
     return check(reply, question, final, citations, computations)

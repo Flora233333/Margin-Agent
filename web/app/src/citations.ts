@@ -18,7 +18,10 @@
 
 import type { StepEvent } from './timeline'
 
-const CONTEXT_CHARS = 60
+// 卡片里引文前后各带多少字。前文只带一行左右：卡片收起时只露 3 行，前文带 60 字的话
+// 在右栏的宽度下就占掉两行半，高亮的引文被折叠看不见（run 95）
+const BEFORE_CHARS = 24
+const AFTER_CHARS = 60
 
 export interface Citation {
   no: number
@@ -63,8 +66,8 @@ function withContext(texts: string[], rawMatch: string): Pick<Citation, 'before'
   for (const text of texts.map(readable)) {
     const at = text.indexOf(match)
     if (at >= 0) {
-      const start = Math.max(0, at - CONTEXT_CHARS)
-      const end = Math.min(text.length, at + match.length + CONTEXT_CHARS)
+      const start = Math.max(0, at - BEFORE_CHARS)
+      const end = Math.min(text.length, at + match.length + AFTER_CHARS)
       return {
         before: (start > 0 ? '…' : '') + text.slice(start, at),
         match,
