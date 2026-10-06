@@ -60,7 +60,8 @@ function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' 
       </div>
     )
   }
-  const figure = submitted.join('、')
+  // 判断题：harness 把答案统一成 A（正确）/ B（错误）（harness/answers.py），显示时换回文字
+  const figure = format === 'tf' ? (submitted[0] === 'A' ? '正确' : '错误') : submitted.join('、')
   const unit = format === 'pct' && !figure.endsWith('%') ? '%' : ''
   // 选择题：结论行显示字母，说明里带上选项原文
   const chosen = options ? submitted.map((key) => options[key]).filter(Boolean).join('；') : ''
