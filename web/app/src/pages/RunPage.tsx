@@ -3,10 +3,12 @@
  *   1. 先用 GET /runs/{id} 取题目本身（问题、模型、提交时间）。run 不存在（或不是自己的）时后端返回 404，显示“找不到”。
  *   2. 再由 RunView 订阅 SSE（useRunStream），从 seq 0 开始收：已经发生过的事件服务端一次补发完，
  *      之后的边发生边推。所以刷新页面、从历史列表点进来、正在执行中，都是同一条代码路径。
+ * 标题和答案格式（M2.5 理解题目）：执行中由 run_understood 事件送来，之前的先用 GET 的结果，
+ * 都没有时标题用问题原句、格式按文本。
  */
 
 import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
-import { ApiError, getRun, regenerate, type RunDetail } from '../api'
+import { type AnswerFormat, ApiError, getRun, regenerate, type RunDetail } from '../api'
 import { citationsOf, searchedDocsOf } from '../citations'
 import { Answer } from '../components/Answer'
 import { Composer } from '../components/Composer'
@@ -14,6 +16,7 @@ import { Failure } from '../components/Failure'
 import { Icon } from '../components/Icons'
 import { Sources } from '../components/Sources'
 import { Work } from '../components/Work'
+import { understoodOf } from '../timeline'
 import { useRunStream } from '../useRunStream'
 import { NotFound } from './NotFound'
 
@@ -108,11 +111,24 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
   const citeNos = useMemo(() => new Map(citations.map((c) => [c.stepNo, c.no])), [citations])
   useFollowBottom(latest?.status === 'running', thread)
 
+  const understood = understoodOf(timeline)
+  const title = understood?.title ?? run.title ?? run.question
+  const format = (understood?.answer_format ?? run.answer_format ?? 'text') as AnswerFormat
+  const label = understood?.label ?? run.answer_label
+  // 打开页面时还没理解完：理解结果一到，刷新左侧列表，那里也换成标题
+  const knownTitle = useRef(run.title !== null)
+  useEffect(() => {
+    if (understood && !knownTitle.current) {
+      knownTitle.current = true
+      onRunsChanged()
+    }
+  }, [understood, onRunsChanged])
+
   return (
     <>
       <main className="main">
         <header className="main-head">
-          <span className="main-title">{run.question}</span>
+          <span className="main-title">{title}</span>
           {connection === 'retrying' && <span className="main-meta is-warn">连接中断，正在重连…</span>}
           <span className="main-meta">{run.model}</span>
           <button className="icon-btn" type="button" onClick={() => void onRegenerate()}>
@@ -136,10 +152,12 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                 )}
                 <Work attempt={attempt} citeNos={isLatest ? citeNos : NO_CITES} />
                 {attempt.status === 'failed' && <Failure error={attempt.error} />}
-                {attempt.status === 'completed' && (
+                {/* 执行中撰写的回答也显示（逐字出现），结束后换成校验过的文字 */}
+                {(attempt.status === 'completed' || attempt.answer !== '') && (
                   <Answer
                     attempt={attempt}
-                    format={run.answer_format}
+                    format={format}
+                    label={label}
                     options={run.options}
                     model={run.model}
                     citations={isLatest ? citations : null}

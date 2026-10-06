@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { applyEvent, EMPTY_TIMELINE, isSettled, type StreamEvent, type Timeline } from './timeline'
+import { applyEvent, EMPTY_TIMELINE, isSettled, type StreamEvent, type Timeline, understoodOf } from './timeline'
 
 function play(events: StreamEvent[], from: Timeline = EMPTY_TIMELINE): Timeline {
   return events.reduce(applyEvent, from)
@@ -66,5 +66,28 @@ describe('实时片段', () => {
     const t = play([queued(1, 7), started(2, 7, 1), started(3, 7, 2), delta(7, 1, 0, '旧 worker')])
     expect(t.attempts[0].live).toBeNull()
     expect(play([delta(7, 2, 0, '新 worker')], t).attempts[0].live?.reasoning).toBe('新 worker')
+  })
+})
+
+describe('理解题目与撰写回答（M2.5）', () => {
+  const understood: StreamEvent = {
+    type: 'run_understood', seq: 3, data: { title: '甲公司 2023 年营业收入', label: null, answer_format: 'num' },
+  }
+  const answer = (text: string): StreamEvent => ({ type: 'delta', data: { attempt_id: 7, epoch: 1, turn: 1, kind: 'answer', text } })
+
+  test('重新生成后标题仍然来自第一次执行的理解结果', () => {
+    const t = play([queued(1, 7), started(2, 7), understood, finished(4, 7), queued(5, 8, 2), started(6, 8)])
+    expect(understoodOf(t)?.title).toBe('甲公司 2023 年营业收入')
+    expect(t.attempts[1].understood).toBeNull()
+  })
+
+  test('回答正文逐字拼接，answer_written 到了换成校验后的文字；之后迟到的片段不再追加', () => {
+    const writing = play([queued(1, 7), started(2, 7), step(3, 7, 0), answer('营业收入[1]'), answer('[3]。')])
+    expect(writing.attempts[0].answer).toBe('营业收入[1][3]。')
+    const written: StreamEvent = {
+      type: 'answer_written', seq: 4, data: { attempt_id: 7, text: '营业收入[1]。', citations: [1], unverified: [] },
+    }
+    const t = play([written, answer('迟到')], writing)
+    expect([t.attempts[0].answer, t.attempts[0].written?.text]).toEqual(['', '营业收入[1]。'])
   })
 })

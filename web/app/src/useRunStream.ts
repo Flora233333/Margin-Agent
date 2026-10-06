@@ -18,7 +18,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { eventsUrl } from './api'
 import { applyEvent, EMPTY_TIMELINE, isSettled, type StreamEvent, type Timeline } from './timeline'
 
-const PERSISTENT = ['attempt_queued', 'attempt_started', 'step', 'attempt_finished', 'attempt_failed'] as const
+const PERSISTENT = [
+  'attempt_queued', 'attempt_started', 'run_understood', 'step', 'answer_written', 'attempt_finished', 'attempt_failed',
+] as const
 const RETRY_MS = 2000
 const SILENCE_MS = 25_000 // 服务端心跳间隔 10 秒（api.py 的 SSE_FALLBACK_SECONDS），留出两次多一点的余量
 

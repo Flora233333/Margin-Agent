@@ -190,6 +190,11 @@ interface ToolProps {
   citeNo?: number // 通过校验的引用的编号；右侧来源旁注在回答出来之前对齐到这一步（data-cite）
 }
 
+// 工具错误的提示原文是写给模型的英文（harness 的 hint）；产品规则加的那一条给用户看中文
+const ERROR_TEXT: Record<string, string> = {
+  citation_required: '还没有引用原文就提交了：提醒模型先用 cite 引用支持答案的原文（只提醒一次，再交就照收）',
+}
+
 export function ToolItem({ step, current, citeNo }: ToolProps) {
   const card = describe(step, citeNo)
   const failed = step.result.ok === false
@@ -205,11 +210,38 @@ export function ToolItem({ step, current, citeNo }: ToolProps) {
           {card.body}
           {failed ? (
             <div className="step-detail is-error">
-              {String(step.result.error)}：{String(step.result.hint ?? step.result.detail ?? '')}
+              {ERROR_TEXT[String(step.result.error)] ??
+                `${String(step.result.error)}：${String(step.result.hint ?? step.result.detail ?? '')}`}
             </div>
           ) : (
             card.detail && <div className="step-detail">{card.detail}</div>
           )}
+        </div>
+      </div>
+    </li>
+  )
+}
+
+interface StageProps {
+  icon: string
+  title: ReactNode
+  detail?: string
+  current: boolean
+}
+
+/** 不是工具调用的两个环节（M2.5）：第一项“理解题目”，最后一项“撰写回答”。样子和工具调用一样 */
+export function StageItem({ icon, title, detail, current }: StageProps) {
+  return (
+    <li className={current ? 'step is-current' : 'step'}>
+      <div className="reveal-inner">
+        <div className="step-inner">
+          <span className="step-node">
+            <Icon name={icon} />
+          </span>
+          <div className="step-row">
+            <span className="step-title">{title}</span>
+          </div>
+          {detail && <div className="step-detail">{detail}</div>}
         </div>
       </div>
     </li>

@@ -1,22 +1,22 @@
 /*
- * 回答：写在纸面上的正文（不加框）。
- *   结论行  大号的答案 + 一行说明（简洁风的 .verdict）；
- *   依据    每条通过校验的引用一行，末尾是可点的编号 [n]，点了跳到右侧对应的来源旁注；
- *   账目行  模型、步数、引用数；“复制”按钮（结论 + 依据，纯文本）。
+ * 回答：写在纸面上的正文（不加框），按设计稿的结构（PLAN §5.8 前端）：
+ *   结论行  数值 / 百分比 / 日期 / 判断等：大号的答案 + 一行说明（理解题目给的 label）；
+ *           开放问题（text）没有一个“数”可以放大，不显示结论行，正文第一句就是结论；
+ *   正文    撰写的回答（compose.py），事实后面跟着可点的 [n]，点了跳到右侧对应的来源旁注；
+ *           以“口径说明”开头的一段小号灰字；
+ *   账目行  模型、步数、引用数；“复制”按钮。
+ * 撰写失败（或 M2.5 之前的旧题，没有撰写的回答）时退回原来的样子：依据列表，每条引文一行。
+ * 执行中撰写的正文逐字出现；结束后换成后端校验过的文字（timeline.ts 规则 3）。
  * 结论是单个数字时，出现时从 0 滚动到这个数（CountUp，设计稿的 countUp）。
- * 重新生成过的题，更早的执行只显示结论行（citations 传 null）：引用编号和右侧旁注只属于最近一次执行。
- * 模型交答案用的是 finalize 工具（answers 数组），不写一段自然语言回答，所以“正文”就是依据列表。
+ * 重新生成过的题，更早的执行只显示结论（citations 传 null）：引用编号和右侧旁注只属于最近一次执行。
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { AnswerFormat } from '../api'
+import { type AnswerFormat, FORMAT_LABEL } from '../api'
+import { paragraphsOf } from '../answerText'
 import type { Citation } from '../citations'
 import type { Attempt } from '../timeline'
 import { Icon } from './Icons'
-
-const FORMAT_LABEL: Record<AnswerFormat, string> = {
-  num: '数值', pct: '百分比', tf: '判断', mcq: '单选', multi: '多选', date: '日期', rank: '排序', text: '文本',
-}
 
 // 模型停下来却没有交答案的原因（harness/loop.py 的停止条件）
 const VIOLATION_LABEL: Record<string, string> = {
@@ -32,6 +32,7 @@ const VIOLATION_LABEL: Record<string, string> = {
 interface Props {
   attempt: Attempt
   format: AnswerFormat
+  label: string | null // 结论旁边的说明，例如“广晟控股 · 2022 年营业收入（亿元）”
   options: Record<string, string> | null
   model: string
   citations: Citation[] | null
@@ -77,7 +78,7 @@ function CountUp({ value }: { value: string }) {
 
 const NUMBER = /^-?\d+(\.\d+)?$/
 
-function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' | 'options'>) {
+function Verdict({ attempt, format, label, options }: Pick<Props, 'attempt' | 'format' | 'label' | 'options'>) {
   const final = attempt.final
   if (final?.name === 'escalate') {
     return (
@@ -102,7 +103,7 @@ function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' 
   }
   const figure = figureOf(attempt, format)!
   const unit = format === 'pct' && !figure.endsWith('%') ? '%' : ''
-  // 选择题：结论行显示字母，说明里带上选项原文
+  // 选择题（评测回放的题）：结论行显示字母，说明里带上选项原文
   const chosen = options ? submitted.map((key) => options[key]).filter(Boolean).join('；') : ''
   return (
     <div className="verdict">
@@ -111,7 +112,7 @@ function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' 
           {NUMBER.test(figure) ? <CountUp value={figure} /> : figure}
           {unit && <span className="verdict-unit">{unit}</span>}
         </span>
-        <span className="verdict-label">{chosen || `${FORMAT_LABEL[format]}答案`}</span>
+        <span className="verdict-label">{chosen || label || `${FORMAT_LABEL[format]}答案`}</span>
       </div>
     </div>
   )
@@ -140,54 +141,89 @@ function CopyButton({ text }: { text: string }) {
   )
 }
 
-/** 复制的内容：结论一行，依据每条一行（[n] 引文（文档）） */
+/** 复制的内容：回答正文（没有时是结论），后面列出每条引用（[n] 引文（文档）） */
 function plainText(attempt: Attempt, format: AnswerFormat, citations: Citation[]): string {
-  const lines = [figureOf(attempt, format) ?? '没有答案']
+  const lines = [attempt.written?.text ?? figureOf(attempt, format) ?? '没有答案', '']
   for (const c of citations) {
     lines.push(`[${c.no}] ${c.match}（${c.docId}）`)
   }
-  return lines.join('\n')
+  return lines.join('\n').trim()
+}
+
+type CiteProps = Pick<Props, 'linked' | 'onCiteHover' | 'onCiteClick'> & { no: number }
+
+function Cite({ no, linked, onCiteHover, onCiteClick }: CiteProps) {
+  return (
+    <a
+      className={linked === no ? 'cite is-linked' : 'cite'}
+      href={`#src-${no}`}
+      data-src={no}
+      onMouseEnter={() => onCiteHover(no)}
+      onMouseLeave={() => onCiteHover(null)}
+      onClick={(e) => {
+        e.preventDefault()
+        onCiteClick(no)
+      }}
+    >
+      {no}
+    </a>
+  )
 }
 
 export function Answer(props: Props) {
-  const { attempt, citations, model, linked, onCiteHover, onCiteClick } = props
-  const verdict = <Verdict attempt={attempt} format={props.format} options={props.options} />
+  const { attempt, format, citations, model } = props
+  const text = attempt.written?.text ?? attempt.answer
+  // 开放问题只要有正文就不显示结论行；没有正文（撰写失败、旧题）时仍用结论行显示短答案
+  const showVerdict = format !== 'text' || !text || attempt.final?.name === 'escalate' || !attempt.final?.submitted
+  const verdict = showVerdict && <Verdict attempt={attempt} format={format} label={props.label} options={props.options} />
   if (citations === null) {
-    return <section className="answer is-earlier">{verdict}</section>
+    return <section className="answer is-earlier">{verdict || <p>{text.replace(/\[\d+\]/g, '').split('\n')[0]}</p>}</section>
   }
+  const writing = attempt.status === 'running'
+  const unverified = attempt.written?.unverified ?? []
+  const valid = new Set(citations.map((c) => c.no))
+  const cite = { linked: props.linked, onCiteHover: props.onCiteHover, onCiteClick: props.onCiteClick }
   return (
-    <section className="answer">
-      {verdict}
-      {citations.length > 0 && (
-        <ol className="evidence">
-          {citations.map((c) => (
-            <li key={c.no}>
-              {c.match}
-              <a
-                className={linked === c.no ? 'cite is-linked' : 'cite'}
-                href={`#src-${c.no}`}
-                data-src={c.no}
-                onMouseEnter={() => onCiteHover(c.no)}
-                onMouseLeave={() => onCiteHover(null)}
-                onClick={(e) => {
-                  e.preventDefault()
-                  onCiteClick(c.no)
-                }}
-              >
-                {c.no}
-              </a>
-            </li>
-          ))}
-        </ol>
+    <section className={writing ? 'answer is-writing' : 'answer'}>
+      {!writing && verdict}
+      {attempt.final?.uncited === true && (
+        <p className="answer-note">
+          <Icon name="alert" />
+          本回答没有引用原文
+        </p>
       )}
-      <div className="answer-foot">
-        <span className="ledger">
-          <span>{model}</span>
-          <span>{attempt.steps.length} 步</span>
-          <span>{citations.length} 处引用</span>
-        </span>
-        <CopyButton text={plainText(attempt, props.format, citations)} />
-      </div>
+      {text
+        ? paragraphsOf(text, valid).map((p, i) => (
+            <p key={i} className={p.caveat ? 'caveat' : undefined}>
+              {p.parts.map((part, j) =>
+                typeof part === 'number' ? <Cite key={j} no={part} {...cite} /> : part,
+              )}
+            </p>
+          ))
+        : citations.length > 0 && (
+            <ol className="evidence">
+              {citations.map((c) => (
+                <li key={c.no}>
+                  {c.match}
+                  <Cite no={c.no} {...cite} />
+                </li>
+              ))}
+            </ol>
+          )}
+      {attempt.written?.error && <p className="answer-note">回答生成失败，上面是提交的答案和依据，可以重新生成。</p>}
+      {unverified.length > 0 && (
+        <p className="answer-note">有 {unverified.length} 个数字没能在引用的原文里核对到：{unverified.join('、')}</p>
+      )}
+      {!writing && (
+        <div className="answer-foot">
+          <span className="ledger">
+            <span>{model}</span>
+            <span>{attempt.steps.length} 步</span>
+            <span>{citations.length} 处引用</span>
+          </span>
+          <CopyButton text={plainText(attempt, format, citations)} />
+        </div>
+      )}
     </section>
   )
 }

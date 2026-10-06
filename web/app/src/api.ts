@@ -6,18 +6,21 @@
  */
 
 export type AnswerFormat = 'num' | 'pct' | 'tf' | 'mcq' | 'multi' | 'date' | 'rank' | 'text'
-export type RunStatus = 'queued' | 'running' | 'completed' | 'failed'
-export type OptionKey = 'A' | 'B' | 'C' | 'D'
 
+export const FORMAT_LABEL: Record<AnswerFormat, string> = {
+  num: '数值', pct: '百分比', tf: '判断', mcq: '单选', multi: '多选', date: '日期', rank: '排序', text: '文本',
+}
+export type RunStatus = 'queued' | 'running' | 'completed' | 'failed'
+
+/** 页面只提交问题：答案格式由后端理解题目后判断，选项只给评测回放用（PLAN §5.8） */
 export interface RunCreate {
   question: string
-  options: Partial<Record<OptionKey, string>> | null
-  answer_format: AnswerFormat
 }
 
 export interface RunSummary {
   id: number
   question: string
+  title: string | null // 理解题目后的标题；还没理解完时为空，显示问题原句
   status: RunStatus
   created_at: string
 }
@@ -46,8 +49,10 @@ export interface AttemptOut {
 export interface RunDetail {
   id: number
   question: string
+  title: string | null
+  answer_label: string | null // 结论旁边的一行说明
   options: Record<string, string> | null
-  answer_format: AnswerFormat
+  answer_format: AnswerFormat | null // 空 = 还在等理解题目的结果
   model: string
   status: RunStatus
   created_at: string

@@ -44,7 +44,7 @@ function RunLink({ run, active, onHover }: LinkProps) {
       }}
     >
       <i className={`dot ${DOT[run.status]}`} />
-      <span className="run-text">{run.question}</span>
+      <span className="run-text">{run.title ?? run.question}</span>
     </a>
   )
 }

@@ -8,6 +8,7 @@
  *           卡片只跟着回答走，展开 / 收起过程区时和回答一起平移。
  * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
  * 执行中每出现一张新卡片，从过程区里引用它的那一步画一条线过去，1.5 秒后收回（useAnnounce），表示“这条证据从这里来”。
+ * 结束后鼠标停在回答里的 [n] 或卡片上，两边一起高亮，并从 [n] 画一条线到卡片（useLinkLine）。
  * 卡片下面是“检索命中的其他文档”（OtherDocs），可折叠，排在所有卡片之后；没有引用时右栏至少有它。
  * 整栏可以收起成一条竖排的“来源 n”标签（.app.is-sources-closed，列宽过渡见 base.css / clean.css），正文回到居中。
  * 算法来自设计稿 web/design/demo.js 第 4 部分。
@@ -165,10 +166,31 @@ const ANNOUNCE_DELAY = 550 // 等卡片入场动画（0.5 秒）基本播完再�
 const ANNOUNCE_MS = 1500 // 线停留多久后收回
 
 /**
- * 执行中新卡片出现时画一条连线：起点是过程区里“引用”那一步的标题行（线从过程区右边缘出发，只穿过空白，不压在文字上），
+ * 画一条连线：起点是 from 那一行、所在正文块（回答或过程区）的右边缘——线只穿过空白，不像删除线一样压在文字上；
  * 终点是卡片左上。线画在 .app 的内容坐标里（.app 是滚动容器），用户这时滚动页面，线跟着内容走。
  * pathLength=1 + stroke-dashoffset 从 1 过渡到 0，线像被画出来（clean.css 的 .connector）。
  */
+function drawConnector(line: SVGPathElement, from: Element, card: Element) {
+  const app = document.querySelector('.app')!
+  const base = app.getBoundingClientRect()
+  const a = from.getBoundingClientRect()
+  const b = card.getBoundingClientRect()
+  const x1 = from.closest('.answer, .work')!.getBoundingClientRect().right - base.left + 12
+  const y1 = a.top + a.height / 2 - base.top + app.scrollTop
+  const x2 = b.left - base.left - 4
+  const y2 = b.top + 18 - base.top + app.scrollTop
+  const mid = (x1 + x2) / 2
+  line.parentElement!.style.height = `${app.scrollHeight}px`
+  // 先在“无过渡”状态下把线收回到长度 0，再恢复过渡画出；否则上一条线还没收完时，新线会整条直接出现
+  line.style.transition = 'none'
+  line.classList.remove('is-on')
+  line.setAttribute('d', `M${x1} ${y1} C${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`)
+  void line.getBoundingClientRect()
+  line.style.transition = ''
+  line.classList.add('is-on')
+}
+
+/** 执行中新卡片出现时，从过程区里“引用”那一步的标题行画一条线过去，1.5 秒后收回，表示“这条证据从这里来” */
 function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live: boolean) {
   const seen = useRef(count) // 打开页面时已经有的卡片不画
   useEffect(() => {
@@ -185,23 +207,7 @@ function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live
       if (!step || !isShown(step) || !card) {
         return // 用户把过程区收起来了：起点看不见，就不画
       }
-      const app = document.querySelector('.app')!
-      const base = app.getBoundingClientRect()
-      const a = (step.querySelector('.step-row') ?? step).getBoundingClientRect()
-      const b = card.getBoundingClientRect()
-      const x1 = step.closest('.work')!.getBoundingClientRect().right - base.left + 12
-      const y1 = a.top + a.height / 2 - base.top + app.scrollTop
-      const x2 = b.left - base.left - 4
-      const y2 = b.top + 18 - base.top + app.scrollTop
-      const mid = (x1 + x2) / 2
-      line.parentElement!.style.height = `${app.scrollHeight}px`
-      // 先在“无过渡”状态下把线收回到长度 0，再恢复过渡画出；否则上一条线还没收完时，新线会整条直接出现
-      line.style.transition = 'none'
-      line.classList.remove('is-on')
-      line.setAttribute('d', `M${x1} ${y1} C${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`)
-      void line.getBoundingClientRect()
-      line.style.transition = ''
-      line.classList.add('is-on')
+      drawConnector(line, step.querySelector('.step-row') ?? step, card)
     }, ANNOUNCE_DELAY)
     const hide = setTimeout(() => line.classList.remove('is-on'), ANNOUNCE_DELAY + ANNOUNCE_MS)
     return () => {
@@ -211,6 +217,26 @@ function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live
       line.classList.remove('is-on')
     }
   }, [path, count, live])
+}
+
+/**
+ * 结束后鼠标停在回答里的 [n] 或右侧卡片上：从这个 [n] 画一条线到对应卡片，移开就收回（设计稿的 showConnector）。
+ * 卡片已经和 [n] 对齐在同一高度，线大多是一小段横线；同一个编号在回答里出现多次时，从第一处画。
+ */
+function useLinkLine(path: RefObject<SVGPathElement | null>, linked: number | null, live: boolean) {
+  useEffect(() => {
+    if (live || linked === null || !matchMedia(WIDE).matches) {
+      return
+    }
+    const cite = anchorOf(String(linked))
+    const card = document.querySelector(`.source[data-src="${linked}"]`)
+    if (!cite || !card || !isShown(card)) {
+      return // 整栏收起时卡片看不见，不画
+    }
+    const line = path.current!
+    drawConnector(line, cite, card)
+    return () => line.classList.remove('is-on')
+  }, [path, linked, live])
 }
 
 /** 检索命中、但没有被引用的文档：读过的标“读过 n 块”，没读过的标检索排名 */
@@ -325,6 +351,7 @@ export function Sources({ citations, others, live, thread, linked, flash, onHove
   }, [closed])
   useMarginLayout(track, thread, citations.length, others.length > 0, live)
   useAnnounce(line, citations.length, live)
+  useLinkLine(line, linked, live)
   return (
     <>
       <aside className="side-panel" aria-label="来源">
