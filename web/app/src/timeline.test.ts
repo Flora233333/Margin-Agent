@@ -90,4 +90,19 @@ describe('理解题目与撰写回答（M2.5）', () => {
     const t = play([written, answer('迟到')], writing)
     expect([t.attempts[0].answer, t.attempts[0].written?.text]).toEqual(['', '营业收入[1]。'])
   })
+
+  test('交卷那一步到了就有结论：撰写回答的十几秒里，大字不用等执行结束才出现', () => {
+    const handIn: StreamEvent = {
+      type: 'step', seq: 4,
+      data: {
+        attempt_id: 7, step_no: 1, tool_name: 'finalize', arguments: '{}', reasoning: null, citation_no: null,
+        result: { ok: true, data: { submitted: ['120.50'], raw: ['120.5'], answer_format_fallback: 'pct' } },
+      },
+    }
+    const t = play([queued(1, 7), started(2, 7), step(3, 7, 0), handIn, answer('营业收入')])
+    expect(t.attempts[0].status).toBe('running')
+    expect(t.attempts[0].final).toEqual({
+      name: 'finalize', submitted: ['120.50'], raw: ['120.5'], answer_format_fallback: 'pct',
+    })
+  })
 })

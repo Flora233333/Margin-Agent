@@ -65,7 +65,7 @@ def with_retry(call: Callable[[], Any]) -> Any:
 
 
 class RetryingLLM:
-    """包一层：Harness 调用 chat() 时遇到 429 自动重试。
+    """包一层：调用 chat()（Harness）、complete()（理解题目、撰写回答）时遇到 429 自动重试。
 
     产品里的重试由 worker 负责（M4 分层重试），这里只给实验用。
     """
@@ -78,6 +78,9 @@ class RetryingLLM:
 
     def chat(self, *args: Any, **kwargs: Any) -> Any:
         return with_retry(lambda: self.llm.chat(*args, **kwargs))
+
+    def complete(self, *args: Any, **kwargs: Any) -> Any:
+        return with_retry(lambda: self.llm.complete(*args, **kwargs))
 
 
 def describe_error(exc: Exception) -> str:

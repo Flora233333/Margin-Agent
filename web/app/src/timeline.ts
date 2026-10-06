@@ -12,6 +12,10 @@
  *      否则是旧执行（重新生成之前的、或被接管的）还在路上的片段，丢掉。
  *   3. 某一轮的 step 事件到了，这一轮的实时片段整体换成 step 里的完整思考；之后再到的同一轮片段丢掉。
  *      回答正文同理：answer_written 到了，逐字拼起来的正文换成校验后的（后端可能删掉了不存在的 [n]）。
+ *
+ * 交卷那一步（成功的 finalize / escalate）到了就记下 final，不等 attempt_finished：
+ * 之后撰写回答还要十几秒，页面在这期间就要按“结论 → 正文”的顺序显示（Answer.tsx）。
+ * 两处的内容相同（后端 loop.py：trace.final = {name, ...这一步的结果}）。
  */
 
 export type AttemptStatus = 'queued' | 'running' | 'completed' | 'failed'
@@ -93,6 +97,17 @@ export interface Timeline {
 
 export const EMPTY_TIMELINE: Timeline = { lastSeq: 0, attempts: [], current: null }
 
+/** 交卷的那一步：成功的 finalize（提交答案）或 escalate（放弃作答） */
+function isHandIn(step: StepEvent): boolean {
+  return (step.tool_name === 'finalize' || step.tool_name === 'escalate') && step.result.ok === true
+}
+
+/** Harness 已经交了答案或放弃作答：之后就是撰写回答 */
+export function ended(attempt: Attempt): boolean {
+  const last = attempt.steps.at(-1)
+  return last !== undefined && isHandIn(last)
+}
+
 function updateAttempt(timeline: Timeline, id: number, change: (a: Attempt) => Attempt): Attempt[] {
   return timeline.attempts.map((a) => (a.id === id ? change(a) : a))
 }
@@ -160,6 +175,7 @@ export function applyEvent(timeline: Timeline, event: StreamEvent): Timeline {
           ...a,
           steps: [...a.steps, step],
           live: a.live && a.live.turn > step.step_no ? a.live : null,
+          final: isHandIn(step) ? { name: step.tool_name, ...(step.result.data as Record<string, unknown>) } : a.final,
         })),
       }
     }

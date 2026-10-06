@@ -140,3 +140,27 @@
 }
 .is-done .target-dot { transform: scale(1); }
 @keyframes target-spin { to { transform: rotate(360deg); } }
+
+/* 理解题目的两行：每行只占一行，前后两段文字叠在同一格里切换（StepItem.tsx 的 UnderstandItem）。
+   ::before 是一个零宽空格，只有占位条时也撑出一整行的高度 */
+.one-line { display: grid; }
+.one-line::before { content: "\200b"; grid-area: 1 / 1; }
+.one-line > span { grid-area: 1 / 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.one-line > .is-entering { animation: label-in 0.4s var(--ease) both; }
+.one-line > .is-leaving { animation: label-out 0.3s var(--ease) both; }
+.one-line > .is-fading-in { animation: tok-in 0.4s var(--ease) 0.15s both; }
+.skeleton {
+  align-self: center;
+  width: min(16rem, 70%);
+  height: 0.7em;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--rule) 30%, var(--paper) 50%, var(--rule) 70%);
+  background-size: 250% 100%;
+  animation: sweep 1.6s linear infinite;
+}
+.one-line > .skeleton.is-leaving { animation: fade-out 0.3s var(--ease) both; }
+@keyframes fade-out { to { opacity: 0; } }
+
+/* 结论行出场：从下方淡入，同时数字开始滚动（Answer.tsx） */
+.answer .verdict { animation: verdict-in 0.5s var(--ease) both; }
+@keyframes verdict-in { from { opacity: 0; transform: translateY(10px); } }

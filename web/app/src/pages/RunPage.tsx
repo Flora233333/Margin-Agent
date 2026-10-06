@@ -16,7 +16,7 @@ import { Failure } from '../components/Failure'
 import { Icon } from '../components/Icons'
 import { Sources } from '../components/Sources'
 import { Work } from '../components/Work'
-import { understoodOf } from '../timeline'
+import { ended, understoodOf } from '../timeline'
 import { useRunStream } from '../useRunStream'
 import { NotFound } from './NotFound'
 
@@ -161,8 +161,8 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                   understanding={isLatest && attempt.status === 'running' && !understood && run.title === null}
                 />
                 {attempt.status === 'failed' && <Failure error={attempt.error} />}
-                {/* 执行中撰写的回答也显示（逐字出现），结束后换成校验过的文字 */}
-                {(attempt.status === 'completed' || attempt.answer !== '') && (
+                {/* 交卷后就显示回答：先结论、再逐字出现的正文（Answer.tsx），结束后换成校验过的文字 */}
+                {(attempt.status === 'completed' || attempt.final !== null) && (
                   <Answer
                     attempt={attempt}
                     // 交的答案和猜的格式对不上、按文本收下了（worker.py）：这次的回答也按文本显示
@@ -192,7 +192,8 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
       <Sources
         citations={citations}
         others={others}
-        live={latest?.status === 'running' || latest?.status === 'queued'}
+        // 交卷后就按“结束后”排：不会再有新卡片，过程区随即收起、页面变矮，卡片不用再吸顶跟着
+        live={latest?.status === 'queued' || (latest?.status === 'running' && !ended(latest))}
         caughtUp={caughtUp}
         thread={thread}
         linked={linked}

@@ -7,7 +7,7 @@
  * 执行中和结束后的区别只在滚动（useMarginLayout）：
  *   执行中  卡片轨道是 sticky：先跟着页面一起往上走，到达右栏标题下方就停住（.panel-body.is-live）。
  *           页面一直在往下滚、过程区一直在变长，卡片不停住的话会滚出屏幕，执行中就看不到新来的证据；
- *   结束后  轨道就在页面里，跟着正文一起滚动。
+ *   结束后  轨道就在页面里，跟着正文一起滚动。交卷后（撰写回答期间）已经算“结束后”（RunPage 的 live）。
  * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
  * 执行中每出现一张新卡片，从过程区里引用它的那一步画一条线过去，1.5 秒后收回（useAnnounce），表示“这条证据从这里来”。
  * 结束后鼠标停在回答里的 [n] 或卡片上，两边一起高亮，并从 [n] 画一条线到卡片（useLinkLine）。
@@ -191,7 +191,6 @@ function drawConnector(line: SVGPathElement, from: Element, card: Element) {
   const x2 = b.left - base.left - 4
   const y2 = b.top + 18 - base.top + app.scrollTop
   const mid = (x1 + x2) / 2
-  line.parentElement!.style.height = `${app.scrollHeight}px`
   // 先在“无过渡”状态下把线收回到长度 0，再恢复过渡画出；否则上一条线还没收完时，新线会整条直接出现
   line.style.transition = 'none'
   line.classList.remove('is-on')

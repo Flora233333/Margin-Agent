@@ -1,5 +1,6 @@
 /*
- * 过程区：一次执行（attempt）的思考与工具调用，可折叠。执行中默认展开、结束后自动收起；
+ * 过程区：一次执行（attempt）的思考与工具调用，可折叠。执行中默认展开，交卷（finalize / escalate）后
+ * 停留 0.7 秒自动收起，接着下面的回答按“结论 → 正文”出场（Answer.tsx，同设计稿 demo.js 的 finishWork）；
  * 用户手动点过之后就按用户的来。
  *
  * 每一步先显示思考（step.reasoning），再显示工具调用；最后一轮还没有 step 事件时，
@@ -7,17 +8,12 @@
  * M2.5 起前后各多一项：第一项“理解题目”（标题、判断的答案格式），最后一项“撰写回答”。
  */
 
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { type AnswerFormat, FORMAT_LABEL } from '../api'
-import type { Attempt } from '../timeline'
+import { FOLD_DELAY_MS } from '../motion'
+import { type Attempt, ended } from '../timeline'
 import { Icon } from './Icons'
 import { StageItem, ThoughtItem, ToolItem, UnderstandItem } from './StepItem'
-
-/** Harness 已经交了答案或放弃作答：之后就是撰写回答 */
-function ended(attempt: Attempt): boolean {
-  const last = attempt.steps.at(-1)
-  return !!last && (last.tool_name === 'finalize' || last.tool_name === 'escalate') && last.result.ok === true
-}
 
 function label(attempt: Attempt): string {
   const n = attempt.steps.length
@@ -73,8 +69,17 @@ interface Props {
 export function Work({ attempt, citeNos, understanding }: Props) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const active = attempt.status === 'queued' || attempt.status === 'running'
-  const open = userOpen ?? active
   const running = attempt.status === 'running'
+  const handedIn = running && ended(attempt)
+  const [folded, setFolded] = useState(false)
+  useEffect(() => {
+    if (!handedIn) {
+      return
+    }
+    const timer = setTimeout(() => setFolded(true), FOLD_DELAY_MS)
+    return () => clearTimeout(timer)
+  }, [handedIn])
+  const open = userOpen ?? (active && !folded)
   // 实时片段里思考（reasoning）和正文（content，模型在调用工具前说的话）都显示
   const live = attempt.live ? [attempt.live.reasoning, attempt.live.content].filter(Boolean).join('\n\n') : ''
   const understood = attempt.understood
@@ -89,10 +94,10 @@ export function Work({ attempt, citeNos, understanding }: Props) {
     const detail = [`答案格式：${FORMAT_LABEL[understood.answer_format as AnswerFormat]}`, understood.label]
     items.push(
       <UnderstandItem key="understood" title={<>理解题目 <q>{understood.title}</q></>}
-        detail={detail.filter(Boolean).join(' · ')} done />,
+        detail={detail.filter(Boolean).join(' · ')} />,
     )
   } else if (understanding) {
-    items.push(<UnderstandItem key="understood" title="正在理解题目…" done={false} />)
+    items.push(<UnderstandItem key="understood" title={null} detail={null} />)
   }
   attempt.steps.forEach((step, i) => {
     const last = running && !live && !composing && i === attempt.steps.length - 1

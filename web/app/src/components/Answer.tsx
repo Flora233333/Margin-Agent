@@ -6,14 +6,19 @@
  *           以“口径说明”开头的一段小号灰字；
  *   账目行  模型、步数、引用数、耗时；“复制”按钮。
  * 撰写失败（或 M2.5 之前的旧题，没有撰写的回答）时退回原来的样子：依据列表，每条引文一行。
- * 执行中撰写的正文逐字出现；结束后换成后端校验过的文字（timeline.ts 规则 3）。
  * 结论是单个数字时，出现时从 0 滚动到这个数（CountUp，设计稿的 countUp）。
+ *
+ * 执行中的出场顺序（同设计稿 demo.js 的 play）：交卷后过程区先收起，结论行淡入、数字滚动到答案，
+ * 滚完正文才逐字出现。撰写其实在交卷后立刻开始，先到的正文攒着，轮到它时再逐字放出（useTypewriter）；
+ * 撰写结束后换成后端校验过的文字（timeline.ts 规则 3），没放完的接着放。
+ * 打开一道已经结束的题不走这个顺序，全部直接显示。
  * 重新生成过的题，更早的执行只显示结论（citations 传 null）：引用编号和右侧旁注只属于最近一次执行。
  */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { type AnswerFormat, FORMAT_LABEL } from '../api'
 import { paragraphsOf } from '../answerText'
+import { FOLD_DELAY_MS, FOLD_MS } from '../motion'
 import type { Citation } from '../citations'
 import type { Attempt } from '../timeline'
 import { Icon } from './Icons'
@@ -79,6 +84,35 @@ function CountUp({ value }: { value: string }) {
 
 const NUMBER = /^-?\d+(\.\d+)?$/
 
+/** 结论里可以滚动的数：单个数值；百分比去掉 % 之后的数（% 作为单位小一号跟在后面）。日期、判断、多个答案为 null */
+function countableOf(figure: string, format: AnswerFormat): string | null {
+  const number = format === 'pct' ? figure.replace(/%$/, '') : figure
+  return NUMBER.test(number) ? number : null
+}
+
+const COUNT_MS = 800 + 150 // 数字滚完再停一下，正文才开始
+const REVEAL_MS = 450 // 结论行不滚动（日期、判断、未作答）时，淡入完就开始正文
+
+/**
+ * 正文逐字放出：每 26 毫秒放 2 个字（设计稿的 stream）。积压多了放得快一些（每次放积压的 1/40），
+ * 免得撰写早就结束了，页面还在慢慢打字。
+ * 从 [12] 中间切开时先不显示这半个编号，等它完整了再出现，不会闪出一个“[1”。
+ */
+function useTypewriter(text: string, live: boolean, started: boolean): string {
+  const [shown, setShown] = useState(live ? 0 : Infinity)
+  const behind = shown < text.length
+  useEffect(() => {
+    if (!started || !behind) {
+      return
+    }
+    const timer = setTimeout(() => setShown((n) => n + Math.max(2, Math.ceil((text.length - n) / 40))), 26)
+    return () => clearTimeout(timer)
+  }, [started, behind, shown, text.length])
+  const cut = text.slice(0, shown)
+  const half = /\[\d*$/.exec(cut)
+  return half ? cut.slice(0, half.index) : cut
+}
+
 function Verdict({ attempt, format, label, options }: Pick<Props, 'attempt' | 'format' | 'label' | 'options'>) {
   const final = attempt.final
   if (final?.name === 'escalate') {
@@ -103,15 +137,15 @@ function Verdict({ attempt, format, label, options }: Pick<Props, 'attempt' | 'f
     )
   }
   const figure = figureOf(attempt, format)!
-  const unit = format === 'pct' && !figure.endsWith('%') ? '%' : ''
+  const number = countableOf(figure, format)
   // 选择题（评测回放的题）：结论行显示字母，说明里带上选项原文
   const chosen = options ? submitted.map((key) => options[key]).filter(Boolean).join('；') : ''
   return (
     <div className="verdict">
       <div className="verdict-main">
         <span className="verdict-figure">
-          {NUMBER.test(figure) ? <CountUp value={figure} /> : figure}
-          {unit && <span className="verdict-unit">{unit}</span>}
+          {number === null ? figure : <CountUp value={number} />}
+          {number !== null && format === 'pct' && <span className="verdict-unit">%</span>}
         </span>
         <span className="verdict-label">{chosen || label || `${FORMAT_LABEL[format]}答案`}</span>
       </div>
@@ -179,29 +213,57 @@ function Cite({ no, linked, onCiteHover, onCiteClick }: CiteProps) {
   )
 }
 
+type Phase = 'folding' | 'verdict' | 'text'
+
 export function Answer(props: Props) {
   const { attempt, format, citations, model } = props
-  const text = attempt.written?.text ?? attempt.answer
-  // 开放问题只要有正文就不显示结论行；没有正文（撰写失败、旧题）时仍用结论行显示短答案
-  const showVerdict = format !== 'text' || !text || attempt.final?.name === 'escalate' || !attempt.final?.submitted
-  const verdict = showVerdict && <Verdict attempt={attempt} format={format} label={props.label} options={props.options} />
+  const fullText = attempt.written?.text ?? attempt.answer
+  const running = attempt.status === 'running'
+  // 开放问题不显示结论行，正文第一句就是结论；撰写失败、旧题没有正文，仍用结论行显示短答案。
+  // 撰写中还不知道会不会失败，先不显示
+  const showVerdict = format !== 'text' || attempt.final?.name === 'escalate'
+    || (!running && (!fullText || !attempt.final?.submitted))
+  const figure = figureOf(attempt, format)
+  const counting = showVerdict && figure !== null && countableOf(figure, format) !== null
+
+  // 挂载时还在执行：这是交卷那一刻（RunPage 有了 final 才显示回答），按顺序出场
+  const [live] = useState(running)
+  const [phase, setPhase] = useState<Phase>(live ? 'folding' : 'text')
+  useEffect(() => {
+    if (phase === 'text') {
+      return
+    }
+    const next = phase === 'folding' && showVerdict ? 'verdict' : 'text'
+    const wait = phase === 'folding' ? FOLD_DELAY_MS + FOLD_MS : counting ? COUNT_MS : REVEAL_MS
+    const timer = setTimeout(() => setPhase(next), wait)
+    return () => clearTimeout(timer)
+  }, [phase, showVerdict, counting])
+  const text = useTypewriter(fullText, live, phase === 'text')
+
+  const verdict = showVerdict && phase !== 'folding' && (
+    <Verdict attempt={attempt} format={format} label={props.label} options={props.options} />
+  )
   if (citations === null) {
     return <section className="answer is-earlier">{verdict || <p>{text.replace(/\[\d+\]/g, '').split('\n')[0]}</p>}</section>
   }
-  const writing = attempt.status === 'running'
+  if (phase === 'folding') {
+    return null
+  }
+  // 还在撰写，或者撰写完了正文还没放完：账目行、提示等放完再出现
+  const writing = running || text.length < fullText.length
   const unverified = attempt.written?.unverified ?? []
   const valid = new Set(citations.map((c) => c.no))
   const cite = { linked: props.linked, onCiteHover: props.onCiteHover, onCiteClick: props.onCiteClick }
   return (
     <section className={writing ? 'answer is-writing' : 'answer'}>
-      {!writing && verdict}
+      {verdict}
       {attempt.final?.uncited === true && (
         <p className="answer-note">
           <Icon name="alert" />
           本回答没有引用原文
         </p>
       )}
-      {text
+      {fullText
         ? paragraphsOf(text, valid).map((p, i) => (
             <p key={i} className={p.caveat ? 'caveat' : undefined}>
               {p.parts.map((part, j) =>
@@ -209,7 +271,7 @@ export function Answer(props: Props) {
               )}
             </p>
           ))
-        : citations.length > 0 && (
+        : !running && citations.length > 0 && (
             <ol className="evidence">
               {citations.map((c) => (
                 <li key={c.no}>
@@ -219,8 +281,8 @@ export function Answer(props: Props) {
               ))}
             </ol>
           )}
-      {attempt.written?.error && <p className="answer-note">回答生成失败，上面是提交的答案和依据，可以重新生成。</p>}
-      {unverified.length > 0 && (
+      {!writing && attempt.written?.error && <p className="answer-note">回答生成失败，上面是提交的答案和依据，可以重新生成。</p>}
+      {!writing && unverified.length > 0 && (
         <p className="answer-note">有 {unverified.length} 个数字没能在引用的原文里核对到：{unverified.join('、')}</p>
       )}
       {!writing && (

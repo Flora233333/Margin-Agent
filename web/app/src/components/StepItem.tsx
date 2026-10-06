@@ -256,9 +256,8 @@ export function StageItem({ icon, title, detail, current }: StageProps) {
 }
 
 interface UnderstandProps {
-  title: ReactNode
-  detail?: string
-  done: boolean
+  title: ReactNode | null // 理解完的标题；null 表示还在理解
+  detail: string | null
 }
 
 /**
@@ -266,8 +265,16 @@ interface UnderstandProps {
  * 不用勾：勾留给最后的“提交答案”。
  * 两种状态是同一个 SVG，只换类名，弧长（stroke-dasharray）用过渡从一段长到一整圈；
  * 旋转动画一直开着——整圆转起来看不出来，停掉的话弧会在闭合的那一刻跳回起始角度（app.css 的 .target-draw）。
+ *
+ * 理解前后高度不变，下面的条目不会被顶一下：两行都先占好。
+ * 第一行“正在理解题目…”上移淡出、标题从下方淡入（同过程区标题的 SwapLabel）；
+ * 第二行理解中是一条扫光的占位条，结果到了淡出，同一位置淡入“答案格式 · 说明”。
+ * 两行都只占一行，放不下的用省略号，鼠标悬停看全文。
+ * 打开页面时已经理解完，直接显示结果，不播切换动画。
  */
-export function UnderstandItem({ title, detail, done }: UnderstandProps) {
+export function UnderstandItem({ title, detail }: UnderstandProps) {
+  const done = title !== null
+  const [animate] = useState(!done)
   return (
     <li className="step">
       <div className="reveal-inner">
@@ -279,9 +286,20 @@ export function UnderstandItem({ title, detail, done }: UnderstandProps) {
             </svg>
           </span>
           <div className="step-row">
-            <span className="step-title">{title}</span>
+            <span className="step-title one-line">
+              {!done && <span>正在理解题目…</span>}
+              {done && animate && <span className="is-leaving">正在理解题目…</span>}
+              {done && <span className={animate ? 'is-entering' : undefined}>{title}</span>}
+            </span>
           </div>
-          {detail && <div className="step-detail">{detail}</div>}
+          <div className="step-detail one-line">
+            {(!done || animate) && <span className={done ? 'skeleton is-leaving' : 'skeleton'} />}
+            {done && (
+              <span className={animate ? 'is-fading-in' : undefined} title={detail ?? undefined}>
+                {detail}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </li>
