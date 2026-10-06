@@ -25,6 +25,33 @@ function label(attempt: Attempt): string {
   }
 }
 
+/**
+ * 过程区标题：文字变了时，旧文字上移淡出、新文字从下方淡入（base.css 的 .is-leaving / .is-entering，两段叠在同一格里）。
+ * 淡入播完要去掉 is-entering：执行中标题的“扫光”动画只加在没有这两个类的文字上。
+ */
+function SwapLabel({ text }: { text: string }) {
+  const [label, setLabel] = useState({ text, leaving: '', n: 0, entering: false })
+  if (text !== label.text) {
+    setLabel({ text, leaving: label.text, n: label.n + 1, entering: true })
+  }
+  return (
+    <span className="work-label">
+      {label.leaving && (
+        <span key={`out${label.n}`} className="is-leaving" onAnimationEnd={() => setLabel((l) => ({ ...l, leaving: '' }))}>
+          {label.leaving}
+        </span>
+      )}
+      <span
+        key={`in${label.n}`}
+        className={label.entering ? 'is-entering' : undefined}
+        onAnimationEnd={(e) => e.animationName === 'label-in' && setLabel((l) => ({ ...l, entering: false }))}
+      >
+        {label.text}
+      </span>
+    </span>
+  )
+}
+
 export function Work({ attempt, citeNos }: { attempt: Attempt; citeNos: Map<number, number> }) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const active = attempt.status === 'queued' || attempt.status === 'running'
@@ -38,9 +65,7 @@ export function Work({ attempt, citeNos }: { attempt: Attempt; citeNos: Map<numb
     <section className={classes}>
       <button className="work-head" type="button" aria-expanded={open} onClick={() => setUserOpen(!open)}>
         <Icon name="chev" className="icon chev" />
-        <span className="work-label">
-          <span>{label(attempt)}</span>
-        </span>
+        <SwapLabel text={label(attempt)} />
         <span className="pulse" aria-hidden="true">
           <i />
           <i />

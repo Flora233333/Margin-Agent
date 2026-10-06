@@ -4,7 +4,7 @@
  * 结果统一是 {ok: true, data: {...}} 或 {ok: false, error: 错误码, hint: 怎么改}。
  */
 
-import type { ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
 import type { StepEvent } from '../timeline'
 import { Icon } from './Icons'
 
@@ -141,6 +141,34 @@ function describe(step: StepEvent, citeNo?: number): Card {
   }
 }
 
+const FADING = 40 // 最多保留最近多少段单独淡入；更早的已经播完动画，合并成普通文字，页面里不会堆上千个 <span>
+
+/**
+ * 正在输出的思考：每次新到的一段文字包在 <span class="tok"> 里，插入时播放 0.4 秒淡入（base.css 的 .tok）。
+ * cuts 记下每一段的起点。“记住上一次渲染的值、渲染时比较”是 React 文档推荐的写法（不需要 effect）：
+ * 文字变了就在渲染过程中更新 state，React 会立刻用新 state 重新渲染这个组件。
+ */
+function StreamingText({ text }: { text: string }) {
+  const [seen, setSeen] = useState({ text, cuts: [] as number[] })
+  if (text !== seen.text) {
+    // 新文字是旧文字的延续：在旧文字的结尾切一刀；不是延续（极少见，例如被完整思考替换）就从头算
+    const cuts = text.startsWith(seen.text) ? [...seen.cuts, seen.text.length].slice(-FADING) : []
+    setSeen({ text, cuts })
+  }
+  const cuts = seen.text === text ? seen.cuts : []
+  const first = cuts[0] ?? text.length
+  return (
+    <p className="thought-text">
+      {text.slice(0, first)}
+      {cuts.map((start, i) => (
+        <span className="tok" key={start}>
+          {text.slice(start, cuts[i + 1] ?? text.length)}
+        </span>
+      ))}
+    </p>
+  )
+}
+
 export function ThoughtItem({ text, current = false }: { text: string; current?: boolean }) {
   return (
     <li className={current ? 'step is-current' : 'step'}>
@@ -149,7 +177,7 @@ export function ThoughtItem({ text, current = false }: { text: string; current?:
           <span className="step-node">
             <i className="thought-dot" />
           </span>
-          <p className="thought-text">{text}</p>
+          {current ? <StreamingText text={text} /> : <p className="thought-text">{text}</p>}
         </div>
       </div>
     </li>

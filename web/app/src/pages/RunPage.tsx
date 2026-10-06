@@ -5,7 +5,7 @@
  *      之后的边发生边推。所以刷新页面、从历史列表点进来、正在执行中，都是同一条代码路径。
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { type RefObject, useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, getRun, regenerate, type RunDetail } from '../api'
 import { citationsOf, searchedDocsOf } from '../citations'
 import { Answer } from '../components/Answer'
@@ -106,7 +106,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
   const citations = useMemo(() => citationsOf(latest?.steps ?? []), [latest?.steps])
   const others = useMemo(() => searchedDocsOf(latest?.steps ?? [], citations), [latest?.steps, citations])
   const citeNos = useMemo(() => new Map(citations.map((c) => [c.stepNo, c.no])), [citations])
-  useFollowBottom(latest?.status === 'running', timeline)
+  useFollowBottom(latest?.status === 'running', thread)
 
   return (
     <>
@@ -183,10 +183,11 @@ function scroller(): Element {
 
 /**
  * 执行中自动滚到最新一步，像终端输出一样；用户往上翻看时不打扰（离底部超过 80px 就不再跟随，滚回底部又恢复）。
+ * 盯的是正文的高度（ResizeObserver），不是事件：新的一步要用 0.5 秒长出来，只在收到事件时滚一次会停在半路。
  * 执行结束时过程区自动收起、页面一下子矮了几千像素：结束后把这次执行（收起后的过程区标题 + 回答）滚到屏幕顶部，
  * 从结论开始读（用户没往上翻的话）。只滚到底部的话，回答长一点结论就在屏幕外。
  */
-function useFollowBottom(running: boolean, content: unknown) {
+function useFollowBottom(running: boolean, thread: RefObject<HTMLElement | null>) {
   const stick = useRef(true)
 
   useEffect(() => {
@@ -203,14 +204,22 @@ function useFollowBottom(running: boolean, content: unknown) {
   // 那时的滚动位置不能说明用户的意图，所以记执行中的
   const following = useRef(false)
   useEffect(() => {
-    if (running) {
+    if (!running) {
+      return
+    }
+    const follow = () => {
       following.current = stick.current
       if (stick.current) {
         const el = scroller()
         el.scrollTop = el.scrollHeight
       }
     }
-  }, [running, content])
+    // .thread 的高度随内容增长（.app 的行高取正文实际高度，见 app.css）；内容不满一屏时它被撑满、不变化，本来也不用滚
+    const watcher = new ResizeObserver(follow)
+    watcher.observe(thread.current!)
+    follow()
+    return () => watcher.disconnect()
+  }, [running, thread])
 
   useEffect(() => {
     if (running || !following.current) {

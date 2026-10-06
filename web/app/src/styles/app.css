@@ -13,6 +13,12 @@
    就只有一屏高，sticky 没有空间可“吸”。max-content 让这一行取正文的实际高度 */
 :root[data-style="clean"] .app { grid-template-rows: max-content; }
 
+/* 过程区里新的一步出现时：高度从 0 长到内容高度、淡入、轻微下移，像从上一步里“滑”出来。
+   设计稿用 .reveal.is-hidden + 过渡做；这里用 CSS 动画，元素一插入就播放（同 M2-11 的来源卡片） */
+.steps > .step { display: grid; grid-template-rows: 1fr; animation: step-in 0.5s var(--ease) both; }
+.steps > .step > .reveal-inner { min-height: 0; overflow: hidden; }
+@keyframes step-in { from { grid-template-rows: 0fr; opacity: 0; transform: translateY(-6px); } }
+
 /* 执行结束后把过程区滚到顶部时，留出吸顶标题栏（.main-head）的高度，不被它挡住 */
 .work { scroll-margin-top: 64px; }
 
