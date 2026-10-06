@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { citationsOf } from './citations'
+import { citationsOf, searchedDocsOf } from './citations'
 import type { StepEvent } from './timeline'
 
 function step(step_no: number, tool_name: string, data: Record<string, unknown>, ok = true): StepEvent {
@@ -28,4 +28,22 @@ test('同一处原文引用两次只编一个号，编号不跳', () => {
   ])
   expect(citations.map((c) => c.no)).toEqual([1, 2])
   expect(citations[1].match).toBe('同比增长12.4%')
+})
+
+test('检索命中的其他文档：去掉已引用的文档，多次命中合并成一条、取最好的排名，并数出读过几块', () => {
+  const search = (n: number, hits: [string, number][]) =>
+    step(n, 'search_docs', { results: hits.map(([doc_id, rank]) => ({ doc_id, rank })) })
+  const steps = [
+    search(0, [['text01', 1], ['text02', 2], ['text03', 3]]),
+    search(1, [['text03', 1], ['text02', 4]]),
+    read, // text01 的 b1
+    step(2, 'read_section', { doc_id: 'text03', block_id: 'b7', text: '……' }),
+    step(3, 'read_section', { doc_id: 'text03', block_id: 'b7', text: '……' }), // 同一块读两次只算一块
+    cite(4, '实现营业收入120.5亿元'),
+  ]
+  const docs = searchedDocsOf(steps, citationsOf(steps))
+  expect(docs).toEqual([
+    { docId: 'text02', rank: 2, read: 0 },
+    { docId: 'text03', rank: 1, read: 1 },
+  ])
 })

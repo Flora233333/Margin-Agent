@@ -6,6 +6,9 @@
  *
  * 旁注里想多显示一点上下文：模型引用之前一定读过这一块（read_section 或 find_in_block，否则校验不通过），
  * 就在那些步骤的结果里找到引文所在位置，前后各取一段。
+ *
+ * 另外整理“检索命中的其他文档”（searchedDocsOf）：search_docs 命中、但没有被引用的文档。
+ * 模型没有引用任何原文时（例如 run 31 直接算完就交答案），右栏至少能看到它查过、读过哪些文档。
  */
 
 import type { StepEvent } from './timeline'
@@ -79,4 +82,41 @@ export function citationsOf(steps: StepEvent[]): Citation[] {
     })
   }
   return citations
+}
+
+export interface SearchedDoc {
+  docId: string
+  rank: number // 在各次 search_docs 里最好的排名（1 最相关）
+  read: number // 读过其中几块（read_section 的不同 block_id 数）
+}
+
+/** search_docs 命中、但没有被引用的文档，按第一次命中的先后排列 */
+export function searchedDocsOf(steps: StepEvent[], citations: Citation[]): SearchedDoc[] {
+  const docs = new Map<string, SearchedDoc>()
+  for (const step of steps) {
+    const data: Json = (step.result.data as Json) ?? {}
+    if (step.tool_name !== 'search_docs') {
+      continue
+    }
+    for (const hit of data.results ?? []) {
+      const doc = docs.get(hit.doc_id)
+      if (doc) {
+        doc.rank = Math.min(doc.rank, hit.rank)
+      } else {
+        docs.set(hit.doc_id, { docId: hit.doc_id, rank: hit.rank, read: 0 })
+      }
+    }
+  }
+  const blocks = new Set<string>()
+  for (const step of steps) {
+    const data: Json = (step.result.data as Json) ?? {}
+    const doc = docs.get(data.doc_id)
+    const key = `${data.doc_id}/${data.block_id}`
+    if (step.tool_name === 'read_section' && doc && !blocks.has(key)) {
+      blocks.add(key)
+      doc.read += 1
+    }
+  }
+  const cited = new Set(citations.map((c) => c.docId))
+  return [...docs.values()].filter((doc) => !cited.has(doc.docId))
 }

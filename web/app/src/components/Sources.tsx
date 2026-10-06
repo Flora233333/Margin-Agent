@@ -8,11 +8,12 @@
  *           卡片只跟着回答走，展开 / 收起过程区时和回答一起平移。
  * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
  * 执行中每出现一张新卡片，从过程区里引用它的那一步画一条线过去，1.5 秒后收回（useAnnounce），表示“这条证据从这里来”。
+ * 卡片下面是“检索命中的其他文档”（OtherDocs），可折叠，排在所有卡片之后；没有引用时右栏至少有它。
  * 算法来自设计稿 web/design/demo.js 第 4 部分。
  */
 
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { Citation } from '../citations'
+import type { Citation, SearchedDoc } from '../citations'
 import { Icon } from './Icons'
 
 const GAP = 16 // 两张卡片之间至少隔开的距离
@@ -50,6 +51,9 @@ function workShift(anchor: Element): number {
 
 /** 一张卡片动画播完后的高度：内容的完整高度，原文区换成最终高度（展开 = 全文，收起 = 3 行） */
 function finalItemHeight(item: HTMLElement): number {
+  if (item.classList.contains('group')) {
+    return item.offsetHeight // “其他文档”排在最后，下面没有别的卡片要让位，用当前高度即可
+  }
   let height = item.querySelector('.reveal-inner')!.scrollHeight
   const text = item.querySelector<HTMLElement>('.source-text')!
   const threeLines = parseFloat(getComputedStyle(text).fontSize) * 1.7 * 3 // 与 base.css 的 max-height 一致
@@ -59,7 +63,7 @@ function finalItemHeight(item: HTMLElement): number {
 }
 
 function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObject<HTMLElement | null>,
-  count: number, live: boolean) {
+  count: number, hasGroup: boolean, live: boolean) {
   useLayoutEffect(() => {
     const trackEl = track.current!
     const body = trackEl.parentElement! // .panel-body：执行中整栏吸顶
@@ -93,8 +97,12 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
         switchMode()
       }
       const trackTop = trackEl.getBoundingClientRect().top
-      // 每张卡片的目标位置：结束后是 [n] 的高度，执行中（或没有锚点）是 0，从上往下排，会压住上一张就往下推
+      // 每张卡片的目标位置：结束后是 [n] 的高度，执行中（或没有锚点）是 0，从上往下排，会压住上一张就往下推。
+      // “其他文档”的目标是无穷大：永远排在最后
       const placed = items.map((item) => {
+        if (item.classList.contains('group')) {
+          return { item, target: Infinity }
+        }
         const anchor = live ? null : anchorOf(item.dataset.src!)
         const target = anchor ? anchor.getBoundingClientRect().top - trackTop - 6 + workShift(anchor) : 0
         return { item, target }
@@ -102,7 +110,7 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
       placed.sort((a, b) => a.target - b.target) // 稳定排序：目标相同的按引用编号
       let floor = 0
       for (const { item, target } of placed) {
-        const top = Math.max(target, floor)
+        const top = target === Infinity ? floor : Math.max(target, floor)
         if (!item.dataset.placed) {
           // 第一次出现：直接放到位（暂时关掉 top 的过渡），不从轨道顶部滑下来
           item.classList.add('is-placing')
@@ -149,7 +157,7 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
       toggled.disconnect()
       window.removeEventListener('resize', schedule)
     }
-  }, [track, thread, count, live])
+  }, [track, thread, count, hasGroup, live])
 }
 
 const ANNOUNCE_DELAY = 550 // 等卡片入场动画（0.5 秒）基本播完再画线，线的终点才是卡片的最终位置
@@ -202,6 +210,33 @@ function useAnnounce(path: RefObject<SVGPathElement | null>, count: number, live
       line.classList.remove('is-on')
     }
   }, [path, count, live])
+}
+
+/** 检索命中、但没有被引用的文档：读过的标“读过 n 块”，没读过的标检索排名 */
+function OtherDocs({ docs }: { docs: SearchedDoc[] }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <section className="margin-item group">
+      <div className="reveal-inner">
+        <button className="group-head" type="button" aria-expanded={open} onClick={() => setOpen(!open)}>
+          检索命中的其他文档 <span className="num">{docs.length}</span>
+          <Icon name="chev" />
+        </button>
+        <div className={open ? 'collapsible' : 'collapsible is-closed'}>
+          <div>
+            <ul className="also">
+              {docs.map((doc) => (
+                <li key={doc.docId}>
+                  <span>{doc.docId}</span>
+                  <span className="num">{doc.read > 0 ? `读过 ${doc.read} 块` : `#${doc.rank}`}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
 }
 
 interface CardProps {
@@ -269,6 +304,7 @@ function SourceCard({ citation, linked, flash, onHover }: CardProps) {
 
 interface Props {
   citations: Citation[]
+  others: SearchedDoc[]
   live: boolean // 最近一次执行还没结束
   thread: RefObject<HTMLElement | null>
   linked: number | null
@@ -276,10 +312,10 @@ interface Props {
   onHover: (no: number | null) => void
 }
 
-export function Sources({ citations, live, thread, linked, flash, onHover }: Props) {
+export function Sources({ citations, others, live, thread, linked, flash, onHover }: Props) {
   const track = useRef<HTMLDivElement>(null)
   const line = useRef<SVGPathElement>(null)
-  useMarginLayout(track, thread, citations.length, live)
+  useMarginLayout(track, thread, citations.length, others.length > 0, live)
   useAnnounce(line, citations.length, live)
   return (
     <>
@@ -291,8 +327,11 @@ export function Sources({ citations, live, thread, linked, flash, onHover }: Pro
               来源 <span className="num">{citations.length}</span>
             </h2>
           </div>
+          {/* 放在轨道外面：轨道里的卡片绝对定位、从顶部排起，放在里面会和“其他文档”叠在一起 */}
+          {citations.length === 0 && (
+            <p className="sources-empty">{live ? '模型引用原文后，来源会出现在这里。' : '这次执行没有引用原文。'}</p>
+          )}
           <div className="margin-track" ref={track}>
-            {citations.length === 0 && <p className="sources-empty">模型引用原文后，来源会出现在这里。</p>}
             {citations.map((c) => (
               <div className="reveal margin-item" key={c.no} data-src={c.no}>
                 <div className="reveal-inner">
@@ -305,6 +344,7 @@ export function Sources({ citations, live, thread, linked, flash, onHover }: Pro
                 </div>
               </div>
             ))}
+            {others.length > 0 && <OtherDocs docs={others} />}
           </div>
         </div>
       </aside>

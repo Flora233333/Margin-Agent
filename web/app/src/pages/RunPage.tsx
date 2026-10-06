@@ -7,7 +7,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { ApiError, getRun, regenerate, type RunDetail } from '../api'
-import { citationsOf } from '../citations'
+import { citationsOf, searchedDocsOf } from '../citations'
 import { Answer } from '../components/Answer'
 import { Composer } from '../components/Composer'
 import { Failure } from '../components/Failure'
@@ -104,6 +104,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
   // 来源只显示最近一次执行的引用；更早的执行只保留过程和结论，不再标引用编号
   const latest = timeline.attempts.at(-1)
   const citations = useMemo(() => citationsOf(latest?.steps ?? []), [latest?.steps])
+  const others = useMemo(() => searchedDocsOf(latest?.steps ?? [], citations), [latest?.steps, citations])
   const citeNos = useMemo(() => new Map(citations.map((c) => [c.stepNo, c.no])), [citations])
   useFollowBottom(latest?.status === 'running', timeline)
 
@@ -161,6 +162,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
       </main>
       <Sources
         citations={citations}
+        others={others}
         live={latest?.status === 'running' || latest?.status === 'queued'}
         thread={thread}
         linked={linked}

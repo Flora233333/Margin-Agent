@@ -111,6 +111,8 @@
   overflow-y: auto;
 }
 .sources-empty { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }
+/* 简洁风：和卡片、“其他文档”的文字左对齐（它们都有 --space-2 的内边距），并和下面的分组隔开 */
+:root[data-style="clean"] .sources-empty { padding: 0 var(--space-2); margin-bottom: var(--space-4); }
 
 /* 执行失败的说明 */
 .failure {
