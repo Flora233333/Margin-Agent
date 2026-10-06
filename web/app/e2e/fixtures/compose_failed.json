@@ -1,0 +1,1366 @@
+{
+ "source_run": 94,
+ "detail": {
+  "id": 94,
+  "question": "招商银行 2024 年末的不良贷款率是多少？",
+  "title": "招商银行 2024 年末不良贷款率",
+  "answer_label": "招商银行 · 2024 年末不良贷款率（%）",
+  "options": null,
+  "answer_format": null,
+  "guessed_format": "pct",
+  "model": "DeepSeek",
+  "status": "completed",
+  "created_at": "2026-10-06T14:51:52.156510Z",
+  "attempts": [
+   {
+    "attempt_no": 1,
+    "trigger": "submit",
+    "status": "completed",
+    "final": {
+     "raw": [
+      "0.95%"
+     ],
+     "name": "finalize",
+     "written": {
+      "error": "empty_reply"
+     },
+     "submitted": [
+      "0.95%"
+     ]
+    },
+    "violation": null,
+    "error": null,
+    "started_at": "2026-10-06T14:51:52.167686Z",
+    "finished_at": "2026-10-06T14:53:26.822699Z",
+    "steps": []
+   }
+  ]
+ },
+ "events": [
+  {
+   "seq": 1,
+   "type": "attempt_queued",
+   "data": {
+    "trigger": "submit",
+    "attempt_id": 96,
+    "attempt_no": 1
+   }
+  },
+  {
+   "seq": 2,
+   "type": "attempt_started",
+   "data": {
+    "epoch": 1,
+    "attempt_id": 96
+   }
+  },
+  {
+   "seq": 3,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "query": "招商银行 2024年 不良贷款率",
+      "results": [
+       {
+        "rank": 1,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "group",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.04918032786885246,
+        "doc_id": "annual_cmb_2025_report",
+        "preview": "司章程规定，本公司不再设置监事会，由董事会审计委员会承接法律法规规定的原监事会职权。 本公司通过认真自查，未发现报告期内公司治理实际情况与法律、行政法规和中国证监会关于上市公司治理的规定存在重大差异。 ## 5.3 股东会召开情况 报告期内，本公司共召开1次股东会，即2025年6月25日在深圳召开的2024年度股东大会，会议的通知、召集、召开和表决程序均符合《中华人民共和国公司法》《招商银行股份有",
+        "has_table": false,
+        "section_id": "s196",
+        "block_chars": 509,
+        "block_lines": 7,
+        "section_path": [
+         "5.1 公司治理架构图",
+         "5.2 公司治理情况综述",
+         "5.3 股东会召开情况",
+         "5.4 董事、监事和高级管理人员等"
+        ],
+        "best_block_id": "annual_cmb_2025_report_b0152",
+        "contributions": {
+         "block_bm25": 1,
+         "exact_entity": 1,
+         "chroma_dense_block": 1
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 255
+       },
+       {
+        "rank": 2,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03128054740957967,
+        "doc_id": "text12",
+        "preview": "系数=长安银行股份有限公司资产利润率/可比银行资产利润率×资产利润率权重 ## ③成本收入比指标修正系数计算 成本收入比指标修正系数=可比银行成本收入比/长安银行股份有限公司成本收入比×成本收入比权重 利润增长率指标修正系数=长安银行股份有限公司利润增长率/可比银行利润增长率×利润增长率权重 ## ⑤不良贷款率指标修正系数计算 不良贷款率指标修正系数=可比银行不良贷款率 /长安银行股份有限公司不良",
+        "has_table": false,
+        "section_id": "s178",
+        "block_chars": 354,
+        "block_lines": 12,
+        "section_path": [
+         "③成本收入比指标修正系数计算",
+         "④利润增长率指标修正系数计算",
+         "⑤不良贷款率指标修正系数计算",
+         "⑥拨备覆盖率指标修正系数计算"
+        ],
+        "best_block_id": "text12_b0109",
+        "contributions": {
+         "block_bm25": 2,
+         "chroma_dense_block": 6
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 177
+       },
+       {
+        "rank": 3,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.016129032258064516,
+        "doc_id": "annual_cscec_2024_report",
+        "preview": "| 主要指标 | 2024年 | 2023年 | 本报告期末比上年度末增减(%) | 变动原因 | | --- | --- | --- | --- | --- | | 归属于上市公司股东的扣除非经常性损益的净利润 | 41,581,095 | 48,538,669 | -14.3 | 经营性利润减少 | | 流动比率(%) | 129.4 | 128.8 | 增加0.6个百分点 | / | | 速",
+        "has_table": true,
+        "section_id": "s291",
+        "block_chars": 545,
+        "block_lines": 12,
+        "section_path": [
+         "<sub>告期内公司债</sub><sup>券相关重</sup>",
+         "<sub>项品种债券</sub><sup>应当披露的其</sup>",
+         "<sub>公司债券</sub>募<sup>集资金</sup>",
+         "4. 报告期末募集资金使用情况"
+        ],
+        "best_block_id": "annual_cscec_2024_report_b0230",
+        "contributions": {
+         "chroma_dense_block": 2
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 273
+       },
+       {
+        "rank": 4,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "group"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "annual_byd_2024_report",
+        "preview": "于 2024 年 12 月 31 日，上述借款的年利率为 1.85%-2.98% (2023 年 12 月 31 日：2.05%-2.98%)。 于 2024年 12 月31 日及 2023 年 12月 31 日，本集团无已到期但尚未偿还的长期借款。 ## （1） 长/短期银行借款账龄",
+        "has_table": false,
+        "section_id": "s439",
+        "block_chars": 143,
+        "block_lines": 3,
+        "section_path": [
+         "31、一年内到期的非流动负债",
+         "32、其他流动负债",
+         "33、长期借款",
+         "（1） 长/短期银行借款账龄"
+        ],
+        "best_block_id": "annual_byd_2024_report_b0402",
+        "contributions": {
+         "chroma_dense_block": 3
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 72
+       },
+       {
+        "rank": 5,
+        "scope": {
+         "label": "口径不明",
+         "value": "unknown",
+         "signals": [],
+         "ambiguous": false
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "pack2_text20",
+        "preview": "2025年末上市国有行及股份行累计FVOCI浮盈有所减少，降至约1900亿元，占期末FVOCI资产规模的0.8%。 其中大行浮盈占比相对较高，股份行相对较少 图：上市银行2025年末FVOCI浮盈占比 资料来源：WIND，上市银行年报，国信证券经济研究所整理 历经三年下降之后，2025年上市银行手续费及佣金净收入增速止跌回升 受益于资本市场回暖，财富管理业务收入回升。 以招商银行为例，其财富管理业",
+        "has_table": false,
+        "section_id": "s002",
+        "block_chars": 1169,
+        "block_lines": 33,
+        "section_path": [
+         "“资产荒”的新叙事2025年财报里的金融机构配置线索",
+         "监管思路："
+        ],
+        "best_block_id": "pack2_text20_b0009",
+        "contributions": {
+         "block_bm25": 3
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 585
+       },
+       {
+        "rank": 6,
+        "scope": {
+         "label": "口径不明",
+         "value": "unknown",
+         "signals": [],
+         "ambiguous": false
+        },
+        "score": 0.015625,
+        "doc_id": "pack2_text14",
+        "preview": "2025年末上市国有行及股份行累计FVOCI浮盈有所减少，降至约1900亿元，占期末FVOCI资产规模的0.8%。 其中大行浮盈占比相对较高，股份行相对较少 图：上市银行2025年末FVOCI浮盈占比 资料来源：WIND，上市银行年报，国信证券经济研究所整理 历经三年下降之后，2025年上市银行手续费及佣金净收入增速止跌回升 受益于资本市场回暖，财富管理业务收入回升。 以招商银行为例，其财富管理业",
+        "has_table": false,
+        "section_id": "s002",
+        "block_chars": 1169,
+        "block_lines": 33,
+        "section_path": [
+         "“资产荒”的新叙事2025年财报里的金融机构配置线索",
+         "监管思路："
+        ],
+        "best_block_id": "pack2_text14_b0009",
+        "contributions": {
+         "block_bm25": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 585
+       },
+       {
+        "rank": 7,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_bank"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.015625,
+        "doc_id": "text10",
+        "preview": "| 项目 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | | 项目 | 交易前 | 交易后(备考) | 变动量 | | 流动比率(倍) | 5.77 | 1.79 | -69.04% | | 速动比率(倍) | 4.69 | 1.28 | -72.81% | | 资产负债率 | 12.42% | 40.98",
+        "has_table": true,
+        "section_id": "s729",
+        "block_chars": 217,
+        "block_lines": 6,
+        "section_path": [
+         "（二）上市公司未来经营中的优势和劣势分析",
+         "（三）本次交易对上市公司的财务状况、盈利能力的影响",
+         "1、本次交易对上市公司盈利能力的影响",
+         "2、本次交易对上市公司主要资产、负债及偿债能力的影响"
+        ],
+        "best_block_id": "text10_b0832",
+        "contributions": {
+         "chroma_dense_block": 4
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 109
+       },
+       {
+        "rank": 8,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.015384615384615385,
+        "doc_id": "text03",
+        "preview": "| 借款银行 | 被担保方 | 2024年末贷款余额 | 2024年末担保余额 | 贷款起始日 | 贷款到期日 | 2024年末担保是否已经履行完毕 | | --- | --- | --- | --- | --- | --- | --- | | 中国工商银行 | 厦门金圆融资租赁有限公司 | 10,000.00 | 10,000.00 | 2024/7/31 | 2027/7/30 | 否 | |",
+        "has_table": true,
+        "section_id": "s282",
+        "block_chars": 4065,
+        "block_lines": 55,
+        "section_path": [
+         "（2）关联方应收应付款项",
+         "2、关联担保情况",
+         "（1）集团本部为关联方担保的情况",
+         "（2）子公司为关联方担保的情况"
+        ],
+        "best_block_id": "text03_b0224",
+        "contributions": {
+         "block_bm25": 5
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 2033
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 0,
+    "arguments": "{\"query\": \"招商银行 2024年 不良贷款率\"}",
+    "reasoning": "The user asks: 招商银行 2024年末的不良贷款率是多少？ Let me search.",
+    "tool_name": "search_docs",
+    "attempt_id": 96,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 4,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "doc_id": "annual_cmb_2025_report",
+      "queries": [
+       "不良贷款率",
+       "2024年末 不良贷款率 集团",
+       "资产质量 不良贷款率"
+      ],
+      "query_results": [
+       {
+        "query": "不良贷款率",
+        "doc_id": "annual_cmb_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 33.552006844659275,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0070",
+          "has_table": true,
+          "section_id": "s059",
+          "block_chars": 746,
+          "block_lines": 9,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(注) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(注) |"
+          ],
+          "section_path": [
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况",
+           "3.4.4 按地区划分的贷款及不良贷款分布情况",
+           "3.4.5 按担保方式划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 373
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 32.935567703053664,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0068",
+          "has_table": true,
+          "section_id": "s058",
+          "block_chars": 1060,
+          "block_lines": 13,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) |"
+          ],
+          "section_path": [
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况",
+           "3.4.4 按地区划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 530
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "group",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 32.47013519590784,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "注：主要包括商用房贷款、汽车贷款及其他个人贷款。 ## 个人住房贷款风险管控 本公司积极落实国家及各地区的政策要求，坚持因城施策，积极适应房地产市场供求关系发生重大变化的新形势，支持居民刚性和改善性住房需求，稳健开展个人住房贷款业务。 报告期内，在一、二线城市新发放的个人住房贷款额占本公司个人住房贷款新发放总额的91.14%； 在一、二线城市的个人住房贷款期末余额占本公司个人住房贷款期末余额的88",
+          "block_id": "annual_cmb_2025_report_b0106",
+          "has_table": false,
+          "section_id": "s180",
+          "block_chars": 1153,
+          "block_lines": 25,
+          "matched_rows": [
+           "截至报告期末，本公司消费信贷类业务（含信用卡贷款和消费贷款）不良贷款额207.19亿元，较上年末增加0.46亿元，不良贷款率1.52%，较上年末下降0.02个百分点；"
+          ],
+          "section_path": [
+           "4.3.5 客户隐私保护",
+           "4.3.6 消费者权益保护",
+           "消费者权益保护治理架构",
+           "消费者权益保护管理举措"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 577
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "group",
+            "reporting_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 32.40795977356232,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% | | --- | --- | --- | --- | --- | --- | --- | --- | | 公司贷款 | 2,929,737 | 24,523 | 0.84 | 20,090 | 0.69 | 22,584 | 0.77 ",
+          "block_id": "annual_cmb_2025_report_b0103",
+          "has_table": true,
+          "section_id": "s091",
+          "block_chars": 786,
+          "block_lines": 12,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% |"
+          ],
+          "section_path": [
+           "3.9.4 关于客户存款",
+           "3.9.5 关于资产配置",
+           "3.9.6 关于不良资产的生成和处置",
+           "3.9.7 关于重点领域资产质量"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 393
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "group",
+            "reporting_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 32.39980197460352,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% | | --- | --- | --- | --- | --- | --- | --- | --- | | 公司贷款 | 2,590,409 | 26,132 | 1.01 | 18,562 | 0.72 | 24,375 | 0.94 ",
+          "block_id": "annual_cmb_2025_report_b0105",
+          "has_table": true,
+          "section_id": "s091",
+          "block_chars": 789,
+          "block_lines": 12,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% |"
+          ],
+          "section_path": [
+           "3.9.4 关于客户存款",
+           "3.9.5 关于资产配置",
+           "3.9.6 关于不良资产的生成和处置",
+           "3.9.7 关于重点领域资产质量"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 395
+         },
+         {
+          "rank": 6,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 32.097336536348955,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0066",
+          "has_table": true,
+          "section_id": "s057",
+          "block_chars": 1481,
+          "block_lines": 19,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) |"
+          ],
+          "section_path": [
+           "3.4 贷款质量分析",
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 741
+         }
+        ]
+       },
+       {
+        "query": "2024年末 不良贷款率 集团",
+        "doc_id": "annual_cmb_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 57.82993596173747,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0070",
+          "has_table": true,
+          "section_id": "s059",
+          "block_chars": 746,
+          "block_lines": 9,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(注) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(注) |"
+          ],
+          "section_path": [
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况",
+           "3.4.4 按地区划分的贷款及不良贷款分布情况",
+           "3.4.5 按担保方式划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 373
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 57.014873717936936,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0068",
+          "has_table": true,
+          "section_id": "s058",
+          "block_chars": 1060,
+          "block_lines": 13,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) |"
+          ],
+          "section_path": [
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况",
+           "3.4.4 按地区划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 530
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 56.089712235691934,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| 资产质量指标(%) | 2025年12月31日 | 2024年12月31日 | 本年末比上年末增减 | 2023年12月31日 | | --- | --- | --- | --- | --- | | 不良贷款率 | 0.94 | 0.95 | 下降0.01个百分点 | 0.95 | | 拨备覆盖率 $^{(1)}$ | 391.79 | 411.98 | 下降20.19个百分点 | 437.7",
+          "block_id": "annual_cmb_2025_report_b0018",
+          "has_table": true,
+          "section_id": "s018",
+          "block_chars": 347,
+          "block_lines": 7,
+          "matched_rows": [
+           "| 不良贷款率 | 0.94 | 0.95 | 下降0.01个百分点 | 0.95 |"
+          ],
+          "section_path": [
+           "1.4 荣誉与奖项",
+           "会计数据和财务指标摘要",
+           "2.1 本集团主要会计数据和财务指标",
+           "2.2 本集团补充财务比率"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 174
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 56.08139612829504,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0062",
+          "has_table": true,
+          "section_id": "s056",
+          "block_chars": 1278,
+          "block_lines": 16,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) |"
+          ],
+          "section_path": [
+           "3.3.3 股东权益",
+           "3.4 贷款质量分析",
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 639
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 55.980270501466585,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0066",
+          "has_table": true,
+          "section_id": "s057",
+          "block_chars": 1481,
+          "block_lines": 19,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) |"
+          ],
+          "section_path": [
+           "3.4 贷款质量分析",
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 741
+         },
+         {
+          "rank": 6,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 55.88765453742886,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0064",
+          "has_table": true,
+          "section_id": "s057",
+          "block_chars": 1485,
+          "block_lines": 19,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(1) |"
+          ],
+          "section_path": [
+           "3.4 贷款质量分析",
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 743
+         }
+        ]
+       },
+       {
+        "query": "资产质量 不良贷款率",
+        "doc_id": "annual_cmb_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "group",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 47.23139464476314,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "注：主要包括商用房贷款、汽车贷款及其他个人贷款。 ## 个人住房贷款风险管控 本公司积极落实国家及各地区的政策要求，坚持因城施策，积极适应房地产市场供求关系发生重大变化的新形势，支持居民刚性和改善性住房需求，稳健开展个人住房贷款业务。 报告期内，在一、二线城市新发放的个人住房贷款额占本公司个人住房贷款新发放总额的91.14%； 在一、二线城市的个人住房贷款期末余额占本公司个人住房贷款期末余额的88",
+          "block_id": "annual_cmb_2025_report_b0106",
+          "has_table": false,
+          "section_id": "s180",
+          "block_chars": 1153,
+          "block_lines": 25,
+          "matched_rows": [
+           "后续，在政府支持房地产市场平稳发展的方针政策背景下，本公司将努力保持个人住房贷款资产质量处于较优水平。",
+           "截至报告期末，本公司消费信贷类业务（含信用卡贷款和消费贷款）不良贷款额207.19亿元，较上年末增加0.46亿元，不良贷款率1.52%，较上年末下降0.02个百分点；",
+           "对于风险客户，主动识别并管控风险，同时积极处置不良资产，努力保持消费信贷类业务资产质量处于行业较优水平。"
+          ],
+          "section_path": [
+           "4.3.5 客户隐私保护",
+           "4.3.6 消费者权益保护",
+           "消费者权益保护治理架构",
+           "消费者权益保护管理举措"
+          ],
+          "matched_terms": [
+           "资产质量",
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 577
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "group",
+            "reporting_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 45.76696866022639,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% | | --- | --- | --- | --- | --- | --- | --- | --- | | 公司贷款 | 2,929,737 | 24,523 | 0.84 | 20,090 | 0.69 | 22,584 | 0.77 ",
+          "block_id": "annual_cmb_2025_report_b0103",
+          "has_table": true,
+          "section_id": "s091",
+          "block_chars": 786,
+          "block_lines": 12,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% |"
+          ],
+          "section_path": [
+           "3.9.4 关于客户存款",
+           "3.9.5 关于资产配置",
+           "3.9.6 关于不良资产的生成和处置",
+           "3.9.7 关于重点领域资产质量"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 393
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "group",
+            "reporting_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 45.7554338769691,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% | | --- | --- | --- | --- | --- | --- | --- | --- | | 公司贷款 | 2,590,409 | 26,132 | 1.01 | 18,562 | 0.72 | 24,375 | 0.94 ",
+          "block_id": "annual_cmb_2025_report_b0105",
+          "has_table": true,
+          "section_id": "s091",
+          "block_chars": 789,
+          "block_lines": 12,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款余额 | 不良贷款余额 | 不良贷款率% | 关注贷款余额 | 关注贷款率% | 逾期贷款余额 | 逾期贷款率% |"
+          ],
+          "section_path": [
+           "3.9.4 关于客户存款",
+           "3.9.5 关于资产配置",
+           "3.9.6 关于不良资产的生成和处置",
+           "3.9.7 关于重点领域资产质量"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 395
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 45.16076014423264,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "注：在贷款监管五级分类制度下，本集团的不良贷款包括分类为次级、可疑和损失类的贷款。 报告期内，本集团坚持从严认定资产风险分类，真实反映资产质量。 截至报告期末，本集团不良贷款余额682.06亿元，较上年末增加25.96亿元； 不良贷款率 $0.94\\%$ ，较上年末下降0.01个百分点。 ## 3.4.2 按产品类型划分的贷款及不良贷款分布情况 本集团",
+          "block_id": "annual_cmb_2025_report_b0061",
+          "has_table": false,
+          "section_id": "s056",
+          "block_chars": 177,
+          "block_lines": 6,
+          "matched_rows": [
+           "报告期内，本集团坚持从严认定资产风险分类，真实反映资产质量。",
+           "不良贷款率 $0.94\\%$ ，较上年末下降0.01个百分点。"
+          ],
+          "section_path": [
+           "3.3.3 股东权益",
+           "3.4 贷款质量分析",
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "资产质量",
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 89
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 44.33091309325646,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "注： (1) 代表某一类不良贷款占该类贷款总额的比例。 (2) 主要包括融资租赁、并购贷款及对公按揭等其他公司贷款。 (3) 票据贴现逾期后转入公司贷款核算。 (4) 主要包括商用房贷款、汽车贷款及其他个人贷款。 公司贷款方面，本集团紧密围绕国家战略和政策，稳步开展信贷投放，主动调优资产结构，推动业务高质量发展，积极化解重点领域风险，保持资产质量稳定。 截至报告期末，本集团公司贷款余额32,157",
+          "block_id": "annual_cmb_2025_report_b0063",
+          "has_table": false,
+          "section_id": "s057",
+          "block_chars": 601,
+          "block_lines": 18,
+          "matched_rows": [
+           "公司贷款方面，本集团紧密围绕国家战略和政策，稳步开展信贷投放，主动调优资产结构，推动业务高质量发展，积极化解重点领域风险，保持资产质量稳定。",
+           "不良贷款率 $1.06\\%$ ，较上年末上升0.10个百分点。"
+          ],
+          "section_path": [
+           "3.4 贷款质量分析",
+           "3.4.1 按五级分类划分的贷款分布情况",
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "资产质量",
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 301
+         },
+         {
+          "rank": 6,
+          "scope": {
+           "label": "本集团",
+           "value": "group",
+           "signals": [
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 42.607165465059644,
+          "doc_id": "annual_cmb_2025_report",
+          "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+          "block_id": "annual_cmb_2025_report_b0070",
+          "has_table": true,
+          "section_id": "s059",
+          "block_chars": 746,
+          "block_lines": 9,
+          "matched_rows": [
+           "| (人民币百万元,百分比除外) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(注) | 贷款和垫款金额 | 占总额百分比% | 不良贷款金额 | 不良贷款率%(注) |"
+          ],
+          "section_path": [
+           "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+           "3.4.3 按行业划分的贷款及不良贷款分布情况",
+           "3.4.4 按地区划分的贷款及不良贷款分布情况",
+           "3.4.5 按担保方式划分的贷款及不良贷款分布情况"
+          ],
+          "matched_terms": [
+           "不良贷款率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 373
+         }
+        ]
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 1,
+    "arguments": "{\"doc_id\": \"annual_cmb_2025_report\", \"queries\": [\"不良贷款率\", \"2024年末 不良贷款率 集团\", \"资产质量 不良贷款率\"], \"top_k\": 6}",
+    "reasoning": "The first result is annual_cmb_2025_report — that's the 2025 report likely containing 2024 data? Actually \"2024年度股东大会\" held 2025. Hmm, it's titled annual_cmb_2025_report. The question asks 招商银行 2024年末不良贷款率. Let's search within that document.",
+    "tool_name": "search_in_document",
+    "attempt_id": 96,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 5,
+   "type": "run_understood",
+   "data": {
+    "label": "招商银行 · 2024 年末不良贷款率（%）",
+    "title": "招商银行 2024 年末不良贷款率",
+    "answer_format": "pct"
+   }
+  },
+  {
+   "seq": 6,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "| 资产质量指标(%) | 2025年12月31日 | 2024年12月31日 | 本年末比上年末增减 | 2023年12月31日 |\n| --- | --- | --- | --- | --- |\n| 不良贷款率 | 0.94 | 0.95 | 下降0.01个百分点 | 0.95 |\n| 拨备覆盖率 $^{(1)}$ | 391.79 | 411.98 | 下降20.19个百分点 | 437.70 |\n| 贷款拨备率 $^{(2)}$ | 3.68 | 3.92 | 下降0.24个百分点 | 4.14 |\n|  | 2025年 | 2024年 | 本年比上年增减 | 2023年 |\n| 信用成本 $^{(3)}$ | 0.60 | 0.65 | 下降0.05个百分点 | 0.74 |",
+      "scope": {
+       "label": "本集团",
+       "value": "group",
+       "signals": [
+        "group"
+       ],
+       "ambiguous": false
+      },
+      "doc_id": "annual_cmb_2025_report",
+      "block_id": "annual_cmb_2025_report_b0018",
+      "complete": true,
+      "has_table": true,
+      "row_offset": 0,
+      "section_id": "s018",
+      "block_chars": 347,
+      "block_lines": 7,
+      "next_row_offset": null,
+      "remaining_lines": 0,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 7
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 2,
+    "arguments": "{\"doc_id\": \"annual_cmb_2025_report\", \"block_id\": \"annual_cmb_2025_report_b0018\"}",
+    "reasoning": "The report is annual_cmb_2025_report, which is 招商银行2025年年报 (reporting 2025 and comparative 2024). The 2024年12月31日 不良贷款率 = 0.95 (本集团). Good. But the question asks 2024年末 — need to ensure the value 0.95 is for 2024-12-31. The block b0018 shows: | 不良贷款率 | 0.94 | 0.95 | 下降0.01个百分点 | 0.95 | with columns 2025年12月31日, 2024年12月31日, 本年末比上年末增减, 2023年12月31日. So 2024年末 = 0.95%.\n\nBut wait — is there a dedicated 2024 annual report doc? The corpus returned annual_cmb_2025_report. Let me also check whether there's a annual_cmb_2024_report. Let me read b0018 to confirm headers.",
+    "tool_name": "read_section",
+    "attempt_id": 96,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 7,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "query": "招商银行2024年度报告 不良贷款率 0.95",
+      "results": [
+       {
+        "rank": 1,
+        "scope": {
+         "label": "本集团",
+         "value": "group",
+         "signals": [
+          "group"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.04918032786885246,
+        "doc_id": "annual_cmb_2025_report",
+        "preview": "| (人民币百万元,百分比除外) | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2025年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | (人民币百万元,百分比",
+        "has_table": true,
+        "section_id": "s058",
+        "block_chars": 1060,
+        "block_lines": 13,
+        "section_path": [
+         "3.4.1 按五级分类划分的贷款分布情况",
+         "3.4.2 按产品类型划分的贷款及不良贷款分布情况",
+         "3.4.3 按行业划分的贷款及不良贷款分布情况",
+         "3.4.4 按地区划分的贷款及不良贷款分布情况"
+        ],
+        "best_block_id": "annual_cmb_2025_report_b0068",
+        "contributions": {
+         "block_bm25": 1,
+         "exact_entity": 1,
+         "chroma_dense_block": 1
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 530
+       },
+       {
+        "rank": 2,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.03200204813108039,
+        "doc_id": "text12",
+        "preview": "| 项目 | 2018年1-9月 | 2017年度 | 2016年度 | | --- | --- | --- | --- | | 一、经营活动产生的现金流量 | | | | | 拆入资金净增加额 | - | -21,400.00 | -8,600.00 | | 处置以公允价值计量且其变动计入当期损益的金融资产 | 284.12 | -9,596.80 | 28,792.94 | | 收取利息、手续",
+        "has_table": true,
+        "section_id": "s210",
+        "block_chars": 1826,
+        "block_lines": 37,
+        "section_path": [
+         "（二）本次交易前上市公司的经营成果分析",
+         "1、营业收入分析",
+         "2、营业支出分析",
+         "（三）本次交易前上市公司现金流量分析"
+        ],
+        "best_block_id": "text12_b0127",
+        "contributions": {
+         "block_bm25": 2,
+         "chroma_dense_block": 3
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 913
+       },
+       {
+        "rank": 3,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.016129032258064516,
+        "doc_id": "annual_cscec_2024_report",
+        "preview": "| 主要指标 | 2024年 | 2023年 | 本报告期末比上年度末增减(%) | 变动原因 | | --- | --- | --- | --- | --- | | 归属于上市公司股东的扣除非经常性损益的净利润 | 41,581,095 | 48,538,669 | -14.3 | 经营性利润减少 | | 流动比率(%) | 129.4 | 128.8 | 增加0.6个百分点 | / | | 速",
+        "has_table": true,
+        "section_id": "s291",
+        "block_chars": 545,
+        "block_lines": 12,
+        "section_path": [
+         "<sub>告期内公司债</sub><sup>券相关重</sup>",
+         "<sub>项品种债券</sub><sup>应当披露的其</sup>",
+         "<sub>公司债券</sub>募<sup>集资金</sup>",
+         "4. 报告期末募集资金使用情况"
+        ],
+        "best_block_id": "annual_cscec_2024_report_b0230",
+        "contributions": {
+         "chroma_dense_block": 2
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 273
+       },
+       {
+        "rank": 4,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "text03",
+        "preview": "| 借款银行 | 被担保方 | 2024年末贷款余额 | 2024年末担保余额 | 贷款起始日 | 贷款到期日 | 2024年末担保是否已经履行完毕 | | --- | --- | --- | --- | --- | --- | --- | | 中国工商银行 | 厦门金圆融资租赁有限公司 | 10,000.00 | 10,000.00 | 2024/7/31 | 2027/7/30 | 否 | |",
+        "has_table": true,
+        "section_id": "s282",
+        "block_chars": 4065,
+        "block_lines": 55,
+        "section_path": [
+         "（2）关联方应收应付款项",
+         "2、关联担保情况",
+         "（1）集团本部为关联方担保的情况",
+         "（2）子公司为关联方担保的情况"
+        ],
+        "best_block_id": "text03_b0224",
+        "contributions": {
+         "block_bm25": 3
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 2033
+       },
+       {
+        "rank": 5,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "group"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015625,
+        "doc_id": "annual_byd_2024_report",
+        "preview": "于 2024 年 12 月 31 日，上述借款的年利率为 1.85%-2.98% (2023 年 12 月 31 日：2.05%-2.98%)。 于 2024年 12 月31 日及 2023 年 12月 31 日，本集团无已到期但尚未偿还的长期借款。 ## （1） 长/短期银行借款账龄",
+        "has_table": false,
+        "section_id": "s439",
+        "block_chars": 143,
+        "block_lines": 3,
+        "section_path": [
+         "31、一年内到期的非流动负债",
+         "32、其他流动负债",
+         "33、长期借款",
+         "（1） 长/短期银行借款账龄"
+        ],
+        "best_block_id": "annual_byd_2024_report_b0402",
+        "contributions": {
+         "chroma_dense_block": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 72
+       },
+       {
+        "rank": 6,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_bank"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.015384615384615385,
+        "doc_id": "text10",
+        "preview": "| 项目 | 2024年12月31日 | 2024年12月31日 | 2024年12月31日 | | --- | --- | --- | --- | | 项目 | 交易前 | 交易后(备考) | 变动量 | | 流动比率(倍) | 5.77 | 1.79 | -69.04% | | 速动比率(倍) | 4.69 | 1.28 | -72.81% | | 资产负债率 | 12.42% | 40.98",
+        "has_table": true,
+        "section_id": "s729",
+        "block_chars": 217,
+        "block_lines": 6,
+        "section_path": [
+         "（二）上市公司未来经营中的优势和劣势分析",
+         "（三）本次交易对上市公司的财务状况、盈利能力的影响",
+         "1、本次交易对上市公司盈利能力的影响",
+         "2、本次交易对上市公司主要资产、负债及偿债能力的影响"
+        ],
+        "best_block_id": "text10_b0832",
+        "contributions": {
+         "chroma_dense_block": 5
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 109
+       },
+       {
+        "rank": 7,
+        "scope": {
+         "label": "母公司",
+         "value": "parent_company",
+         "signals": [
+          "parent_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015151515151515152,
+        "doc_id": "text02",
+        "preview": "| 五级分类 | 2025年9月末 | 2025年9月末 | 2024年末 | 2024年末 | 2023年末 | 2023年末 | 2022年末 | 2022年末 | | --- | --- | --- | --- | --- | --- | --- | --- | --- | | 五级分类 | 金额 | 占比 | 金额 | 占比 | 金额 | 占比 | 金额 | 占比 | | 正常 | 272",
+        "has_table": true,
+        "section_id": "s213",
+        "block_chars": 826,
+        "block_lines": 12,
+        "section_path": [
+         "（4）事后追偿和处置制度",
+         "（5）风险预警机制",
+         "5、发行人经营指标情况",
+         "（1）五级分类指标"
+        ],
+        "best_block_id": "text02_b0156",
+        "contributions": {
+         "chroma_dense_block": 6
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 413
+       },
+       {
+        "rank": 8,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.014925373134328358,
+        "doc_id": "annual_cscec_2025_report",
+        "preview": "| 主要指标 | 2025年 | 2024年 | 本报告期末比上年度末增减(%) | 变动原因 | | --- | --- | --- | --- | --- | | 归属于上市公司股东的扣除非经常性损益的净利润 | 31,934,462 | 41,579,271 | -23.2 | 经营性利润减少 | | 流动比率(%) | 126.2 | 129.4 | 减少3.2个百分点 | / | | 速",
+        "has_table": true,
+        "section_id": "s266",
+        "block_chars": 522,
+        "block_lines": 12,
+        "section_path": [
+         "（五）银行间债券市场非金融企业债务融资工具",
+         "<sub>告期内公司债</sub><sup>券相关重</sup>",
+         "4. 报告期末募集资金使用情况",
+         "5. 信用评级结果调整情况"
+        ],
+        "best_block_id": "annual_cscec_2025_report_b0223",
+        "contributions": {
+         "chroma_dense_block": 7
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 261
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 3,
+    "arguments": "{\"query\": \"招商银行2024年度报告 不良贷款率 0.95\"}",
+    "reasoning": "Confirmed: 2024年12月31日 不良贷款率 = 0.95% (本集团口径). \n\nBut let me verify whether there's a 2024 annual report doc in the corpus that might give a definitive answer too. The question specifically asks 招商银行2024年末的不良贷款率. The answer 0.95%. Let me also confirm from a dedicated 2024 source perhaps. But the 2025 report's comparative column is fine. However, to be safe, let me search for annual_cmb_2024_report.\n\nActually not necessary; the evidence is clear. But priority is answer correct. Let me do a quick search to check if a 2024 report exists.",
+    "tool_name": "search_docs",
+    "attempt_id": 96,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 8,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "end": 143,
+      "level": "exact",
+      "quote": "| 不良贷款率 | 0.94 | 0.95 | 下降0.01个百分点 | 0.95 |",
+      "start": 100,
+      "doc_id": "annual_cmb_2025_report",
+      "block_id": "annual_cmb_2025_report_b0018",
+      "grounded": true,
+      "matched_text": "| 不良贷款率 | 0.94 | 0.95 | 下降0.01个百分点 | 0.95 |"
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 4,
+    "arguments": "{\"doc_id\": \"annual_cmb_2025_report\", \"block_id\": \"annual_cmb_2025_report_b0018\", \"quote\": \"| 不良贷款率 | 0.94 | 0.95 | 下降0.01个百分点 | 0.95 |\"}",
+    "reasoning": "Only the 2025 report. That's the source. Answer: 0.95%.\n\nLet me cite the block b0018 and also b0061 (narrative: 不良贷款率0.94%... but that's for 2025 reporting period). Actually b0061 says \"截至报告期末，本集团不良贷款余额682.06亿元...不良贷款率0.94%，较上年末下降0.01个百分点\" — that's 2025. Hmm, that gives 2024 = 0.95 as well (since 0.94 + 0.01). Fine.\n\nThe question asks 2024年末, so answer 0.95%. Cite b0018.\n\nActually should I double-check the source doc is about 招商银行? The doc_id is annual_cmb_2025_report and it mentions 招商银行. Yes.\n\nI'll finalize with \"0.95%\". Let me cite first.",
+    "tool_name": "cite",
+    "attempt_id": 96,
+    "citation_no": 1
+   }
+  },
+  {
+   "seq": 9,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "raw": [
+       "0.95%"
+      ],
+      "submitted": [
+       "0.95%"
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 5,
+    "arguments": "{\"answers\": [\"0.95%\"]}",
+    "reasoning": null,
+    "tool_name": "finalize",
+    "attempt_id": 96,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 10,
+   "type": "answer_written",
+   "data": {
+    "error": "empty_reply",
+    "attempt_id": 96
+   }
+  },
+  {
+   "seq": 11,
+   "type": "attempt_finished",
+   "data": {
+    "final": {
+     "raw": [
+      "0.95%"
+     ],
+     "name": "finalize",
+     "written": {
+      "error": "empty_reply"
+     },
+     "submitted": [
+      "0.95%"
+     ]
+    },
+    "violation": null,
+    "attempt_id": 96
+   }
+  }
+ ]
+}

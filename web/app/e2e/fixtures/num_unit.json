@@ -1,0 +1,1007 @@
+{
+ "source_run": 91,
+ "detail": {
+  "id": 91,
+  "question": "宁德时代 2025 年经营活动产生的现金流量净额是多少亿元？",
+  "title": "宁德时代 2025 年经营现金流净额",
+  "answer_label": "宁德时代 · 2025 年经营活动产生的现金流量净额（亿元）",
+  "options": null,
+  "answer_format": null,
+  "guessed_format": "num",
+  "model": "DeepSeek",
+  "status": "completed",
+  "created_at": "2026-10-06T13:41:41.999854Z",
+  "attempts": [
+   {
+    "attempt_no": 1,
+    "trigger": "submit",
+    "status": "completed",
+    "final": {
+     "raw": [
+      "1,332 亿元"
+     ],
+     "name": "finalize",
+     "written": {
+      "text": "宁德时代 2025 年经营活动产生的现金流量净额为 1,332 亿元。\n\n根据宁德时代 2025 年年度报告，公司报告期内实现经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%[1]。同期公司实现归属于上市公司股东的净利润 722 亿元，同比增长 42.28%，动力电池销量 541GWh，同比增长 41.85%[1]。",
+      "citations": [
+       1
+      ],
+      "unverified": []
+     },
+     "submitted": [
+      "1332.00"
+     ],
+     "unit_removed": "亿元"
+    },
+    "violation": null,
+    "error": null,
+    "started_at": "2026-10-06T13:41:42.012521Z",
+    "finished_at": "2026-10-06T13:41:56.498407Z",
+    "steps": []
+   }
+  ]
+ },
+ "events": [
+  {
+   "seq": 1,
+   "type": "attempt_queued",
+   "data": {
+    "trigger": "submit",
+    "attempt_id": 93,
+    "attempt_no": 1
+   }
+  },
+  {
+   "seq": 2,
+   "type": "attempt_started",
+   "data": {
+    "epoch": 1,
+    "attempt_id": 93
+   }
+  },
+  {
+   "seq": 3,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "query": "宁德时代 2025年 经营活动产生的现金流量净额",
+      "results": [
+       {
+        "rank": 1,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03278688524590164,
+        "doc_id": "annual_catl_2025_report",
+        "preview": "相关数据同比发生重大变动的主要影响因素说明 适用 □不适用 2025 年，公司经营活动产生的现金流量净额较上年增加 362亿元，上升 37.35%，主要是销售规模增长，销售回款增加； 2025 年，公司投资活动产生的现金流量净额较上年减少 456 亿元，下降 93.30%，主要是购买理财产品额增加； 2025 年，公司筹资活动产生的现金流量净额较上年增加 82 亿元，上升 56.56%，主要是 ",
+        "has_table": false,
+        "section_id": "s078",
+        "block_chars": 287,
+        "block_lines": 10,
+        "section_path": [
+         "（1）主要研发项目",
+         "（2）公司研发人员情况",
+         "5、现金流",
+         "五、非主营业务情况"
+        ],
+        "best_block_id": "annual_catl_2025_report_b0064",
+        "contributions": {
+         "block_bm25": 1,
+         "chroma_dense_block": 1
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 144
+       },
+       {
+        "rank": 2,
+        "scope": {
+         "label": "本公司",
+         "value": "reporting_company",
+         "signals": [
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03055037313432836,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "| 项目 | 附注 | 2025年度 | 2024年度 | | --- | --- | --- | --- | | 一、经营活动产生的现金流量 | | | | | 销售商品、提供劳务收到的现金 | | 1,076,791 | 1,078,190 | | 收到的税费返还 | | 1,497 | 843 | | 收到其他与经营活动有关的现金 | 四(55)(c) | 5,683 | 4,480 | |",
+        "has_table": true,
+        "section_id": "s171",
+        "block_chars": 1680,
+        "block_lines": 44,
+        "section_path": [
+         "四、其他信息",
+         "五、管理层和治理层对财务报表的责任",
+         "六、注册会计师对财务报表审计的责任",
+         "六、注册会计师对财务报表审计的责任 (续)"
+        ],
+        "best_block_id": "annual_chinamobile_2025_report_b0149",
+        "contributions": {
+         "block_bm25": 7,
+         "chroma_dense_block": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 840
+       },
+       {
+        "rank": 3,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.029631255487269532,
+        "doc_id": "text01",
+        "preview": "## 1、经营活动现金流量分析 2022-2024 年及 2025 年 1-6 月，发行人的经营活动现金流入分别为11,320,233.36 万元、12,977,166.06 万元、11,437,790.96 万元和 5,547,468.16 万元，经 营 活 动 现 金 流 出 分 别 为 10,997,859.98 万 元 、 12,389,975.23 万 元 、10,976,699.24 ",
+        "has_table": false,
+        "section_id": "s197",
+        "block_chars": 838,
+        "block_lines": 11,
+        "section_path": [
+         "4、盈利指标情况",
+         "（四）现金流量分析",
+         "1、经营活动现金流量分析",
+         "2、投资活动现金流量分析"
+        ],
+        "best_block_id": "text01_b0235",
+        "contributions": {
+         "block_bm25": 8,
+         "chroma_dense_block": 7
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 419
+       },
+       {
+        "rank": 4,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.016129032258064516,
+        "doc_id": "annual_catl_2024_report",
+        "preview": "| 项目 | 2024 年 | 2023 年 | 同比增减 | | --- | --- | --- | --- | | 经营活动现金流入小计 | 444,879,417 | 446,407,497 | -0.34% | | 经营活动现金流出小计 | 347,889,072 | 353,581,373 | -1.61% | | 经营活动产生的现金流量净额 | 96,990,345 | 92,826,",
+        "has_table": true,
+        "section_id": "s086",
+        "block_chars": 579,
+        "block_lines": 12,
+        "section_path": [
+         "（1）主要研发项目",
+         "（2）公司研发人员情况",
+         "（3）近三年公司研发投入金额及占营业收入的比例",
+         "5、现金流"
+        ],
+        "best_block_id": "annual_catl_2024_report_b0061",
+        "contributions": {
+         "block_bm25": 2
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 290
+       },
+       {
+        "rank": 5,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.016129032258064516,
+        "doc_id": "annual_midea_2025_report",
+        "preview": "| 项目 | 2025 年 | 2024 年 | 同比增减 | | --- | --- | --- | --- | | 经营活动现金流入小计 | 449,542,460 | 412,775,133 | 8.91% | | 经营活动现金流出小计 | 396,196,530 | 352,263,561 | 12.47% | | 经营活动产生的现金流量净额 | 53,345,930 | 60,511,5",
+        "has_table": true,
+        "section_id": "s094",
+        "block_chars": 585,
+        "block_lines": 12,
+        "section_path": [
+         "主要客户其他情况说明",
+         "2、费用",
+         "3、研发投入",
+         "4、现金流"
+        ],
+        "best_block_id": "annual_midea_2025_report_b0089",
+        "contributions": {
+         "chroma_dense_block": 2
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 293
+       },
+       {
+        "rank": 6,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "annual_byd_2025_report",
+        "preview": "| 项目 | 2025 年 | 2024 年 | 同比增减 | | --- | --- | --- | --- | | 经营活动现金流入小计 | 861,740,107,000.00 | 814,817,630,000.00 | 5.76% | | 经营活动现金流出小计 | 802,604,563,000.00 | 681,363,757,000.00 | 17.79% | | 经营活动产生的现金",
+        "has_table": true,
+        "section_id": "s056",
+        "block_chars": 730,
+        "block_lines": 12,
+        "section_path": [
+         "（8） 主要销售客户和主要供应商情况",
+         "3、费用",
+         "4、研发投入",
+         "5、现金流"
+        ],
+        "best_block_id": "annual_byd_2025_report_b0066",
+        "contributions": {
+         "chroma_dense_block": 3
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 365
+       },
+       {
+        "rank": 7,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "text02",
+        "preview": "## 1、经营活动产生的现金流量分析 近三年及一期，发行人经营活动产生的现金流入分别为 621,056.96 万元、828,182.52 万元、1,091,965.96 万元和 937,637.43 万元，主要为融资租赁及销售商品劳务收到的现金和租赁项目处置收到的现金。 2022年至2024年度，发行人经营活动产生的现金流入复合增长率为 32.60%，呈显著增加趋势，主要系发行人租赁资产规模扩大，",
+        "has_table": false,
+        "section_id": "s282",
+        "block_chars": 1145,
+        "block_lines": 15,
+        "section_path": [
+         "2）通畅的外部融资通道为发行人偿债资金的有力保障",
+         "2、投资活动产生的现金流量分析",
+         "3、筹资活动产生的现金流量分析",
+         "（五）偿债能力分析"
+        ],
+        "best_block_id": "text02_b0235",
+        "contributions": {
+         "block_bm25": 3
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 573
+       },
+       {
+        "rank": 8,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015625,
+        "doc_id": "text14",
+        "preview": "## 1、经营活动产生的现金流量 报告期内，公司经营活动现金流入主要包括收取利息、手续费及佣金的现金等。 报告期内，公司经营活动现金流量净额分别为 25,071.21 万元、1,208,882.11 万元、221,932.60 万元。 2023年度，公司经营活动产生的现金流量净额为 25,071.21万元，主要系公司返售业务规模减少带来的现金流出减少。 2024 年度，公司经营活动产生的现金流量净",
+        "has_table": false,
+        "section_id": "s235",
+        "block_chars": 1175,
+        "block_lines": 18,
+        "section_path": [
+         "1、经营活动产生的现金流量",
+         "2、投资活动产生的现金流量",
+         "3、筹资活动产生的现金流量",
+         "（五）偿债能力分析"
+        ],
+        "best_block_id": "text14_b0161",
+        "contributions": {
+         "block_bm25": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 588
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 0,
+    "arguments": "{\"query\": \"宁德时代 2025年 经营活动产生的现金流量净额\"}",
+    "reasoning": "The user asks about CATL (宁德时代) 2025 operating cash flow. Let me search.",
+    "tool_name": "search_docs",
+    "attempt_id": 93,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 4,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "doc_id": "annual_catl_2025_report",
+      "queries": [
+       "经营活动产生的现金流量净额",
+       "5、现金流 经营活动现金流入小计",
+       "经营活动产生的现金流量净额 亿元"
+      ],
+      "query_results": [
+       {
+        "query": "经营活动产生的现金流量净额",
+        "doc_id": "annual_catl_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 52.62867649544455,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025 年 | 2024 年 | 同比增减 | | --- | --- | --- | --- | | 经营活动现金流入小计 | 511,868,353 | 444,879,417 | 15.06% | | 经营活动现金流出小计 | 378,648,372 | 347,889,072 | 8.84% | | 经营活动产生的现金流量净额 | 133,219,982 | 96,990,",
+          "block_id": "annual_catl_2025_report_b0063",
+          "has_table": true,
+          "section_id": "s077",
+          "block_chars": 576,
+          "block_lines": 12,
+          "matched_rows": [
+           "| 经营活动产生的现金流量净额 | 133,219,982 | 96,990,345 | 37.35% |"
+          ],
+          "section_path": [
+           "4、研发投入",
+           "（1）主要研发项目",
+           "（2）公司研发人员情况",
+           "5、现金流"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 288
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 52.372028974079754,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "相关数据同比发生重大变动的主要影响因素说明 适用 □不适用 2025 年，公司经营活动产生的现金流量净额较上年增加 362亿元，上升 37.35%，主要是销售规模增长，销售回款增加； 2025 年，公司投资活动产生的现金流量净额较上年减少 456 亿元，下降 93.30%，主要是购买理财产品额增加； 2025 年，公司筹资活动产生的现金流量净额较上年增加 82 亿元，上升 56.56%，主要是 ",
+          "block_id": "annual_catl_2025_report_b0064",
+          "has_table": false,
+          "section_id": "s078",
+          "block_chars": 287,
+          "block_lines": 10,
+          "matched_rows": [
+           "2025 年，公司经营活动产生的现金流量净额较上年增加 362亿元，上升 37.35%，主要是销售规模增长，销售回款增加；"
+          ],
+          "section_path": [
+           "（1）主要研发项目",
+           "（2）公司研发人员情况",
+           "5、现金流",
+           "五、非主营业务情况"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 144
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 51.78202326707007,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025年度 | 2024年度 | | --- | --- | --- | | 一、经营活动产生的现金流量: | | | | 销售商品、提供劳务收到的现金 | 260,130,965 | 214,332,896 | | 收到的税费返还 | 4,548,347 | 7,652,302 | | 收到其他与经营活动有关的现金 | 8,696,627 | 5,959,797 | | 经营活动",
+          "block_id": "annual_catl_2025_report_b0204",
+          "has_table": true,
+          "section_id": "s276",
+          "block_chars": 1587,
+          "block_lines": 40,
+          "matched_rows": [
+           "| 经营活动产生的现金流量净额 | 62,450,842 | 66,873,266 |"
+          ],
+          "section_path": [
+           "3、合并利润表",
+           "4、母公司利润表",
+           "5、合并现金流量表",
+           "6、母公司现金流量表"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 794
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 51.327681293744355,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025年度 | 2024年度 | | --- | --- | --- | | 一、经营活动产生的现金流量: | | | | 销售商品、提供劳务收到的现金 | 477,796,524 | 417,525,378 | | 客户存款和同业存放款项净增加额 | | | | 向中央银行借款净增加额 | | | | 向其他金融机构拆入资金净增加额 | | | | 收到原保险合同保费取得的现金 ",
+          "block_id": "annual_catl_2025_report_b0202",
+          "has_table": true,
+          "section_id": "s275",
+          "block_chars": 2107,
+          "block_lines": 59,
+          "matched_rows": [
+           "| 经营活动产生的现金流量净额 | 133,219,982 | 96,990,345 |"
+          ],
+          "section_path": [
+           "2、母公司资产负债表",
+           "3、合并利润表",
+           "4、母公司利润表",
+           "5、合并现金流量表"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 1054
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "口径不明",
+           "value": "unknown",
+           "signals": [],
+           "ambiguous": true
+          },
+          "score": 43.3670764645795,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 营业收入 | 84,704,589 | 94,181,664 | 104,185,734 | 140,629,847 | | --- | --- | --- | --- | --- | | 归属于上市公司股东的净利润 | 13,962,558 | 16,522,581 | 18,548,970 | 23,167,173 | | 归属于上市公司股东的扣除非经常性损益的净利润 | 11,829,1",
+          "block_id": "annual_catl_2025_report_b0018",
+          "has_table": true,
+          "section_id": "s027",
+          "block_chars": 313,
+          "block_lines": 5,
+          "matched_rows": [
+           "| 经营活动产生的现金流量净额 | 32,868,257 | 25,818,809 | 21,973,364 | 52,559,552 |"
+          ],
+          "section_path": [
+           "2、公司聘请的报告期内履行持续督导职责的保荐机构",
+           "3、公司聘请的报告期内履行持续督导职责的财务顾问",
+           "五、主要会计数据和财务指标",
+           "六、分季度主要财务指标"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 157
+         }
+        ]
+       },
+       {
+        "query": "5、现金流 经营活动现金流入小计",
+        "doc_id": "annual_catl_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 102.4420017657595,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025 年 | 2024 年 | 同比增减 | | --- | --- | --- | --- | | 经营活动现金流入小计 | 511,868,353 | 444,879,417 | 15.06% | | 经营活动现金流出小计 | 378,648,372 | 347,889,072 | 8.84% | | 经营活动产生的现金流量净额 | 133,219,982 | 96,990,",
+          "block_id": "annual_catl_2025_report_b0063",
+          "has_table": true,
+          "section_id": "s077",
+          "block_chars": 576,
+          "block_lines": 12,
+          "matched_rows": [
+           "| 经营活动现金流入小计 | 511,868,353 | 444,879,417 | 15.06% |"
+          ],
+          "section_path": [
+           "4、研发投入",
+           "（1）主要研发项目",
+           "（2）公司研发人员情况",
+           "5、现金流"
+          ],
+          "matched_terms": [
+           "经营活动现金流入小计"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 288
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 97.11370037831432,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025年度 | 2024年度 | | --- | --- | --- | | 一、经营活动产生的现金流量: | | | | 销售商品、提供劳务收到的现金 | 260,130,965 | 214,332,896 | | 收到的税费返还 | 4,548,347 | 7,652,302 | | 收到其他与经营活动有关的现金 | 8,696,627 | 5,959,797 | | 经营活动",
+          "block_id": "annual_catl_2025_report_b0204",
+          "has_table": true,
+          "section_id": "s276",
+          "block_chars": 1587,
+          "block_lines": 40,
+          "matched_rows": [
+           "| 经营活动现金流入小计 | 273,375,939 | 227,944,994 |"
+          ],
+          "section_path": [
+           "3、合并利润表",
+           "4、母公司利润表",
+           "5、合并现金流量表",
+           "6、母公司现金流量表"
+          ],
+          "matched_terms": [
+           "经营活动现金流入小计"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 794
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 96.3109289564696,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025年度 | 2024年度 | | --- | --- | --- | | 一、经营活动产生的现金流量: | | | | 销售商品、提供劳务收到的现金 | 477,796,524 | 417,525,378 | | 客户存款和同业存放款项净增加额 | | | | 向中央银行借款净增加额 | | | | 向其他金融机构拆入资金净增加额 | | | | 收到原保险合同保费取得的现金 ",
+          "block_id": "annual_catl_2025_report_b0202",
+          "has_table": true,
+          "section_id": "s275",
+          "block_chars": 2107,
+          "block_lines": 59,
+          "matched_rows": [
+           "| 经营活动现金流入小计 | 511,868,353 | 444,879,417 |"
+          ],
+          "section_path": [
+           "2、母公司资产负债表",
+           "3、合并利润表",
+           "4、母公司利润表",
+           "5、合并现金流量表"
+          ],
+          "matched_terms": [
+           "经营活动现金流入小计"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 1054
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company",
+            "reporting_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 63.578627099618075,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 期末外币余额 | 折算汇率 | 期末折算人民币余额 | | --- | --- | --- | --- | | 货币资金 | | | | | 其中:美元 | 22,036,045 | 7.0288 | 154,886,952 | | 港元 | 1,354,579 | 0.9032 | 1,223,461 | | 欧元 | 2,571,129 | 8.2355 | 21,174,536",
+          "block_id": "annual_catl_2025_report_b0513",
+          "has_table": true,
+          "section_id": "s539",
+          "block_chars": 1534,
+          "block_lines": 48,
+          "matched_rows": [],
+          "section_path": [
+           "①供应商融资安排的条款和条件",
+           "（6）不属于现金及现金等价物的货币资金",
+           "68、外币货币性项目",
+           "（1）外币货币性项目"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": true,
+          "estimated_tokens": 767
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 61.19391991107529,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "本公司于每年年度终了，对使用寿命有限的无形资产的使用寿命及摊销方法进行复核，与以前估计不同的，调整原先估计数，并按会计估计变更处理。 资产负债表日预计某项无形资产已经不能给企业带来未来经济利益的，将该项无形资产的账面价值全部转入当期损益。 无形资产计提资产减值方法详见本报告“第八节 财务报告”之“五、重要会计政策及会计估计”“19、长期资产减值”。 ## 18、研发支出 本公司研发支出为公司研发活",
+          "block_id": "annual_catl_2025_report_b0233",
+          "has_table": false,
+          "section_id": "s394",
+          "block_chars": 1147,
+          "block_lines": 26,
+          "matched_rows": [],
+          "section_path": [
+           "33、重要会计政策和会计估计变更",
+           "（2）重要会计估计变更",
+           "六、税项",
+           "1、主要税种及税率"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 574
+         }
+        ]
+       },
+       {
+        "query": "经营活动产生的现金流量净额 亿元",
+        "doc_id": "annual_catl_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 61.76248326480247,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "相关数据同比发生重大变动的主要影响因素说明 适用 □不适用 2025 年，公司经营活动产生的现金流量净额较上年增加 362亿元，上升 37.35%，主要是销售规模增长，销售回款增加； 2025 年，公司投资活动产生的现金流量净额较上年减少 456 亿元，下降 93.30%，主要是购买理财产品额增加； 2025 年，公司筹资活动产生的现金流量净额较上年增加 82 亿元，上升 56.56%，主要是 ",
+          "block_id": "annual_catl_2025_report_b0064",
+          "has_table": false,
+          "section_id": "s078",
+          "block_chars": 287,
+          "block_lines": 10,
+          "matched_rows": [
+           "2025 年，公司经营活动产生的现金流量净额较上年增加 362亿元，上升 37.35%，主要是销售规模增长，销售回款增加；",
+           "2025 年，公司投资活动产生的现金流量净额较上年减少 456 亿元，下降 93.30%，主要是购买理财产品额增加；",
+           "2025 年，公司筹资活动产生的现金流量净额较上年增加 82 亿元，上升 56.56%，主要是 H股 IPO收到募集资金。"
+          ],
+          "section_path": [
+           "（1）主要研发项目",
+           "（2）公司研发人员情况",
+           "5、现金流",
+           "五、非主营业务情况"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额",
+           "亿元"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 144
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 52.62867649544455,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025 年 | 2024 年 | 同比增减 | | --- | --- | --- | --- | | 经营活动现金流入小计 | 511,868,353 | 444,879,417 | 15.06% | | 经营活动现金流出小计 | 378,648,372 | 347,889,072 | 8.84% | | 经营活动产生的现金流量净额 | 133,219,982 | 96,990,",
+          "block_id": "annual_catl_2025_report_b0063",
+          "has_table": true,
+          "section_id": "s077",
+          "block_chars": 576,
+          "block_lines": 12,
+          "matched_rows": [
+           "| 经营活动产生的现金流量净额 | 133,219,982 | 96,990,345 | 37.35% |"
+          ],
+          "section_path": [
+           "4、研发投入",
+           "（1）主要研发项目",
+           "（2）公司研发人员情况",
+           "5、现金流"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 288
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 51.78202326707007,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025年度 | 2024年度 | | --- | --- | --- | | 一、经营活动产生的现金流量: | | | | 销售商品、提供劳务收到的现金 | 260,130,965 | 214,332,896 | | 收到的税费返还 | 4,548,347 | 7,652,302 | | 收到其他与经营活动有关的现金 | 8,696,627 | 5,959,797 | | 经营活动",
+          "block_id": "annual_catl_2025_report_b0204",
+          "has_table": true,
+          "section_id": "s276",
+          "block_chars": 1587,
+          "block_lines": 40,
+          "matched_rows": [
+           "| 经营活动产生的现金流量净额 | 62,450,842 | 66,873,266 |"
+          ],
+          "section_path": [
+           "3、合并利润表",
+           "4、母公司利润表",
+           "5、合并现金流量表",
+           "6、母公司现金流量表"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 794
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 51.327681293744355,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "| 项目 | 2025年度 | 2024年度 | | --- | --- | --- | | 一、经营活动产生的现金流量: | | | | 销售商品、提供劳务收到的现金 | 477,796,524 | 417,525,378 | | 客户存款和同业存放款项净增加额 | | | | 向中央银行借款净增加额 | | | | 向其他金融机构拆入资金净增加额 | | | | 收到原保险合同保费取得的现金 ",
+          "block_id": "annual_catl_2025_report_b0202",
+          "has_table": true,
+          "section_id": "s275",
+          "block_chars": 2107,
+          "block_lines": 59,
+          "matched_rows": [
+           "| 经营活动产生的现金流量净额 | 133,219,982 | 96,990,345 |"
+          ],
+          "section_path": [
+           "2、母公司资产负债表",
+           "3、合并利润表",
+           "4、母公司利润表",
+           "5、合并现金流量表"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 1054
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "口径不明",
+           "value": "unknown",
+           "signals": [],
+           "ambiguous": false
+          },
+          "score": 47.690943088144465,
+          "doc_id": "annual_catl_2025_report",
+          "preview": "现锂离子电池销量 661GWh，同比增长 39.16%； 实现归属于上市公司股东的净利润 722 亿元，同比增长 42.28%； 经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%。 ## （1）动力业务 报告期内，公司实现动力电池销量 541GWh，同比增长 41.85%，全球市占率突破历史新高。 根据SNE Research统计，2025年公司全球动力电池使用量市占率提升 1",
+          "block_id": "annual_catl_2025_report_b0029",
+          "has_table": false,
+          "section_id": "s062",
+          "block_chars": 1162,
+          "block_lines": 27,
+          "matched_rows": [
+           "实现归属于上市公司股东的净利润 722 亿元，同比增长 42.28%；",
+           "经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%。"
+          ],
+          "section_path": [
+           "（5）可持续发展",
+           "2、收入与成本",
+           "（1）营业收入构成",
+           "1）营业收入整体情况"
+          ],
+          "matched_terms": [
+           "经营活动产生的现金流量净额",
+           "亿元"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 581
+         }
+        ]
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 1,
+    "arguments": "{\"doc_id\": \"annual_catl_2025_report\", \"queries\": [\"经营活动产生的现金流量净额\", \"5、现金流 经营活动现金流入小计\", \"经营活动产生的现金流量净额 亿元\"], \"top_k\": 5}",
+    "reasoning": "The CATL 2025 report block b0064 mentions increase of 362亿, up 37.35%. Need actual value. Let's search in document.",
+    "tool_name": "search_in_document",
+    "attempt_id": 93,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 5,
+   "type": "run_understood",
+   "data": {
+    "label": "宁德时代 · 2025 年经营活动产生的现金流量净额（亿元）",
+    "title": "宁德时代 2025 年经营现金流净额",
+    "answer_format": "num"
+   }
+  },
+  {
+   "seq": 6,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "现锂离子电池销量 661GWh，同比增长 39.16%；\n实现归属于上市公司股东的净利润 722 亿元，同比增长 42.28%；\n经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%。\n## （1）动力业务\n报告期内，公司实现动力电池销量 541GWh，同比增长 41.85%，全球市占率突破历史新高。\n根据SNE Research统计，2025年公司全球动力电池使用量市占率提升 1.2个百分点至 39.2%，连续 9年市占率位居全球第一。\n国内方面，根据中国汽车动力电池产业创新联盟统计，2025 年公司国内动力电池装机量市占率 43.42%。\n海外方面，根据 SNE Research统计，2025年公司海外动力电池使用量市占率实现突破，提升至 30.0%。\n前沿技术引领全球，创新产品持续落地。\n乘用车领域，公司发布了二代神行超充电池、神行Pro电池、骁遥双核电池、钠新乘用车动力电池等新产品。\n其中，二代神行超充电池是全球首款兼具800公里续航和峰值12C超充速度的磷酸铁锂电池；\n神行Pro电池搭载了先进的NP3.0技术，针对欧洲市场低温、长途、租赁等多元化的需求可提供百万公里长寿命版本和 12C 超充版本；\n骁遥双核开创了跨化学体系的全新设计，通过在电池包里组合不同化学体系电芯，实现电池包综合性能全面提升，可满足用户的定制化需求；",
+      "scope": {
+       "label": "口径不明",
+       "value": "unknown",
+       "signals": [],
+       "ambiguous": false
+      },
+      "doc_id": "annual_catl_2025_report",
+      "block_id": "annual_catl_2025_report_b0029",
+      "complete": false,
+      "has_table": false,
+      "row_offset": 0,
+      "section_id": "s062",
+      "block_chars": 1162,
+      "block_lines": 27,
+      "next_row_offset": 13,
+      "remaining_lines": 14,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 13
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 2,
+    "arguments": "{\"doc_id\": \"annual_catl_2025_report\", \"block_id\": \"annual_catl_2025_report_b0029\", \"max_chars\": 600}",
+    "reasoning": "The consolidated 2025 net operating cash flow is 133,219,982 千元? Units: the table uses thousands (元). 133,219,982 thousand = 133,219,982,000 = 1332.2亿元. And block b0029 says 1,332亿元. Consistent.\n\nSo answer: 1,332 亿元 (approximately). The question asks 多少亿元. Answer 1,332.\n\nLet me verify with read_section b0029 or b0063 for citation.",
+    "tool_name": "read_section",
+    "attempt_id": 93,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 7,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "end": 100,
+      "level": "exact",
+      "quote": "经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%。",
+      "start": 65,
+      "doc_id": "annual_catl_2025_report",
+      "block_id": "annual_catl_2025_report_b0029",
+      "grounded": true,
+      "matched_text": "经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%。"
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 3,
+    "arguments": "{\"doc_id\": \"annual_catl_2025_report\", \"block_id\": \"annual_catl_2025_report_b0029\", \"quote\": \"经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%。\"}",
+    "reasoning": "Answer: 1,332 亿元.\n\nNote the table b0063 gives 133,219,982 (thousand 元) = 1332亿元 consolidated. Consistent.\n\nCite.",
+    "tool_name": "cite",
+    "attempt_id": 93,
+    "citation_no": 1
+   }
+  },
+  {
+   "seq": 8,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "raw": [
+       "1,332 亿元"
+      ],
+      "submitted": [
+       "1332.00"
+      ],
+      "unit_removed": "亿元"
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 4,
+    "arguments": "{\"answers\": [\"1,332 亿元\"]}",
+    "reasoning": null,
+    "tool_name": "finalize",
+    "attempt_id": 93,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 9,
+   "type": "answer_written",
+   "data": {
+    "text": "宁德时代 2025 年经营活动产生的现金流量净额为 1,332 亿元。\n\n根据宁德时代 2025 年年度报告，公司报告期内实现经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%[1]。同期公司实现归属于上市公司股东的净利润 722 亿元，同比增长 42.28%，动力电池销量 541GWh，同比增长 41.85%[1]。",
+    "citations": [
+     1
+    ],
+    "attempt_id": 93,
+    "unverified": []
+   }
+  },
+  {
+   "seq": 10,
+   "type": "attempt_finished",
+   "data": {
+    "final": {
+     "raw": [
+      "1,332 亿元"
+     ],
+     "name": "finalize",
+     "written": {
+      "text": "宁德时代 2025 年经营活动产生的现金流量净额为 1,332 亿元。\n\n根据宁德时代 2025 年年度报告，公司报告期内实现经营活动产生的现金流量净额 1,332 亿元，同比增长 37.35%[1]。同期公司实现归属于上市公司股东的净利润 722 亿元，同比增长 42.28%，动力电池销量 541GWh，同比增长 41.85%[1]。",
+      "citations": [
+       1
+      ],
+      "unverified": []
+     },
+     "submitted": [
+      "1332.00"
+     ],
+     "unit_removed": "亿元"
+    },
+    "violation": null,
+    "attempt_id": 93
+   }
+  }
+ ]
+}

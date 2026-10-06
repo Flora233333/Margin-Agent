@@ -1,0 +1,2213 @@
+{
+ "source_run": 69,
+ "detail": {
+  "id": 69,
+  "question": "中国移动 2025 年的利润分配方案是什么？",
+  "title": "中国移动 2025 年利润分配方案",
+  "answer_label": "中国移动 · 2025 年利润分配方案",
+  "options": null,
+  "answer_format": null,
+  "guessed_format": "text",
+  "model": "DeepSeek",
+  "status": "completed",
+  "created_at": "2026-10-06T10:48:19.209795Z",
+  "attempts": [
+   {
+    "attempt_no": 1,
+    "trigger": "submit",
+    "status": "completed",
+    "final": {
+     "raw": [
+      "董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元；连同已派发的中期股息（每股2.75港元），2025年全年股息合计每股5.27港元，同比增长3.5%。2025年全年派息率为75%，2026年派息率将稳中有升。末期股息以港元计价并宣派，A股股息以人民币支付，折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算；拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数变化，拟维持每股派息金额不变、相应调整利润分配总额。该利润分配方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议。"
+     ],
+     "name": "finalize",
+     "written": {
+      "text": "中国移动2025年度利润分配方案为：董事会建议派发末期股息每股2.52港元，全年股息合计每股5.27港元，全年派息率75%。\n\n董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元[1]；连同已派发的中期股息每股2.75港元，2025年全年股息合计每股5.27港元，同比增长3.5%[1]。2025年全年派息率为75%[1]，2026年派息率将稳中有升。末期股息以港元计价并宣派，A股股息以人民币支付，折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算；拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数发生变化，拟维持每股派息金额不变，相应调整利润分配总额。该方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议。",
+      "citations": [
+       1
+      ],
+      "unverified": []
+     },
+     "submitted": [
+      "董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元;连同已派发的中期股息(每股2.75港元),2025年全年股息合计每股5.27港元,同比增长3.5%。2025年全年派息率为75%,2026年派息率将稳中有升。末期股息以港元计价并宣派,A股股息以人民币支付,折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算;拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数变化,拟维持每股派息金额不变、相应调整利润分配总额。该利润分配方案已经2026年第一次董事会审议通过,尚需2026年股东周年大会审议。"
+     ]
+    },
+    "violation": null,
+    "error": null,
+    "started_at": "2026-10-06T10:48:19.219253Z",
+    "finished_at": "2026-10-06T10:49:05.733826Z",
+    "steps": []
+   }
+  ]
+ },
+ "events": [
+  {
+   "seq": 1,
+   "type": "attempt_queued",
+   "data": {
+    "trigger": "submit",
+    "attempt_id": 70,
+    "attempt_no": 1
+   }
+  },
+  {
+   "seq": 2,
+   "type": "attempt_started",
+   "data": {
+    "epoch": 1,
+    "attempt_id": 70
+   }
+  },
+  {
+   "seq": 3,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "query": "中国移动 2025年 利润分配方案",
+      "results": [
+       {
+        "rank": 1,
+        "scope": {
+         "label": "本公司",
+         "value": "reporting_company",
+         "signals": [
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03278688524590164,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+        "has_table": false,
+        "section_id": "s006",
+        "block_chars": 1058,
+        "block_lines": 20,
+        "section_path": [
+         "目 录",
+         "公司简介",
+         "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+         "近三年主要会计数据和财务指标"
+        ],
+        "best_block_id": "annual_chinamobile_2025_report_b0001",
+        "contributions": {
+         "block_bm25": 1,
+         "chroma_dense_block": 1
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 529
+       },
+       {
+        "rank": 2,
+        "scope": {
+         "label": "口径不明",
+         "value": "unknown",
+         "signals": [],
+         "ambiguous": false
+        },
+        "score": 0.031754032258064516,
+        "doc_id": "text05",
+        "preview": "注：根据 Prismark 统计口径，“东南亚等其他国家”指除中国内地、欧洲、美洲、日本、韩国、中国台湾以外的全球其他国家、地区，其中产能主要集中于东南亚地区。 根据上表数据，未来一段期间内，中国内地仍将作为全球 PCB 产业的最主要集中地区，而东南亚 PCB 产业将保持高速发展，2024-2029 年期间的复合增长率将达到 12.4%，远高于 5.2%的全球 PCB 行业平均增速，并有望超越韩国",
+        "has_table": false,
+        "section_id": "s059",
+        "block_chars": 1176,
+        "block_lines": 16,
+        "section_path": [
+         "（一）本次发行的证券类型",
+         "（二）发行数量、证券面值、发行价格",
+         "（三）预计募集资金量（含发行费用）及募集资金净额、募集资金专项存储的账户",
+         "（四）募集资金投向"
+        ],
+        "best_block_id": "text05_b0025",
+        "contributions": {
+         "block_bm25": 2,
+         "chroma_dense_block": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 588
+       },
+       {
+        "rank": 3,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "group",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.031054405392392875,
+        "doc_id": "annual_cmb_2025_report",
+        "preview": "八次会议和2024年度股东大会审议通过的《关于2025年度中期利润分配计划的议案》，以及第十三届董事会第十次会议审议通过的《关于实施2025年度中期利润分配的议案》具体实施了2025年半年度利润分配。 本公司2025年度利润分配方案也将严格按照公司章程的相关规定执行，该议案已经本公司第十三届董事会第十三次会议审议通过，并将提交本公司2025年度股东会审议。 ## 5.12 税项和税项减免 本公司股",
+        "has_table": false,
+        "section_id": "s250",
+        "block_chars": 1187,
+        "block_lines": 14,
+        "section_path": [
+         "5.13 员工情况",
+         "员工薪酬政策及培训",
+         "5.14 截至报告期末的公司组织架构图",
+         "5.15 截至报告期末的总分支机构"
+        ],
+        "best_block_id": "annual_cmb_2025_report_b0180",
+        "contributions": {
+         "block_bm25": 7,
+         "chroma_dense_block": 2
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 594
+       },
+       {
+        "rank": 4,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03007688828584351,
+        "doc_id": "annual_midea_2025_report",
+        "preview": "| 每10股送红股数(股) | 0 | | --- | --- | | 每10股派息数(元)(含税) | 43 | | 每10股转增数(股) | 0 | | 分配预案的股本基数(股) | 7,522,863,645 | | 现金分红金额(元)(含税)注(1) | 32,360,630,265 | | 以其他方式(如回购股份)现金分红金额(元) | 11,605,319,584 | | 现金分红总额",
+        "has_table": true,
+        "section_id": "s147",
+        "block_chars": 1014,
+        "block_lines": 14,
+        "section_path": [
+         "2、薪酬政策",
+         "3、培训计划",
+         "4、劳务外包情况",
+         "九、公司利润分配及资本公积金转增股本情况"
+        ],
+        "best_block_id": "annual_midea_2025_report_b0130",
+        "contributions": {
+         "block_bm25": 6,
+         "chroma_dense_block": 7
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 507
+       },
+       {
+        "rank": 5,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.029857397504456328,
+        "doc_id": "annual_cscec_2025_report",
+        "preview": "论坛(IFF)副理事长，2024年8月起任中国建筑股份有限公司独立董事、华国2025 2 Bo Go Mo Limited 2025 5 Huge Profit AssetLimited 2026 1 中国建筑集团有限公司副总经理、党组成员，中国建筑股份有限公司副总裁。 正高级工程师。 博士研究生。 曾任国务院办公厅副局级秘书、正局级秘书，南京市副市长(挂职)，南京市委常委、副市长(挂职)，扬州市",
+        "has_table": false,
+        "section_id": "s149",
+        "block_chars": 1181,
+        "block_lines": 22,
+        "section_path": [
+         "其它情况说明",
+         "适用 □ 不适用",
+         "<sup>(</sup>二<sup>)</sup> 现任及报告期内离任董事和高级管理人员的任职情况",
+         "<sup>1.</sup>　在股东单位任职情况"
+        ],
+        "best_block_id": "annual_cscec_2025_report_b0119",
+        "contributions": {
+         "block_bm25": 8,
+         "chroma_dense_block": 6
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 591
+       },
+       {
+        "rank": 6,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "annual_byd_2025_report",
+        "preview": "| 委员会名称 | 成员情况 | 召开会议次数 | 召开日期 | 会议内容 | 提出的重要意见和建议 | 其他履行职责的情况 | 异议事项具体情况 | | --- | --- | --- | --- | --- | --- | --- | --- | | 战略及可持续发展委员会 | 王传福(主席)、吕向阳、夏佐全、蔡洪平、张敏 | 1 | 2025年3月24日 | 关于审议公司2024年度可持续发",
+        "has_table": true,
+        "section_id": "s099",
+        "block_chars": 1310,
+        "block_lines": 10,
+        "section_path": [
+         "1、董事出席董事会及股东会的情况",
+         "2、董事对公司有关事项提出异议的情况",
+         "3、董事履行职责的其他说明",
+         "六、董事会下设专门委员会在报告期内的情况"
+        ],
+        "best_block_id": "annual_byd_2025_report_b0111",
+        "contributions": {
+         "block_bm25": 3
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 655
+       },
+       {
+        "rank": 7,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "annual_catl_2025_report",
+        "preview": "| 可分配利润(元) | 142,611,687,473.64 | | --- | --- | | 现金分红总额(含其他方式)占利润分配总额的比例 | 100.00% | | 本次现金分红情况 | 本次现金分红情况 | | 公司发展阶段属成长期且有重大资金支出安排的,进行利润分配时,现金分红在本次利润分配中所占比例最低应达到20%。 | 公司发展阶段属成长期且有重大资金支出安排的,进行利润分配时,",
+        "has_table": true,
+        "section_id": "s157",
+        "block_chars": 1691,
+        "block_lines": 7,
+        "section_path": [
+         "1、报告期内利润分配政策，特别是现金分红政策的制定、执行或调整情况",
+         "2、公司报告期利润分配预案及资本公积金转增股本预案与公司章程和分红管理办法等的相关规定一致",
+         "3、董事会是否审议利润分配方案（含不分红不转增）",
+         "4、本年度利润分配及资本公积金转增股本情况"
+        ],
+        "best_block_id": "annual_catl_2025_report_b0120",
+        "contributions": {
+         "chroma_dense_block": 3
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 846
+       },
+       {
+        "rank": 8,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "parent_company",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015625,
+        "doc_id": "text04",
+        "preview": "案进行调整。 调整后的分派方案如下：以公司现有总股本406,525,224股为基数，向全体股东每 10股派发现金红利 20.00元（含税），预计派发现金股利 813,050,448.00 元（含税）； 2023 年度利润分配方案已实施完毕。 2024年 8月 28日，召开第三届董事会第二十三次会议、第三届监事会第二十一次会议，在 2023 年年度股东大会授权范围内审议通过《关于 2024 年半年度",
+        "has_table": false,
+        "section_id": "s279",
+        "block_chars": 1112,
+        "block_lines": 16,
+        "section_path": [
+         "十六、公司报告期内的分红情况",
+         "（二）公司最近三年利润分配情况",
+         "1、最近三年利润分配方案",
+         "2、最近三年现金分红情况"
+        ],
+        "best_block_id": "text04_b0159",
+        "contributions": {
+         "block_bm25": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 556
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 0,
+    "arguments": "{\"query\": \"中国移动 2025年 利润分配方案\"}",
+    "reasoning": "The user asks about China Mobile's 2025 profit distribution plan. Let me search.",
+    "tool_name": "search_docs",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 4,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "doc_id": "annual_chinamobile_2025_report",
+      "queries": [
+       "利润分配方案",
+       "现金分红 派息 每股",
+       "2025年度利润分配"
+      ],
+      "query_results": [
+       {
+        "query": "利润分配方案",
+        "doc_id": "annual_chinamobile_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 23.64542926516288,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "注 1：尚待股东周年大会批准 注 2：末期股息将以港元计价并宣派，其中 A股股东末期股息将以人民币支付，折算汇率按股东周年大会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算 为确保本公司与股东之间的有效沟通，本公司已制定股东通讯政策，定期检讨其实施状况，并认为其行之有效。 本公司设有投资者关系网站（www.chinamobleltd.com）,为刊发本公司公告、通告及其他企业通",
+          "block_id": "annual_chinamobile_2025_report_b0039",
+          "has_table": false,
+          "section_id": "s067",
+          "block_chars": 1200,
+          "block_lines": 22,
+          "matched_rows": [
+           "2. 审议及批准本公司截至2024年12月31日止年度之利润分配方案并宣布派发末期股息（赞成票比率为99.9698%）；"
+          ],
+          "section_path": [
+           "股东价值与沟通",
+           "2025年股东周年大会",
+           "2026年股东周年大会",
+           "股东日志"
+          ],
+          "matched_terms": [
+           "利润分配方案"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 600
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 21.991103700820624,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "注 1：陈忠岳先生获委任为本公司执行董事兼董事长的职务，自 2025年 12 月22 日起生效 注 2：杨杰先生辞任本公司执行董事兼董事长的职务，自 2025 年12 月 22 日起生效 注 3：何飚先生辞任本公司执行董事兼首席执行官以及可持续发展委员会委员的职务，自 2026 年 2 月 12日起生效 注 4：李丕征先生因年龄原因辞任本公司执行董事的职务，自 2025 年 1月 8 日起生效 #",
+          "block_id": "annual_chinamobile_2025_report_b0049",
+          "has_table": false,
+          "section_id": "s074",
+          "block_chars": 1029,
+          "block_lines": 16,
+          "matched_rows": [
+           "2025年，本公司董事会主要工作包括：审议通过董事委任、公司持续关连交易和日常关联交易，2025年港股中期业绩报告和 A 股半年度报告，2025 年中期派息，人民币股份发行募集资金存放与实际使用情况专项报告，2024年年度报告（包括公司截至2024年 12月31日止年度之经审核财务报表及核数师报告书），可持续发展报告，2024 年度和2025年中期利润分配方案，年度重大风险评估报告，年度内部控制评价报告，续聘核数师并厘定其酬金，年度业务、投资及财务计划，年度对外担保计划，年度"
+          ],
+          "section_path": [
+           "董事薪酬、任免与轮换",
+           "董事会会议",
+           "注 5：王利民先生获委任为本公司的执行董事，自 2025年 1月 8 日起生效",
+           "董事会组成"
+          ],
+          "matched_terms": [
+           "利润分配方案"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 515
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 21.42161553624694,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+          "block_id": "annual_chinamobile_2025_report_b0001",
+          "has_table": false,
+          "section_id": "s006",
+          "block_chars": 1058,
+          "block_lines": 20,
+          "matched_rows": [
+           "公司 2025 年度利润分配方案已经 2026 年第一次董事会审议通过，尚需公司 2026年股东周年大会审议。"
+          ],
+          "section_path": [
+           "目 录",
+           "公司简介",
+           "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+           "近三年主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "利润分配方案"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 529
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 20.688350738636984,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "范围书进行运作。 2025 年，本公司董事会修订了提名委员会之职权范围书。 本公司各委员会之职权范围书载于本公司、香港联交所和上海交易所的网站，亦可以书面向公司秘书索取。 ## 审核委员会 1.成员： ## 2.主要职权和职责： 审核委员会可获董事会授权调查其职权范围内的活动，并可获授权向任何雇员索取其所需的任何数据，亦可听取外界法律或其他独立专业意见，费用由公司支付。 审核委员会主要负责就外聘审",
+          "block_id": "annual_chinamobile_2025_report_b0052",
+          "has_table": false,
+          "section_id": "s085",
+          "block_chars": 1176,
+          "block_lines": 36,
+          "matched_rows": [
+           " 审议通过2024年度利润分配方案和2025年度中期股息；"
+          ],
+          "section_path": [
+           "2.主要职责：",
+           "提名委员会",
+           "可持续发展委员会",
+           "管理层及员工"
+          ],
+          "matched_terms": [
+           "利润分配方案"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 588
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 19.915607257383094,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "、不确定性和货币时间价值等因素。 对于货币时间价值影响重大的，预计负债以预计未来现金流量折现后的金额确定最佳估计数； 因随着时间推移所进行的折现还原而导致的预计负债账面价值的增加金额，确认为利息费用。 预期在资产负债表日起一年内需支付的预计负债，列示为其他流动负债。 中国移动有限公司 合并财务报表附注截至2025年 12月31日止年度财务报表(除特别注明外，金额单位为人民币百万元) ## (20)",
+          "block_id": "annual_chinamobile_2025_report_b0170",
+          "has_table": false,
+          "section_id": "s255",
+          "block_chars": 1168,
+          "block_lines": 30,
+          "matched_rows": [
+           "资产负债表日后，经审议批准的利润分配方案中拟分配的股利或利润，不确认为资产负债表日的负债，在附注中单独披露。"
+          ],
+          "section_path": [
+           "(28) 关联方",
+           "(29) 专项储备",
+           "(30) 公允价值的计量",
+           "三 税项"
+          ],
+          "matched_terms": [
+           "利润分配方案"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 584
+         }
+        ]
+       },
+       {
+        "query": "现金分红 派息 每股",
+        "doc_id": "annual_chinamobile_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "母公司",
+           "value": "parent_company",
+           "signals": [
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 44.6690948168459,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "。 ## 董事长报告书 尊敬的各位股东： 2025 年，面对错综复杂的外部环境和诸多压力挑战，公司各方面工作取得积极成效，经营发展稳中有进，运营能力全面升级，改革创新成效显著，“十四五”实现圆满收官。 2025年公司营业收入稳健增长，达到人民币10,502亿元，同比增长0.9%； 主营业务收入<sup>1</sup>达到人民币8,955亿元，同比增长0.7%。 通信服务<sup>2</sup>收入",
+          "block_id": "annual_chinamobile_2025_report_b0011",
+          "has_table": false,
+          "section_id": "s028",
+          "block_chars": 1171,
+          "block_lines": 30,
+          "matched_rows": [
+           "归属于母公司股东的净利润为人民币1,371亿元，同比下降 0.9%，同口径<sup>6</sup>同比增长 2.0%，基本每股收益为人民币6.35 元；",
+           "董事会建议向全体股东派发截至 2025 年 12 月 31 日止年度末期股息每股 2.52 港元<sup>7</sup>，连同已派发的中期股息，2025年全年股息合计每股5.27 港元，同比增长3.5%。",
+           "2025年全年派息率为75%<sup>8</sup>。"
+          ],
+          "section_path": [
+           "未来展望",
+           "致谢",
+           "业务概览",
+           "主要运营数据"
+          ],
+          "matched_terms": [
+           "派息",
+           "每股"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 586
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 44.024969342748506,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+          "block_id": "annual_chinamobile_2025_report_b0001",
+          "has_table": false,
+          "section_id": "s006",
+          "block_chars": 1058,
+          "block_lines": 20,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。",
+           "2025年全年派息率为75%。",
+           "为更好地回馈股东、共享发展成果，公司充分考虑盈利能力、现金流状况及未来发展需要，2026 年派息率将稳中有升。"
+          ],
+          "section_path": [
+           "目 录",
+           "公司简介",
+           "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+           "近三年主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "派息",
+           "每股"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 529
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 39.63214652370794,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "至 2025 年 12月 31日止年度内，本公司董事、其紧密联系人或任何股东（据董事会所知，拥有本公司 5%以上已发行股份数目者）概无在这五个最大供应商中拥有任何权益。 ## 主要子公司及长期股权投资 而本公司各附属公司的董事名单已载于本公司网站。 ## 财务报表 本公司截至 2025年 12月 31 日止年度的利润和本公司及本公司于该日的财政状况载于本年报财务报告章节。 股息 本公司董事会已采纳",
+          "block_id": "annual_chinamobile_2025_report_b0065",
+          "has_table": false,
+          "section_id": "s107",
+          "block_chars": 1193,
+          "block_lines": 43,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。",
+           "2025年全年派息率为75%。"
+          ],
+          "section_path": [
+           "李嘉士",
+           "梁高美懿",
+           "董事在重要交易、安排或合约中的利害关系",
+           "获准许的弥偿条文"
+          ],
+          "matched_terms": [
+           "派息",
+           "每股"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 597
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 39.33360149689464,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "中国移动有限公司 合并财务报表附注截至2025年 12月31日止年度财务报表(除特别注明外，金额单位为人民币百万元) ## 十一 资产负债表日期后事项 ## 股息分配 董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民",
+          "block_id": "annual_chinamobile_2025_report_b0395",
+          "has_table": false,
+          "section_id": "s336",
+          "block_chars": 639,
+          "block_lines": 15,
+          "matched_rows": [
+           "董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算。",
+           "若自报告日起至实施 2025 年末期派息的权益分派股权登记日，本公司已发行股份总数发生变化，本公司拟维持每股派息金额不变，相应调整利润分配总额。"
+          ],
+          "section_path": [
+           "十 承诺事项",
+           "十一 资产负债表日期后事项",
+           "股息分配",
+           "增值税"
+          ],
+          "matched_terms": [
+           "派息",
+           "每股"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 320
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 25.900448379399613,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "注 1：陈忠岳先生获委任为本公司执行董事兼董事长的职务，自 2025年 12 月22 日起生效 注 2：杨杰先生辞任本公司执行董事兼董事长的职务，自 2025 年12 月 22 日起生效 注 3：何飚先生辞任本公司执行董事兼首席执行官以及可持续发展委员会委员的职务，自 2026 年 2 月 12日起生效 注 4：李丕征先生因年龄原因辞任本公司执行董事的职务，自 2025 年 1月 8 日起生效 #",
+          "block_id": "annual_chinamobile_2025_report_b0049",
+          "has_table": false,
+          "section_id": "s074",
+          "block_chars": 1029,
+          "block_lines": 16,
+          "matched_rows": [
+           "2025年，本公司董事会主要工作包括：审议通过董事委任、公司持续关连交易和日常关联交易，2025年港股中期业绩报告和 A 股半年度报告，2025 年中期派息，人民币股份发行募集资金存放与实际使用情况专项报告，2024年年度报告（包括公司截至2024年 12月31日止年度之经审核财务报表及核数师报告书），可持续发展报告，2024 年度和2025年中期利润分配方案，年度重大风险评估报告，年度内部控制评价报告，续聘核数师并厘定其酬金，年度业务、投资及财务计划，年度对外担保计划，年度"
+          ],
+          "section_path": [
+           "董事薪酬、任免与轮换",
+           "董事会会议",
+           "注 5：王利民先生获委任为本公司的执行董事，自 2025年 1月 8 日起生效",
+           "董事会组成"
+          ],
+          "matched_terms": [
+           "派息"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 515
+         }
+        ]
+       },
+       {
+        "query": "2025年度利润分配",
+        "doc_id": "annual_chinamobile_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 43.339902801990846,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "注 1：尚待股东周年大会批准 注 2：末期股息将以港元计价并宣派，其中 A股股东末期股息将以人民币支付，折算汇率按股东周年大会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算 为确保本公司与股东之间的有效沟通，本公司已制定股东通讯政策，定期检讨其实施状况，并认为其行之有效。 本公司设有投资者关系网站（www.chinamobleltd.com）,为刊发本公司公告、通告及其他企业通",
+          "block_id": "annual_chinamobile_2025_report_b0039",
+          "has_table": false,
+          "section_id": "s067",
+          "block_chars": 1200,
+          "block_lines": 22,
+          "matched_rows": [],
+          "section_path": [
+           "股东价值与沟通",
+           "2025年股东周年大会",
+           "2026年股东周年大会",
+           "股东日志"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 600
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 43.014514786988435,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "范围书进行运作。 2025 年，本公司董事会修订了提名委员会之职权范围书。 本公司各委员会之职权范围书载于本公司、香港联交所和上海交易所的网站，亦可以书面向公司秘书索取。 ## 审核委员会 1.成员： ## 2.主要职权和职责： 审核委员会可获董事会授权调查其职权范围内的活动，并可获授权向任何雇员索取其所需的任何数据，亦可听取外界法律或其他独立专业意见，费用由公司支付。 审核委员会主要负责就外聘审",
+          "block_id": "annual_chinamobile_2025_report_b0052",
+          "has_table": false,
+          "section_id": "s085",
+          "block_chars": 1176,
+          "block_lines": 36,
+          "matched_rows": [],
+          "section_path": [
+           "2.主要职责：",
+           "提名委员会",
+           "可持续发展委员会",
+           "管理层及员工"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 588
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 42.79880862017925,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+          "block_id": "annual_chinamobile_2025_report_b0001",
+          "has_table": false,
+          "section_id": "s006",
+          "block_chars": 1058,
+          "block_lines": 20,
+          "matched_rows": [],
+          "section_path": [
+           "目 录",
+           "公司简介",
+           "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+           "近三年主要会计数据和财务指标"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 529
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 41.98459496060869,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "注 1：陈忠岳先生获委任为本公司执行董事兼董事长的职务，自 2025年 12 月22 日起生效 注 2：杨杰先生辞任本公司执行董事兼董事长的职务，自 2025 年12 月 22 日起生效 注 3：何飚先生辞任本公司执行董事兼首席执行官以及可持续发展委员会委员的职务，自 2026 年 2 月 12日起生效 注 4：李丕征先生因年龄原因辞任本公司执行董事的职务，自 2025 年 1月 8 日起生效 #",
+          "block_id": "annual_chinamobile_2025_report_b0049",
+          "has_table": false,
+          "section_id": "s074",
+          "block_chars": 1029,
+          "block_lines": 16,
+          "matched_rows": [],
+          "section_path": [
+           "董事薪酬、任免与轮换",
+           "董事会会议",
+           "注 5：王利民先生获委任为本公司的执行董事，自 2025年 1月 8 日起生效",
+           "董事会组成"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 515
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 39.94002015749534,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "中国移动有限公司 合并财务报表附注截至2025年 12月31日止年度财务报表(除特别注明外，金额单位为人民币百万元) ## 十一 资产负债表日期后事项 ## 股息分配 董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民",
+          "block_id": "annual_chinamobile_2025_report_b0395",
+          "has_table": false,
+          "section_id": "s336",
+          "block_chars": 639,
+          "block_lines": 15,
+          "matched_rows": [],
+          "section_path": [
+           "十 承诺事项",
+           "十一 资产负债表日期后事项",
+           "股息分配",
+           "增值税"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 320
+         }
+        ]
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 1,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"queries\": [\"利润分配方案\", \"现金分红 派息 每股\", \"2025年度利润分配\"]}",
+    "reasoning": "The first result is annual_chinamobile_2025_report. Let me search within that document for profit distribution.",
+    "tool_name": "search_in_document",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 5,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "。\n## 董事长报告书\n尊敬的各位股东：\n2025 年，面对错综复杂的外部环境和诸多压力挑战，公司各方面工作取得积极成效，经营发展稳中有进，运营能力全面升级，改革创新成效显著，“十四五”实现圆满收官。\n2025年公司营业收入稳健增长，达到人民币10,502亿元，同比增长0.9%；\n主营业务收入<sup>1</sup>达到人民币8,955亿元，同比增长0.7%。\n通信服务<sup>2</sup>收入占主营业务收入比为79.8%；\n算力服务<sup>3</sup>、智能服务<sup>4</sup>收入占主营业务收入比为 20.2%，同比提升 1.4个百分点。\n2025年公司营运利润<sup>5</sup>达到人民币1,489亿元，同比增长 4.4%。\n归属于母公司股东的净利润为人民币1,371亿元，同比下降 0.9%，同口径<sup>6</sup>同比增长 2.0%，基本每股收益为人民币6.35 元；\nEBITDA 为人民币 3,389 亿元，同比增长 1.6%，EBITDA 率为 32.3%，同比提升 0.2个百分点。\n盈利能力继续保持国际一流运营商领先水平。\n资本开支为人民币1,509亿元，同比下降8.0%。\n自由现金流为人民币 820亿元，保持健康充沛。\n董事会建议向全体股东派发截至 2025 年 12 月 31 日止年度末期股息每股 2.52 港元<sup>7</sup>，连同已派发的中期股息，2025年全年股息合计每股5.27 港元，同比增长3.5%。\n2025年全年派息率为75%<sup>8</sup>。\n为更好地回馈股东、共享发展成果，公司充分考虑盈利能力、现金流状况及未来发展需要，2026年派息率将稳中有升。\n## 经营发展稳中有进\n通信服务基础稳健。\n通信服务是公司经营的基本盘，公司坚持融合发展和精细运营。\n移动客户规模稳固，达到 10.05 亿户；\n5G 网络客户达到 6.42 亿户，净增 8,960 万户，渗透率达到 63.9%。\n宽带联网<sup>9</sup>客户再创新高，达到 3.29 亿户，净增 999 万户，宽带网络收入同比增长7.1%。\n物联网卡连接数达到 14.8亿，AIoT平台成为全球最大的连接管理平台。\n公司获颁卫星移动通信业务经营许可，卫星通信迈入商业化运营阶段。\n2025 年通信服务收入完成人民币7,149亿元，同比下降 1.0%。\n算力服务加速推进。\n算力服务是公司高质量发展的重要增长极，公司强化AIDC 资源供给和储备，“AIDC+网络+算力+运维”服务能力明显提升，移动云品牌更加彰显。\n数据中心收入同比增长8.7%，其中AIDC收入同比增长35.4%。\n得益于智算需求的迅猛增长，智算服务成为第一引擎，增速达 279%，拉动云算服务收入同比增长 13.9%。",
+      "scope": {
+       "label": "母公司",
+       "value": "parent_company",
+       "signals": [
+        "parent_company"
+       ],
+       "ambiguous": false
+      },
+      "doc_id": "annual_chinamobile_2025_report",
+      "block_id": "annual_chinamobile_2025_report_b0011",
+      "complete": true,
+      "has_table": false,
+      "row_offset": 0,
+      "section_id": "s028",
+      "block_chars": 1171,
+      "block_lines": 30,
+      "next_row_offset": null,
+      "remaining_lines": 0,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 30
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 2,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"block_id\": \"annual_chinamobile_2025_report_b0011\"}",
+    "reasoning": "Let me read the key blocks: b0011, b0001, b0395, b0065. Let me read b0011 and b0001 and b0395.\n\nThe question asks \"中国移动 2025 年的利润分配方案是什么？\" - What is China Mobile's 2025 profit distribution plan. Let me read key blocks for detail.",
+    "tool_name": "read_section",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 6,
+   "type": "run_understood",
+   "data": {
+    "label": "中国移动 · 2025 年利润分配方案",
+    "title": "中国移动 2025 年利润分配方案",
+    "answer_format": "text"
+   }
+  },
+  {
+   "seq": 7,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "公司简称：中国移动\n股票代码：600941\n![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg)\n![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg)\n## 中国移动有限公司2025年年度报告\n## 重要提示\n中国移动有限公司（“本公司”或“公司”）董事会及董事、高级管理人员保证年度报告内容的真实性、准确性、完整性，不存在虚假记载、误导性陈述或重大遗漏，并承担个别和连带的法律责任。\n本年度报告已经公司 2026年第一次董事会审议通过。\n本次会议应出席董事 7 名，实际出席董事7名。\n本公司分别按照中国企业会计准则及国际财务报告会计准则/香港财务报告会计准则编制财务报告。\n本公司按中国企业会计准则及国际财务报告会计准则/香港财务报告会计准则编制的 2025 年度财务报告已分别经毕马威华振会计师事务所（特殊普通合伙）及毕马威会计师事务所审计并出具标准无保留意见的审计报告。\n公司负责人陈忠岳、主管会计工作负责人李荣华及会计机构负责人（会计主管人员）胡宇霆声明：保证年度报告中财务报告的真实、准确、完整。\n董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。\n2025年全年派息率为75%。\n为更好地回馈股东、共享发展成果，公司充分考虑盈利能力、现金流状况及未来发展需要，2026 年派息率将稳中有升。\n公司 2025 年度利润分配方案已经 2026 年第一次董事会审议通过，尚需公司 2026年股东周年大会审议。\n本年度报告载有若干涉及本公司未来计划、发展战略等事宜的前瞻性陈述，不构成公司对投资者的实质承诺。\n该等前瞻性陈述涉及已知和未知的风险、不确定性及其他因素，而相关因素可能导致本公司的实际表现、财务状况或经营业绩与前瞻性陈述中所暗示的有重大出入，敬请投资者注意投资风险。\n本公司不存在被控股股东及其关联方非经营性占用资金的情形，不存在违反规定决策程序对外提供担保的情形，亦不存在半数以上董事无法保证公司所披露年度报告的真实性、准确性和完整性的情形。\n公司已在本年度报告中描述了可能存在的外部环境和市场竞争方面的风险，敬请查阅“董事长报告书”章节之“未来展望”相关内容。",
+      "scope": {
+       "label": "本公司",
+       "value": "reporting_company",
+       "signals": [
+        "reporting_company"
+       ],
+       "ambiguous": false
+      },
+      "doc_id": "annual_chinamobile_2025_report",
+      "block_id": "annual_chinamobile_2025_report_b0001",
+      "complete": true,
+      "has_table": false,
+      "row_offset": 0,
+      "section_id": "s006",
+      "block_chars": 1058,
+      "block_lines": 20,
+      "next_row_offset": null,
+      "remaining_lines": 0,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 20
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 3,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"block_id\": \"annual_chinamobile_2025_report_b0001\"}",
+    "reasoning": "Now let me read b0001 (the main financial data block that mentions the profit distribution plan) and b0395 (the dividend distribution note).",
+    "tool_name": "read_section",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 8,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "中国移动有限公司\n合并财务报表附注截至2025年 12月31日止年度财务报表(除特别注明外，金额单位为人民币百万元)\n## 十一 资产负债表日期后事项\n## 股息分配\n董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算。\n拟宣派的末期股息以 2025年 12月 31日汇率折算合计人民币 492.66亿元。\n若自报告日起至实施 2025 年末期派息的权益分派股权登记日，本公司已发行股份总数发生变化，本公司拟维持每股派息金额不变，相应调整利润分配总额。\n于资产负债表日后提议派发的股息并未在资产负债表日确认为负债。\n## 增值税\n中华人民共和国财政部、国家税务总局发布了《关于增值税征税具体范围有关事项的公告》（财政部税务总局公告 2026年第 9号），规定自 2026年 1月 1日起，在中华人民共和国境内，利用固网、移动网、卫星、互联网，提供手机流量服务、短信和彩信服务、互联网宽带接入服务的业务活动适用的税目由增值电信服务调整为基础电信服务，对应增值税税率由6%调整为9%。\n此次增值税税目适用范围调整，将对本集团收入及利润产生影响。\n合并财务报表附注\n截至 2025 年 12 月 31 日止年度财务报表\n(除特别注明外，金额单位为人民币百万元)\n十二 本公司资产负债表",
+      "scope": {
+       "label": "混合口径",
+       "value": "mixed",
+       "signals": [
+        "consolidated",
+        "group",
+        "parent_company",
+        "reporting_company"
+       ],
+       "ambiguous": false
+      },
+      "doc_id": "annual_chinamobile_2025_report",
+      "block_id": "annual_chinamobile_2025_report_b0395",
+      "complete": true,
+      "has_table": false,
+      "row_offset": 0,
+      "section_id": "s336",
+      "block_chars": 639,
+      "block_lines": 15,
+      "next_row_offset": null,
+      "remaining_lines": 0,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 15
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 4,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"block_id\": \"annual_chinamobile_2025_report_b0395\"}",
+    "reasoning": "Now I have the key answer. Let me also read b0395 for more detail on the dividend distribution, and possibly the profit distribution section which gives percentages/details. Let me search for \"利润分配\" section more specifically, maybe the A-share section about profit distribution.\n\nActually the question is fairly simple: \"中国移动 2025 年的利润分配方案是什么？\" The answer: 派发末期股息每股2.52港元，连同中期股息，全年股息合计每股5.27港元，同比增长3.5%；全年派息率75%。2026年派息率将稳中有升。\n\nLet me read b0395 to get the details of the profit distribution.",
+    "tool_name": "read_section",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 9,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "query": "中期股息 每股 2.75港元 派息率",
+      "doc_id": "annual_chinamobile_2025_report",
+      "results": [
+       {
+        "rank": 1,
+        "scope": {
+         "label": "母公司",
+         "value": "parent_company",
+         "signals": [
+          "parent_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 111.2151519784397,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "。 ## 董事长报告书 尊敬的各位股东： 2025 年，面对错综复杂的外部环境和诸多压力挑战，公司各方面工作取得积极成效，经营发展稳中有进，运营能力全面升级，改革创新成效显著，“十四五”实现圆满收官。 2025年公司营业收入稳健增长，达到人民币10,502亿元，同比增长0.9%； 主营业务收入<sup>1</sup>达到人民币8,955亿元，同比增长0.7%。 通信服务<sup>2</sup>收入",
+        "block_id": "annual_chinamobile_2025_report_b0011",
+        "has_table": false,
+        "section_id": "s028",
+        "block_chars": 1171,
+        "block_lines": 30,
+        "matched_rows": [
+         "归属于母公司股东的净利润为人民币1,371亿元，同比下降 0.9%，同口径<sup>6</sup>同比增长 2.0%，基本每股收益为人民币6.35 元；",
+         "董事会建议向全体股东派发截至 2025 年 12 月 31 日止年度末期股息每股 2.52 港元<sup>7</sup>，连同已派发的中期股息，2025年全年股息合计每股5.27 港元，同比增长3.5%。",
+         "2025年全年派息率为75%<sup>8</sup>。"
+        ],
+        "section_path": [
+         "未来展望",
+         "致谢",
+         "业务概览",
+         "主要运营数据"
+        ],
+        "matched_terms": [
+         "中期股息",
+         "每股",
+         "派息率"
+        ],
+        "scope_ambiguity": false,
+        "estimated_tokens": 586
+       },
+       {
+        "rank": 2,
+        "scope": {
+         "label": "本公司",
+         "value": "reporting_company",
+         "signals": [
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 110.89637008188919,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+        "block_id": "annual_chinamobile_2025_report_b0001",
+        "has_table": false,
+        "section_id": "s006",
+        "block_chars": 1058,
+        "block_lines": 20,
+        "matched_rows": [
+         "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。",
+         "2025年全年派息率为75%。",
+         "为更好地回馈股东、共享发展成果，公司充分考虑盈利能力、现金流状况及未来发展需要，2026 年派息率将稳中有升。"
+        ],
+        "section_path": [
+         "目 录",
+         "公司简介",
+         "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+         "近三年主要会计数据和财务指标"
+        ],
+        "matched_terms": [
+         "中期股息",
+         "每股",
+         "派息率"
+        ],
+        "scope_ambiguity": false,
+        "estimated_tokens": 529
+       },
+       {
+        "rank": 3,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 97.1234814553913,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "至 2025 年 12月 31日止年度内，本公司董事、其紧密联系人或任何股东（据董事会所知，拥有本公司 5%以上已发行股份数目者）概无在这五个最大供应商中拥有任何权益。 ## 主要子公司及长期股权投资 而本公司各附属公司的董事名单已载于本公司网站。 ## 财务报表 本公司截至 2025年 12月 31 日止年度的利润和本公司及本公司于该日的财政状况载于本年报财务报告章节。 股息 本公司董事会已采纳",
+        "block_id": "annual_chinamobile_2025_report_b0065",
+        "has_table": false,
+        "section_id": "s107",
+        "block_chars": 1193,
+        "block_lines": 43,
+        "matched_rows": [
+         "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。",
+         "2025年全年派息率为75%。"
+        ],
+        "section_path": [
+         "李嘉士",
+         "梁高美懿",
+         "董事在重要交易、安排或合约中的利害关系",
+         "获准许的弥偿条文"
+        ],
+        "matched_terms": [
+         "中期股息",
+         "每股",
+         "派息率"
+        ],
+        "scope_ambiguity": false,
+        "estimated_tokens": 597
+       },
+       {
+        "rank": 4,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "group",
+          "parent_company",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 74.68099939426637,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "中国移动有限公司 合并财务报表附注截至2025年 12月31日止年度财务报表(除特别注明外，金额单位为人民币百万元) ## 十一 资产负债表日期后事项 ## 股息分配 董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民",
+        "block_id": "annual_chinamobile_2025_report_b0395",
+        "has_table": false,
+        "section_id": "s336",
+        "block_chars": 639,
+        "block_lines": 15,
+        "matched_rows": [
+         "董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算。",
+         "若自报告日起至实施 2025 年末期派息的权益分派股权登记日，本公司已发行股份总数发生变化，本公司拟维持每股派息金额不变，相应调整利润分配总额。"
+        ],
+        "section_path": [
+         "十 承诺事项",
+         "十一 资产负债表日期后事项",
+         "股息分配",
+         "增值税"
+        ],
+        "matched_terms": [
+         "每股"
+        ],
+        "scope_ambiguity": false,
+        "estimated_tokens": 320
+       },
+       {
+        "rank": 5,
+        "scope": {
+         "label": "本公司",
+         "value": "reporting_company",
+         "signals": [
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 55.226210870872144,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "注 1：尚待股东周年大会批准 注 2：末期股息将以港元计价并宣派，其中 A股股东末期股息将以人民币支付，折算汇率按股东周年大会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算 为确保本公司与股东之间的有效沟通，本公司已制定股东通讯政策，定期检讨其实施状况，并认为其行之有效。 本公司设有投资者关系网站（www.chinamobleltd.com）,为刊发本公司公告、通告及其他企业通",
+        "block_id": "annual_chinamobile_2025_report_b0039",
+        "has_table": false,
+        "section_id": "s067",
+        "block_chars": 1200,
+        "block_lines": 22,
+        "matched_rows": [],
+        "section_path": [
+         "股东价值与沟通",
+         "2025年股东周年大会",
+         "2026年股东周年大会",
+         "股东日志"
+        ],
+        "matched_terms": [],
+        "scope_ambiguity": false,
+        "estimated_tokens": 600
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 5,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"query\": \"中期股息 每股 2.75港元 派息率\"}",
+    "reasoning": "I now have enough. Let me also check the A-share profit distribution section for any additional details (e.g., 中期股息 amount per share). The full-year dividend = 5.27 HKD, interim + final. Final = 2.52 HKD. So interim = 2.75 HKD.\n\nLet me quickly search for the A-share profit distribution table. Actually the question is general. But let me find the 中期股息 amount to be complete. Search \"中期股息 每股\".",
+    "tool_name": "search_in_document",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 10,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "注 1：尚待股东周年大会批准\n注 2：末期股息将以港元计价并宣派，其中 A股股东末期股息将以人民币支付，折算汇率按股东周年大会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算\n为确保本公司与股东之间的有效沟通，本公司已制定股东通讯政策，定期检讨其实施状况，并认为其行之有效。\n本公司设有投资者关系网站（www.chinamobleltd.com）,为刊发本公司公告、通告及其他企业通讯的指定公司网站，亦设有“证券事务部”，专门负责向股东及投资人士提供所需信息、数据和服务，与股东及投资人士和其他资本市场参与人士保持积极的沟通，令股东及投资人士充分了解公司运营和发展状况。\n我们通过多个正式渠道向股东报告公司的表现和业务情况，尤其是年报和中报。\n在按照有关监管规定公布中期业绩、全年业绩或重大交易时，公司一般都会安排进行投资分析师会议、新闻发布会和投资者会议等，向股东、投资者和公众阐释有关业绩和重大交易，聆听他们的意见并解答他们的提问。\n除此之外，公司还按季度披露未经审核的若干主要营运及财务数据，适时为股东、投资者和公众人士提供额外资料，便利他们了解本公司的经营情况，并提高本公司的透明度。\n公司与投资者保持密切沟通，通过投行会议、一对一会面、电话会议等多种形式与投资者进行交流互动，及时向资本市场传递公司经营状况。\n2025 年，开展各类投资者交流活动200余场。\n本公司将继续努力提升投资者关系工作。\n公司十分重视股东大会，包括股东周年大会和股东特别大会，以股东周年大会作为与股东作建设性对话的平台，重视公司董事和股东之间的相互沟通。\n在每次的股东大会上，董事都致力于就股东的提问进行详细的回答和说明。\n## 2025年股东周年大会\n2025 年，本公司共召开了一次股东周年大会。\n于 2025 年 5 月 22 日，本公司在香港湾仔港湾道一号香港君悦酒店大会议厅召开股东周年大会。\n以下为会议讨论的主要事项及相关决议案所获赞成票数的比率：\n1. 审议及批准本公司2024年年度报告（包括截至2024年12月31日止年度之经审核合并财务报表、董事会报告书及核数师报告书）（赞成票比率为99.9697%）；\n2. 审议及批准本公司截至2024年12月31日止年度之利润分配方案并宣布派发末期股息（赞成票比率为99.9698%）；\n3. 审议及批准授权董事会决定本公司截至2025年12月31日止年度之中期利润分配（赞成票比率为99.9697%）；\n4. 重选王利民先生、李荣华先生为本公司执行董事（赞成票比率分别为99.9248%和99.9483%）；\n5. 重选姚建华先生为本公司独立非执行董事（赞成票比率为99.7442%）；\n6. 重新委聘毕马威会计师事务所、毕马威华振会计师事务所（特殊普通合伙）为本公司的核数师，并授权董事会厘定其酬金（赞成票比率为99.9692%）；",
+      "scope": {
+       "label": "本公司",
+       "value": "reporting_company",
+       "signals": [
+        "reporting_company"
+       ],
+       "ambiguous": false
+      },
+      "doc_id": "annual_chinamobile_2025_report",
+      "block_id": "annual_chinamobile_2025_report_b0039",
+      "complete": true,
+      "has_table": false,
+      "row_offset": 0,
+      "section_id": "s067",
+      "block_chars": 1200,
+      "block_lines": 22,
+      "next_row_offset": null,
+      "remaining_lines": 0,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 22
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 6,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"block_id\": \"annual_chinamobile_2025_report_b0039\"}",
+    "reasoning": "Let me read b0039 to get the shareholder log details about the profit distribution plan / final dividend, which may include the interim dividend amount. Let me read b0039.",
+    "tool_name": "read_section",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 11,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "note": "中国移动2025年度利润分配方案（doc: annual_chinamobile_2025_report）：\n- 董事会建议派发截至2025-12-31止年度末期股息每股2.52港元；连同已派发中期股息，2025全年股息合计每股5.27港元，同比增长3.5%（b0011/b0001/b0065）。\n- 2025年全年派息率75%；2026年派息率将稳中有升（b0001/b0011）。\n- 末期股息以港元计价宣派，A股股息以人民币支付；拟派末期股息按2025-12-31汇率折合人民币492.66亿元；若发行股份总数变化则维持每股派息金额不变、调整总额（b0395）。\n- 方案经2026年第一次董事会审议通过，尚需2026年股东周年大会审议（b0001）。\n未定：中期股息具体每股金额（可由5.27-2.52推算，未单独取证）。下一步：可考虑读取中期股息来源，但核心答案已足够。",
+      "revision": 1
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 7,
+    "arguments": "{\"note\": \"中国移动2025年度利润分配方案（doc: annual_chinamobile_2025_report）：\\n- 董事会建议派发截至2025-12-31止年度末期股息每股2.52港元；连同已派发中期股息，2025全年股息合计每股5.27港元，同比增长3.5%（b0011/b0001/b0065）。\\n- 2025年全年派息率75%；2026年派息率将稳中有升（b0001/b0011）。\\n- 末期股息以港元计价宣派，A股股息以人民币支付；拟派末期股息按2025-12-31汇率折合人民币492.66亿元；若发行股份总数变化则维持每股派息金额不变、调整总额（b0395）。\\n- 方案经2026年第一次董事会审议通过，尚需2026年股东周年大会审议（b0001）。\\n未定：中期股息具体每股金额（可由5.27-2.52推算，未单独取证）。下一步：可考虑读取中期股息来源，但核心答案已足够。\"}",
+    "reasoning": "I have enough. Let me also verify the interim dividend amount. The full-year dividend is 5.27 HKD, final is 2.52 HKD, so interim = 2.75 HKD. Let me confirm by finding the interim dividend block. But it might not be necessary. The question asks generally about 2025 profit distribution plan. The answer should include:\n\n- 末期股息每股2.52港元（含中期股息，全年股息合计每股5.27港元，同比增长3.5%）\n- 2025年全年派息率为75%\n- 2026年派息率将稳中有升\n- 该方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议\n- 末期股息以港元计价宣派，A股股东以人民币支付，拟派末期股息折合人民币492.66亿元\n\nLet me write a note and finalize. Actually let me confirm the interim dividend. Search \"中期股息 每股 港元 2025\". Actually the full-year total and final give interim implicitly. Let me just search quickly.",
+    "tool_name": "write_note",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 12,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "query": "中国移动 2025年度 利润分配方案 末期股息 每股",
+      "results": [
+       {
+        "rank": 1,
+        "scope": {
+         "label": "本公司",
+         "value": "reporting_company",
+         "signals": [
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03278688524590164,
+        "doc_id": "annual_chinamobile_2025_report",
+        "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+        "has_table": false,
+        "section_id": "s006",
+        "block_chars": 1058,
+        "block_lines": 20,
+        "section_path": [
+         "目 录",
+         "公司简介",
+         "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+         "近三年主要会计数据和财务指标"
+        ],
+        "best_block_id": "annual_chinamobile_2025_report_b0001",
+        "contributions": {
+         "block_bm25": 1,
+         "chroma_dense_block": 1
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 529
+       },
+       {
+        "rank": 2,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "group",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03200204813108039,
+        "doc_id": "annual_cmb_2025_report",
+        "preview": "司章程规定，本公司不再设置监事会，由董事会审计委员会承接法律法规规定的原监事会职权。 本公司通过认真自查，未发现报告期内公司治理实际情况与法律、行政法规和中国证监会关于上市公司治理的规定存在重大差异。 ## 5.3 股东会召开情况 报告期内，本公司共召开1次股东会，即2025年6月25日在深圳召开的2024年度股东大会，会议的通知、召集、召开和表决程序均符合《中华人民共和国公司法》《招商银行股份有",
+        "has_table": false,
+        "section_id": "s196",
+        "block_chars": 509,
+        "block_lines": 7,
+        "section_path": [
+         "5.1 公司治理架构图",
+         "5.2 公司治理情况综述",
+         "5.3 股东会召开情况",
+         "5.4 董事、监事和高级管理人员等"
+        ],
+        "best_block_id": "annual_cmb_2025_report_b0152",
+        "contributions": {
+         "block_bm25": 3,
+         "chroma_dense_block": 2
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 255
+       },
+       {
+        "rank": 3,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.03125763125763126,
+        "doc_id": "annual_catl_2025_report",
+        "preview": "| 可分配利润(元) | 142,611,687,473.64 | | --- | --- | | 现金分红总额(含其他方式)占利润分配总额的比例 | 100.00% | | 本次现金分红情况 | 本次现金分红情况 | | 公司发展阶段属成长期且有重大资金支出安排的,进行利润分配时,现金分红在本次利润分配中所占比例最低应达到20%。 | 公司发展阶段属成长期且有重大资金支出安排的,进行利润分配时,",
+        "has_table": true,
+        "section_id": "s157",
+        "block_chars": 1691,
+        "block_lines": 7,
+        "section_path": [
+         "1、报告期内利润分配政策，特别是现金分红政策的制定、执行或调整情况",
+         "2、公司报告期利润分配预案及资本公积金转增股本预案与公司章程和分红管理办法等的相关规定一致",
+         "3、董事会是否审议利润分配方案（含不分红不转增）",
+         "4、本年度利润分配及资本公积金转增股本情况"
+        ],
+        "best_block_id": "annual_catl_2025_report_b0120",
+        "contributions": {
+         "block_bm25": 5,
+         "chroma_dense_block": 3
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 846
+       },
+       {
+        "rank": 4,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03125,
+        "doc_id": "annual_midea_2025_report",
+        "preview": "| 每10股送红股数(股) | 0 | | --- | --- | | 每10股派息数(元)(含税) | 43 | | 每10股转增数(股) | 0 | | 分配预案的股本基数(股) | 7,522,863,645 | | 现金分红金额(元)(含税)注(1) | 32,360,630,265 | | 以其他方式(如回购股份)现金分红金额(元) | 11,605,319,584 | | 现金分红总额",
+        "has_table": true,
+        "section_id": "s147",
+        "block_chars": 1014,
+        "block_lines": 14,
+        "section_path": [
+         "2、薪酬政策",
+         "3、培训计划",
+         "4、劳务外包情况",
+         "九、公司利润分配及资本公积金转增股本情况"
+        ],
+        "best_block_id": "annual_midea_2025_report_b0130",
+        "contributions": {
+         "block_bm25": 4,
+         "chroma_dense_block": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 507
+       },
+       {
+        "rank": 5,
+        "scope": {
+         "label": "口径不明",
+         "value": "unknown",
+         "signals": [],
+         "ambiguous": false
+        },
+        "score": 0.030309988518943745,
+        "doc_id": "text05",
+        "preview": "注：根据 Prismark 统计口径，“东南亚等其他国家”指除中国内地、欧洲、美洲、日本、韩国、中国台湾以外的全球其他国家、地区，其中产能主要集中于东南亚地区。 根据上表数据，未来一段期间内，中国内地仍将作为全球 PCB 产业的最主要集中地区，而东南亚 PCB 产业将保持高速发展，2024-2029 年期间的复合增长率将达到 12.4%，远高于 5.2%的全球 PCB 行业平均增速，并有望超越韩国",
+        "has_table": false,
+        "section_id": "s059",
+        "block_chars": 1176,
+        "block_lines": 16,
+        "section_path": [
+         "（一）本次发行的证券类型",
+         "（二）发行数量、证券面值、发行价格",
+         "（三）预计募集资金量（含发行费用）及募集资金净额、募集资金专项存储的账户",
+         "（四）募集资金投向"
+        ],
+        "best_block_id": "text05_b0025",
+        "contributions": {
+         "block_bm25": 7,
+         "chroma_dense_block": 5
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 588
+       },
+       {
+        "rank": 6,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.029411764705882353,
+        "doc_id": "annual_cscec_2025_report",
+        "preview": "24年度利润分配方案的议案》：2025年7月10日，公司发布《中国建筑股份有限公司2024年年度权益分派实施公告》：2025年7月17日，公司向全体股东派发现金红利，2024年度利润分配方案实施完毕。 ## <sup>3.</sup> 年度利润分配预案 根据《公司法》和《公司章程》相关规定，结合股东回报及公司业务发展对资金需求等因素的考虑，按照公司第四届董事会第三十三次会议审议通过的《中国建筑股份",
+        "has_table": false,
+        "section_id": "s184",
+        "block_chars": 1166,
+        "block_lines": 20,
+        "section_path": [
+         "(5)公司留存未分配利润的确切用途以及预计收益情况",
+         "(6)公司为中小股东参与现金分红决策提供便利情况",
+         "（<sup>7</sup>）公司为增强投资者回报水平拟采取的措施",
+         "(二）公司近五年(含报告期)的普通股股利分配方案或预案、资本公积金转增股本方案或预案"
+        ],
+        "best_block_id": "annual_cscec_2025_report_b0147",
+        "contributions": {
+         "block_bm25": 8,
+         "chroma_dense_block": 8
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 583
+       },
+       {
+        "rank": 7,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.016129032258064516,
+        "doc_id": "annual_byd_2025_report",
+        "preview": "| 公告编号 | 公告标题 | 披露时间 | 查询索引 | | --- | --- | --- | --- | | 2025-029 | 2025年第一季度业绩预告 | 2025年4月8日 | 《证券时报》、《中国证券报》、《上海证券报》、《证券日报》及巨潮资讯网(www.cninfo.com.cn) | | | H股公告(董事会会议通告) | 2025年4月10日 | 巨潮资讯网(www.cni",
+        "has_table": true,
+        "section_id": "s171",
+        "block_chars": 5418,
+        "block_lines": 63,
+        "section_path": [
+         "2、募集资金承诺项目情况",
+         "3、募集资金变更项目情况",
+         "4、中介机构关于募集资金存储与使用情况的核查意见",
+         "十七、其他重大事项的说明"
+        ],
+        "best_block_id": "annual_byd_2025_report_b0158",
+        "contributions": {
+         "block_bm25": 2
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 2709
+       },
+       {
+        "rank": 8,
+        "scope": {
+         "label": "合并",
+         "value": "consolidated",
+         "signals": [
+          "consolidated"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015151515151515152,
+        "doc_id": "annual_byd_2024_report",
+        "preview": "| 公告编号 | 公告标题 | 披露时间 | 查询索引 | | --- | --- | --- | --- | | | 2023年社会责任报告 | 2024年3月27日 | 巨潮资讯网(www.cninfo.com.cn) | | | 内部控制审计报告 | 2024年3月27日 | 巨潮资讯网(www.cninfo.com.cn) | | | 年度关联方资金占用专项审计报告 | 2024年3月27",
+        "has_table": true,
+        "section_id": "s185",
+        "block_chars": 5473,
+        "block_lines": 64,
+        "section_path": [
+         "（1） 委托理财情况",
+         "（2） 委托贷款情况",
+         "4、其他重大合同",
+         "十六、其他重大事项的说明"
+        ],
+        "best_block_id": "annual_byd_2024_report_b0162",
+        "contributions": {
+         "block_bm25": 6
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 2737
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 8,
+    "arguments": "{\"query\": \"中国移动 2025年度 利润分配方案 末期股息 每股\"}",
+    "reasoning": "The note already contains the key answer. Let me verify by reading the key blocks before finalizing. But the note says context was compacted. Let me re-read the blocks to cite.\n\nActually the note says core answer is enough. But I should verify. Let me read b0001 and b0395 to confirm and cite.\n\nLet me search to find the doc_id first. Actually the note says doc: annual_chinamobile_2025_report. Let me search_in_document to locate blocks again.\n\nHmm, the doc_id isn't a full opaque id. Let me search_docs first.",
+    "tool_name": "search_docs",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 13,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "doc_id": "annual_chinamobile_2025_report",
+      "queries": [
+       "末期股息 每股 港元",
+       "全年股息 派息率 利润分配方案",
+       "中期股息 每股"
+      ],
+      "query_results": [
+       {
+        "query": "末期股息 每股 港元",
+        "doc_id": "annual_chinamobile_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 70.1827214362768,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+          "block_id": "annual_chinamobile_2025_report_b0001",
+          "has_table": false,
+          "section_id": "s006",
+          "block_chars": 1058,
+          "block_lines": 20,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。"
+          ],
+          "section_path": [
+           "目 录",
+           "公司简介",
+           "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+           "近三年主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "末期股息",
+           "每股",
+           "港元"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 529
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "母公司",
+           "value": "parent_company",
+           "signals": [
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 68.89148528163123,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "。 ## 董事长报告书 尊敬的各位股东： 2025 年，面对错综复杂的外部环境和诸多压力挑战，公司各方面工作取得积极成效，经营发展稳中有进，运营能力全面升级，改革创新成效显著，“十四五”实现圆满收官。 2025年公司营业收入稳健增长，达到人民币10,502亿元，同比增长0.9%； 主营业务收入<sup>1</sup>达到人民币8,955亿元，同比增长0.7%。 通信服务<sup>2</sup>收入",
+          "block_id": "annual_chinamobile_2025_report_b0011",
+          "has_table": false,
+          "section_id": "s028",
+          "block_chars": 1171,
+          "block_lines": 30,
+          "matched_rows": [
+           "归属于母公司股东的净利润为人民币1,371亿元，同比下降 0.9%，同口径<sup>6</sup>同比增长 2.0%，基本每股收益为人民币6.35 元；",
+           "董事会建议向全体股东派发截至 2025 年 12 月 31 日止年度末期股息每股 2.52 港元<sup>7</sup>，连同已派发的中期股息，2025年全年股息合计每股5.27 港元，同比增长3.5%。"
+          ],
+          "section_path": [
+           "未来展望",
+           "致谢",
+           "业务概览",
+           "主要运营数据"
+          ],
+          "matched_terms": [
+           "末期股息",
+           "每股",
+           "港元"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 586
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 66.72579196914836,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "至 2025 年 12月 31日止年度内，本公司董事、其紧密联系人或任何股东（据董事会所知，拥有本公司 5%以上已发行股份数目者）概无在这五个最大供应商中拥有任何权益。 ## 主要子公司及长期股权投资 而本公司各附属公司的董事名单已载于本公司网站。 ## 财务报表 本公司截至 2025年 12月 31 日止年度的利润和本公司及本公司于该日的财政状况载于本年报财务报告章节。 股息 本公司董事会已采纳",
+          "block_id": "annual_chinamobile_2025_report_b0065",
+          "has_table": false,
+          "section_id": "s107",
+          "block_chars": 1193,
+          "block_lines": 43,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。"
+          ],
+          "section_path": [
+           "李嘉士",
+           "梁高美懿",
+           "董事在重要交易、安排或合约中的利害关系",
+           "获准许的弥偿条文"
+          ],
+          "matched_terms": [
+           "末期股息",
+           "每股",
+           "港元"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 597
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 66.6156438283202,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "中国移动有限公司 合并财务报表附注截至2025年 12月31日止年度财务报表(除特别注明外，金额单位为人民币百万元) ## 十一 资产负债表日期后事项 ## 股息分配 董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民",
+          "block_id": "annual_chinamobile_2025_report_b0395",
+          "has_table": false,
+          "section_id": "s336",
+          "block_chars": 639,
+          "block_lines": 15,
+          "matched_rows": [
+           "董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算。",
+           "拟宣派的末期股息以 2025年 12月 31日汇率折算合计人民币 492.66亿元。",
+           "若自报告日起至实施 2025 年末期派息的权益分派股权登记日，本公司已发行股份总数发生变化，本公司拟维持每股派息金额不变，相应调整利润分配总额。"
+          ],
+          "section_path": [
+           "十 承诺事项",
+           "十一 资产负债表日期后事项",
+           "股息分配",
+           "增值税"
+          ],
+          "matched_terms": [
+           "末期股息",
+           "每股",
+           "港元"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 320
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 58.9714656537434,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "注 1：尚待股东周年大会批准 注 2：末期股息将以港元计价并宣派，其中 A股股东末期股息将以人民币支付，折算汇率按股东周年大会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算 为确保本公司与股东之间的有效沟通，本公司已制定股东通讯政策，定期检讨其实施状况，并认为其行之有效。 本公司设有投资者关系网站（www.chinamobleltd.com）,为刊发本公司公告、通告及其他企业通",
+          "block_id": "annual_chinamobile_2025_report_b0039",
+          "has_table": false,
+          "section_id": "s067",
+          "block_chars": 1200,
+          "block_lines": 22,
+          "matched_rows": [
+           "注 2：末期股息将以港元计价并宣派，其中 A股股东末期股息将以人民币支付，折算汇率按股东周年大会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算",
+           "2. 审议及批准本公司截至2024年12月31日止年度之利润分配方案并宣布派发末期股息（赞成票比率为99.9698%）；"
+          ],
+          "section_path": [
+           "股东价值与沟通",
+           "2025年股东周年大会",
+           "2026年股东周年大会",
+           "股东日志"
+          ],
+          "matched_terms": [
+           "末期股息",
+           "港元"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 600
+         }
+        ]
+       },
+       {
+        "query": "全年股息 派息率 利润分配方案",
+        "doc_id": "annual_chinamobile_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 92.75225311700954,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+          "block_id": "annual_chinamobile_2025_report_b0001",
+          "has_table": false,
+          "section_id": "s006",
+          "block_chars": 1058,
+          "block_lines": 20,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。",
+           "2025年全年派息率为75%。",
+           "为更好地回馈股东、共享发展成果，公司充分考虑盈利能力、现金流状况及未来发展需要，2026 年派息率将稳中有升。"
+          ],
+          "section_path": [
+           "目 录",
+           "公司简介",
+           "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+           "近三年主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "全年股息",
+           "派息率",
+           "利润分配方案"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 529
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "母公司",
+           "value": "parent_company",
+           "signals": [
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 73.4584790474218,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "。 ## 董事长报告书 尊敬的各位股东： 2025 年，面对错综复杂的外部环境和诸多压力挑战，公司各方面工作取得积极成效，经营发展稳中有进，运营能力全面升级，改革创新成效显著，“十四五”实现圆满收官。 2025年公司营业收入稳健增长，达到人民币10,502亿元，同比增长0.9%； 主营业务收入<sup>1</sup>达到人民币8,955亿元，同比增长0.7%。 通信服务<sup>2</sup>收入",
+          "block_id": "annual_chinamobile_2025_report_b0011",
+          "has_table": false,
+          "section_id": "s028",
+          "block_chars": 1171,
+          "block_lines": 30,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025 年 12 月 31 日止年度末期股息每股 2.52 港元<sup>7</sup>，连同已派发的中期股息，2025年全年股息合计每股5.27 港元，同比增长3.5%。",
+           "2025年全年派息率为75%<sup>8</sup>。",
+           "为更好地回馈股东、共享发展成果，公司充分考虑盈利能力、现金流状况及未来发展需要，2026年派息率将稳中有升。"
+          ],
+          "section_path": [
+           "未来展望",
+           "致谢",
+           "业务概览",
+           "主要运营数据"
+          ],
+          "matched_terms": [
+           "全年股息",
+           "派息率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 586
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 65.15153707060794,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "至 2025 年 12月 31日止年度内，本公司董事、其紧密联系人或任何股东（据董事会所知，拥有本公司 5%以上已发行股份数目者）概无在这五个最大供应商中拥有任何权益。 ## 主要子公司及长期股权投资 而本公司各附属公司的董事名单已载于本公司网站。 ## 财务报表 本公司截至 2025年 12月 31 日止年度的利润和本公司及本公司于该日的财政状况载于本年报财务报告章节。 股息 本公司董事会已采纳",
+          "block_id": "annual_chinamobile_2025_report_b0065",
+          "has_table": false,
+          "section_id": "s107",
+          "block_chars": 1193,
+          "block_lines": 43,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。",
+           "2025年全年派息率为75%。"
+          ],
+          "section_path": [
+           "李嘉士",
+           "梁高美懿",
+           "董事在重要交易、安排或合约中的利害关系",
+           "获准许的弥偿条文"
+          ],
+          "matched_terms": [
+           "全年股息",
+           "派息率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 597
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 55.784293382288475,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "注 1：尚待股东周年大会批准 注 2：末期股息将以港元计价并宣派，其中 A股股东末期股息将以人民币支付，折算汇率按股东周年大会宣派股息之日前一周的中国人民银行公布的港元对人民币中间价平均值计算 为确保本公司与股东之间的有效沟通，本公司已制定股东通讯政策，定期检讨其实施状况，并认为其行之有效。 本公司设有投资者关系网站（www.chinamobleltd.com）,为刊发本公司公告、通告及其他企业通",
+          "block_id": "annual_chinamobile_2025_report_b0039",
+          "has_table": false,
+          "section_id": "s067",
+          "block_chars": 1200,
+          "block_lines": 22,
+          "matched_rows": [
+           "2. 审议及批准本公司截至2024年12月31日止年度之利润分配方案并宣布派发末期股息（赞成票比率为99.9698%）；"
+          ],
+          "section_path": [
+           "股东价值与沟通",
+           "2025年股东周年大会",
+           "2026年股东周年大会",
+           "股东日志"
+          ],
+          "matched_terms": [
+           "利润分配方案"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 600
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 49.832316024972684,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "中国移动有限公司 合并财务报表附注截至2025年 12月31日止年度财务报表(除特别注明外，金额单位为人民币百万元) ## 十一 资产负债表日期后事项 ## 股息分配 董事会于2026年3月26日提议本公司向全体股东派发截至2025年12月31日止年度末期股息每股 2.520港元，股息将以港元计价并宣派，其中 A股股息将以人民币支付，折算汇率按董事会宣派股息之日前一周的中国人民银行公布的港元对人民",
+          "block_id": "annual_chinamobile_2025_report_b0395",
+          "has_table": false,
+          "section_id": "s336",
+          "block_chars": 639,
+          "block_lines": 15,
+          "matched_rows": [],
+          "section_path": [
+           "十 承诺事项",
+           "十一 资产负债表日期后事项",
+           "股息分配",
+           "增值税"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 320
+         }
+        ]
+       },
+       {
+        "query": "中期股息 每股",
+        "doc_id": "annual_chinamobile_2025_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "本公司",
+           "value": "reporting_company",
+           "signals": [
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 39.19762689643781,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "公司简称：中国移动 股票代码：600941 ![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg) ![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg) ## 中国移动有限公司2025年",
+          "block_id": "annual_chinamobile_2025_report_b0001",
+          "has_table": false,
+          "section_id": "s006",
+          "block_chars": 1058,
+          "block_lines": 20,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。"
+          ],
+          "section_path": [
+           "目 录",
+           "公司简介",
+           "于《会计及财务汇报局条例》下的注册公众利益实体核数师",
+           "近三年主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "中期股息",
+           "每股"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 529
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "母公司",
+           "value": "parent_company",
+           "signals": [
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 38.4140510978948,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "。 ## 董事长报告书 尊敬的各位股东： 2025 年，面对错综复杂的外部环境和诸多压力挑战，公司各方面工作取得积极成效，经营发展稳中有进，运营能力全面升级，改革创新成效显著，“十四五”实现圆满收官。 2025年公司营业收入稳健增长，达到人民币10,502亿元，同比增长0.9%； 主营业务收入<sup>1</sup>达到人民币8,955亿元，同比增长0.7%。 通信服务<sup>2</sup>收入",
+          "block_id": "annual_chinamobile_2025_report_b0011",
+          "has_table": false,
+          "section_id": "s028",
+          "block_chars": 1171,
+          "block_lines": 30,
+          "matched_rows": [
+           "归属于母公司股东的净利润为人民币1,371亿元，同比下降 0.9%，同口径<sup>6</sup>同比增长 2.0%，基本每股收益为人民币6.35 元；",
+           "董事会建议向全体股东派发截至 2025 年 12 月 31 日止年度末期股息每股 2.52 港元<sup>7</sup>，连同已派发的中期股息，2025年全年股息合计每股5.27 港元，同比增长3.5%。"
+          ],
+          "section_path": [
+           "未来展望",
+           "致谢",
+           "业务概览",
+           "主要运营数据"
+          ],
+          "matched_terms": [
+           "中期股息",
+           "每股"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 586
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 37.398992937972515,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "至 2025 年 12月 31日止年度内，本公司董事、其紧密联系人或任何股东（据董事会所知，拥有本公司 5%以上已发行股份数目者）概无在这五个最大供应商中拥有任何权益。 ## 主要子公司及长期股权投资 而本公司各附属公司的董事名单已载于本公司网站。 ## 财务报表 本公司截至 2025年 12月 31 日止年度的利润和本公司及本公司于该日的财政状况载于本年报财务报告章节。 股息 本公司董事会已采纳",
+          "block_id": "annual_chinamobile_2025_report_b0065",
+          "has_table": false,
+          "section_id": "s107",
+          "block_chars": 1193,
+          "block_lines": 43,
+          "matched_rows": [
+           "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。"
+          ],
+          "section_path": [
+           "李嘉士",
+           "梁高美懿",
+           "董事在重要交易、安排或合约中的利害关系",
+           "获准许的弥偿条文"
+          ],
+          "matched_terms": [
+           "中期股息",
+           "每股"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 597
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "口径不明",
+           "value": "unknown",
+           "signals": [],
+           "ambiguous": true
+          },
+          "score": 30.01820352389118,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "| 财政年度 | 财政年度 | 每股基本股息(港币) | 每股总股息(港币) | | --- | --- | --- | --- | | 2025 | 末期1 | $2.520^2$ | 5.270 | | 2025 | 中期 | 2.750 | | | 2024 | 末期 | 2.490 | 5.090 | | 2024 | 中期 | 2.600 | | | 2023 | 末期 | 2.400 ",
+          "block_id": "annual_chinamobile_2025_report_b0038",
+          "has_table": true,
+          "section_id": "s064",
+          "block_chars": 346,
+          "block_lines": 12,
+          "matched_rows": [
+           "| 财政年度 | 财政年度 | 每股基本股息(港币) | 每股总股息(港币) |"
+          ],
+          "section_path": [
+           "1. 要求传阅股东周年大会决议",
+           "2. 请求召开股东特别大会",
+           "3. 在股东大会上建议选举退任董事以外的其他人士为董事",
+           "股东价值与沟通"
+          ],
+          "matched_terms": [
+           "每股"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 173
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "口径不明",
+           "value": "unknown",
+           "signals": [],
+           "ambiguous": true
+          },
+          "score": 27.263154106227926,
+          "doc_id": "annual_chinamobile_2025_report",
+          "preview": "| 3月26日 | 宣布截至2025年12月31日止全年业绩及末期股息;2025年A股年报载列于公司和上海交易所网站 | | --- | --- | | 5月21日 | 2026年股东周年大会 | | 8月中旬 | 宣布截至2026年6月30日止中期业绩及中期股息(如有) |",
+          "block_id": "annual_chinamobile_2025_report_b0041",
+          "has_table": true,
+          "section_id": "s067",
+          "block_chars": 138,
+          "block_lines": 4,
+          "matched_rows": [
+           "| 8月中旬 | 宣布截至2026年6月30日止中期业绩及中期股息(如有) |"
+          ],
+          "section_path": [
+           "股东价值与沟通",
+           "2025年股东周年大会",
+           "2026年股东周年大会",
+           "股东日志"
+          ],
+          "matched_terms": [
+           "中期股息"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 69
+         }
+        ]
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 9,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"queries\": [\"末期股息 每股 港元\", \"全年股息 派息率 利润分配方案\", \"中期股息 每股\"], \"top_k\": 5}",
+    "reasoning": "Let me read the key block b0001 and the dividend section blocks. Let me search within document.",
+    "tool_name": "search_in_document",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 14,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "公司简称：中国移动\n股票代码：600941\n![](images/1e592123f1d1e8e65a2a716d5b3d8d7595412163be5b3c6d21503cac7d82d238.jpg)\n![](images/6ab7b867a820a7c2c02d57ea51a87c33b2bc64ff78a4ada9bdfe4df943624976.jpg)\n## 中国移动有限公司2025年年度报告\n## 重要提示\n中国移动有限公司（“本公司”或“公司”）董事会及董事、高级管理人员保证年度报告内容的真实性、准确性、完整性，不存在虚假记载、误导性陈述或重大遗漏，并承担个别和连带的法律责任。\n本年度报告已经公司 2026年第一次董事会审议通过。\n本次会议应出席董事 7 名，实际出席董事7名。\n本公司分别按照中国企业会计准则及国际财务报告会计准则/香港财务报告会计准则编制财务报告。\n本公司按中国企业会计准则及国际财务报告会计准则/香港财务报告会计准则编制的 2025 年度财务报告已分别经毕马威华振会计师事务所（特殊普通合伙）及毕马威会计师事务所审计并出具标准无保留意见的审计报告。\n公司负责人陈忠岳、主管会计工作负责人李荣华及会计机构负责人（会计主管人员）胡宇霆声明：保证年度报告中财务报告的真实、准确、完整。\n董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。\n2025年全年派息率为75%。\n为更好地回馈股东、共享发展成果，公司充分考虑盈利能力、现金流状况及未来发展需要，2026 年派息率将稳中有升。\n公司 2025 年度利润分配方案已经 2026 年第一次董事会审议通过，尚需公司 2026年股东周年大会审议。\n本年度报告载有若干涉及本公司未来计划、发展战略等事宜的前瞻性陈述，不构成公司对投资者的实质承诺。\n该等前瞻性陈述涉及已知和未知的风险、不确定性及其他因素，而相关因素可能导致本公司的实际表现、财务状况或经营业绩与前瞻性陈述中所暗示的有重大出入，敬请投资者注意投资风险。\n本公司不存在被控股股东及其关联方非经营性占用资金的情形，不存在违反规定决策程序对外提供担保的情形，亦不存在半数以上董事无法保证公司所披露年度报告的真实性、准确性和完整性的情形。\n公司已在本年度报告中描述了可能存在的外部环境和市场竞争方面的风险，敬请查阅“董事长报告书”章节之“未来展望”相关内容。",
+      "scope": {
+       "label": "本公司",
+       "value": "reporting_company",
+       "signals": [
+        "reporting_company"
+       ],
+       "ambiguous": false
+      },
+      "doc_id": "annual_chinamobile_2025_report",
+      "block_id": "annual_chinamobile_2025_report_b0001",
+      "complete": true,
+      "has_table": false,
+      "row_offset": 0,
+      "section_id": "s006",
+      "block_chars": 1058,
+      "block_lines": 20,
+      "next_row_offset": null,
+      "remaining_lines": 0,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 20
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 10,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"block_id\": \"annual_chinamobile_2025_report_b0001\"}",
+    "reasoning": "I have enough. Now let me read b0001 to cite. Also b0395 and b0038 for the interim dividend 2.750.\n\nLet me read b0001 and b0395.",
+    "tool_name": "read_section",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 15,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "end": 647,
+      "level": "exact",
+      "quote": "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。",
+      "start": 563,
+      "doc_id": "annual_chinamobile_2025_report",
+      "block_id": "annual_chinamobile_2025_report_b0001",
+      "grounded": true,
+      "matched_text": "董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。"
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 11,
+    "arguments": "{\"doc_id\": \"annual_chinamobile_2025_report\", \"block_id\": \"annual_chinamobile_2025_report_b0001\", \"quote\": \"董事会建议向全体股东派发截至 2025年12月31日止年度末期股息每股2.52港元，连同已派发的中期股息，2025 年全年股息合计每股5.27 港元，同比增长3.5%。\"}",
+    "reasoning": "I have sufficient evidence. Let me write the final answer. The question asks: what is China Mobile's 2025 profit distribution plan? It's a descriptive question. The answer should include the key points.\n\nLet me finalize with a comprehensive answer.",
+    "tool_name": "cite",
+    "attempt_id": 70,
+    "citation_no": 1
+   }
+  },
+  {
+   "seq": 16,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "raw": [
+       "董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元；连同已派发的中期股息（每股2.75港元），2025年全年股息合计每股5.27港元，同比增长3.5%。2025年全年派息率为75%，2026年派息率将稳中有升。末期股息以港元计价并宣派，A股股息以人民币支付，折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算；拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数变化，拟维持每股派息金额不变、相应调整利润分配总额。该利润分配方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议。"
+      ],
+      "submitted": [
+       "董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元;连同已派发的中期股息(每股2.75港元),2025年全年股息合计每股5.27港元,同比增长3.5%。2025年全年派息率为75%,2026年派息率将稳中有升。末期股息以港元计价并宣派,A股股息以人民币支付,折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算;拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数变化,拟维持每股派息金额不变、相应调整利润分配总额。该利润分配方案已经2026年第一次董事会审议通过,尚需2026年股东周年大会审议。"
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 12,
+    "arguments": "{\"answers\": [\"董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元；连同已派发的中期股息（每股2.75港元），2025年全年股息合计每股5.27港元，同比增长3.5%。2025年全年派息率为75%，2026年派息率将稳中有升。末期股息以港元计价并宣派，A股股息以人民币支付，折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算；拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数变化，拟维持每股派息金额不变、相应调整利润分配总额。该利润分配方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议。\"]}",
+    "reasoning": "I have enough. Finalize.",
+    "tool_name": "finalize",
+    "attempt_id": 70,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 17,
+   "type": "answer_written",
+   "data": {
+    "text": "中国移动2025年度利润分配方案为：董事会建议派发末期股息每股2.52港元，全年股息合计每股5.27港元，全年派息率75%。\n\n董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元[1]；连同已派发的中期股息每股2.75港元，2025年全年股息合计每股5.27港元，同比增长3.5%[1]。2025年全年派息率为75%[1]，2026年派息率将稳中有升。末期股息以港元计价并宣派，A股股息以人民币支付，折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算；拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数发生变化，拟维持每股派息金额不变，相应调整利润分配总额。该方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议。",
+    "citations": [
+     1
+    ],
+    "attempt_id": 70,
+    "unverified": []
+   }
+  },
+  {
+   "seq": 18,
+   "type": "attempt_finished",
+   "data": {
+    "final": {
+     "raw": [
+      "董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元；连同已派发的中期股息（每股2.75港元），2025年全年股息合计每股5.27港元，同比增长3.5%。2025年全年派息率为75%，2026年派息率将稳中有升。末期股息以港元计价并宣派，A股股息以人民币支付，折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算；拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数变化，拟维持每股派息金额不变、相应调整利润分配总额。该利润分配方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议。"
+     ],
+     "name": "finalize",
+     "written": {
+      "text": "中国移动2025年度利润分配方案为：董事会建议派发末期股息每股2.52港元，全年股息合计每股5.27港元，全年派息率75%。\n\n董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元[1]；连同已派发的中期股息每股2.75港元，2025年全年股息合计每股5.27港元，同比增长3.5%[1]。2025年全年派息率为75%[1]，2026年派息率将稳中有升。末期股息以港元计价并宣派，A股股息以人民币支付，折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算；拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数发生变化，拟维持每股派息金额不变，相应调整利润分配总额。该方案已经2026年第一次董事会审议通过，尚需2026年股东周年大会审议。",
+      "citations": [
+       1
+      ],
+      "unverified": []
+     },
+     "submitted": [
+      "董事会建议向全体股东派发截至2025年12月31日止年度末期股息每股2.52港元;连同已派发的中期股息(每股2.75港元),2025年全年股息合计每股5.27港元,同比增长3.5%。2025年全年派息率为75%,2026年派息率将稳中有升。末期股息以港元计价并宣派,A股股息以人民币支付,折算汇率按宣派之日前一周中国人民银行公布的港元对人民币中间价平均值计算;拟宣派末期股息按2025年12月31日汇率折算合计人民币492.66亿元。若已发行股份总数变化,拟维持每股派息金额不变、相应调整利润分配总额。该利润分配方案已经2026年第一次董事会审议通过,尚需2026年股东周年大会审议。"
+     ]
+    },
+    "violation": null,
+    "attempt_id": 70
+   }
+  }
+ ]
+}

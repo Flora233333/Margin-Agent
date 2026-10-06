@@ -1,0 +1,55 @@
+{
+ "source_run": 84,
+ "detail": {
+  "id": 84,
+  "question": "比亚迪 2024 年研发投入是多少亿元？",
+  "title": null,
+  "answer_label": null,
+  "options": null,
+  "answer_format": null,
+  "guessed_format": null,
+  "model": "DeepSeek",
+  "status": "failed",
+  "created_at": "2026-10-06T12:15:36.500905Z",
+  "attempts": [
+   {
+    "attempt_no": 1,
+    "trigger": "submit",
+    "status": "failed",
+    "final": null,
+    "violation": null,
+    "error": "llm_http_500",
+    "started_at": "2026-10-06T12:15:36.514349Z",
+    "finished_at": "2026-10-06T12:15:36.548165Z",
+    "steps": []
+   }
+  ]
+ },
+ "events": [
+  {
+   "seq": 1,
+   "type": "attempt_queued",
+   "data": {
+    "trigger": "submit",
+    "attempt_id": 86,
+    "attempt_no": 1
+   }
+  },
+  {
+   "seq": 2,
+   "type": "attempt_started",
+   "data": {
+    "epoch": 1,
+    "attempt_id": 86
+   }
+  },
+  {
+   "seq": 3,
+   "type": "attempt_failed",
+   "data": {
+    "error": "llm_http_500",
+    "attempt_id": 86
+   }
+  }
+ ]
+}

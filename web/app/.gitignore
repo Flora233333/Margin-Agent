@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+# Playwright 的失败截图、报告
+test-results
+playwright-report
 dist-ssr
 *.local
 

@@ -1,0 +1,1019 @@
+{
+ "source_run": 87,
+ "detail": {
+  "id": 87,
+  "question": "美的集团 2024 年的资产负债率是多少？",
+  "title": "美的集团 2024 年资产负债率",
+  "answer_label": "美的集团 · 2024 年资产负债率（%）",
+  "options": null,
+  "answer_format": null,
+  "guessed_format": "pct",
+  "model": "DeepSeek",
+  "status": "completed",
+  "created_at": "2026-10-06T13:09:38.465973Z",
+  "attempts": [
+   {
+    "attempt_no": 1,
+    "trigger": "submit",
+    "status": "completed",
+    "final": {
+     "raw": [
+      "62.33%"
+     ],
+     "name": "finalize",
+     "written": {
+      "text": "美的集团2024年的资产负债率为62.33%[1]。\n\n根据美的集团2024年年度报告披露，资产负债率本报告期为62.33%，上年同期为64.14%，变动为-1.81%[1]。",
+      "citations": [
+       1
+      ],
+      "unverified": []
+     },
+     "submitted": [
+      "62.33%"
+     ]
+    },
+    "violation": null,
+    "error": null,
+    "started_at": "2026-10-06T13:09:43.238758Z",
+    "finished_at": "2026-10-06T13:09:55.470130Z",
+    "steps": []
+   }
+  ]
+ },
+ "events": [
+  {
+   "seq": 1,
+   "type": "attempt_queued",
+   "data": {
+    "trigger": "submit",
+    "attempt_id": 89,
+    "attempt_no": 1
+   }
+  },
+  {
+   "seq": 2,
+   "type": "attempt_started",
+   "data": {
+    "epoch": 1,
+    "attempt_id": 89
+   }
+  },
+  {
+   "seq": 3,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "query": "美的集团 2024年 资产负债率",
+      "results": [
+       {
+        "rank": 1,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "group",
+          "parent_company",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03278688524590164,
+        "doc_id": "annual_midea_2024_report",
+        "preview": "## (3) 员工持股计划 根据 2024 年期间召开的 2023 年年度股东大会审议通过的美的集团 2024 年持股计划(“2024 年持股计划”)，授予 20,106,662 股股票，授予的职工股票的行权期为授予日起二年、三年和四年。 根据公司业绩考核和个人业绩考核，将分别授予 40%、30%和 30%的员工持股计划。 根据 2023年期间召开的 2022年年度股东大会审议通过的美的集团 20",
+        "has_table": false,
+        "section_id": "s437",
+        "block_chars": 1183,
+        "block_lines": 25,
+        "section_path": [
+         "(1) 资本性支出承诺事项",
+         "十三 资产负债表日后事项",
+         "(1) 利润分配情况说明",
+         "十四 资产负债表日后经营租赁收款额"
+        ],
+        "best_block_id": "annual_midea_2024_report_b0509",
+        "contributions": {
+         "block_bm25": 1,
+         "chroma_dense_block": 1
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 592
+       },
+       {
+        "rank": 2,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "group"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.03225806451612903,
+        "doc_id": "annual_midea_2025_report",
+        "preview": "2025 年度财务报表附注(除特别注明外，金额单位为人民币千元) ## 十 股份支付(续) ## (3) 员工持股计划 根据 2025 年期间召开的 2024 年年度股东大会审议通过的美的集团 2025 年A 股持股计划(“2025 年 A 股持股计划”)和 2025 年 H 股股份奖励计划(“2025 年 H 股奖励计划”)，分别授予 17,361,485 股 A 股股票和 1,243,100股",
+        "has_table": false,
+        "section_id": "s432",
+        "block_chars": 1199,
+        "block_lines": 24,
+        "section_path": [
+         "(3) 员工持股计划",
+         "十一 或有事项",
+         "十二 承诺事项",
+         "(1) 资本性支出承诺事项"
+        ],
+        "best_block_id": "annual_midea_2025_report_b0493",
+        "contributions": {
+         "block_bm25": 2,
+         "chroma_dense_block": 2
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 600
+       },
+       {
+        "rank": 3,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_bank"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.03149801587301587,
+        "doc_id": "text10",
+        "preview": "| 财务指标 | 公司名称 | 2024年12月31日/2024年度 | 2023年12月31日/2023年度 | | --- | --- | --- | --- | | 流动比率 | 同仁堂 | 3.12 | 3.26 | | 流动比率 | 达仁堂 | 2.35 | 2.03 | | 流动比率 | 东阿阿胶 | 3.95 | 4.38 | | 流动比率 | 佛慈制药 | 未披露 | 2.65 |",
+        "has_table": true,
+        "section_id": "s695",
+        "block_chars": 798,
+        "block_lines": 26,
+        "section_path": [
+         "（1）长期借款",
+         "（2）租赁负债",
+         "（3）长期应付款",
+         "（三）偿债能力分析"
+        ],
+        "best_block_id": "text10_b0777",
+        "contributions": {
+         "block_bm25": 3,
+         "chroma_dense_block": 4
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 399
+       },
+       {
+        "rank": 4,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "reporting_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.029411764705882353,
+        "doc_id": "text04",
+        "preview": "| 主要财务指标 | 公司名称 | 2024.12.31 | 2023.12.31 | 2022.12.31 | | --- | --- | --- | --- | --- | | 流动比率(倍) | 绿联科技 | 3.89 | 3.93 | 3.85 | | 流动比率(倍) | 华宝新能 | 5.45 | 7.38 | 6.70 | | 流动比率(倍) | 睿联技术 | 未披露 | 4.14 |",
+        "has_table": true,
+        "section_id": "s367",
+        "block_chars": 837,
+        "block_lines": 20,
+        "section_path": [
+         "（7）递延所得税负债",
+         "（三）偿债能力分析",
+         "1、公司的偿债能力和流动性风险",
+         "2、可比公司偿债能力、流动性指标对比"
+        ],
+        "best_block_id": "text04_b0267",
+        "contributions": {
+         "block_bm25": 8,
+         "chroma_dense_block": 8
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 419
+       },
+       {
+        "rank": 5,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.015873015873015872,
+        "doc_id": "annual_cscec_2024_report",
+        "preview": "| 主要指标 | 2024年 | 2023年 | 本报告期末比上年度末增减(%) | 变动原因 | | --- | --- | --- | --- | --- | | 归属于上市公司股东的扣除非经常性损益的净利润 | 41,581,095 | 48,538,669 | -14.3 | 经营性利润减少 | | 流动比率(%) | 129.4 | 128.8 | 增加0.6个百分点 | / | | 速",
+        "has_table": true,
+        "section_id": "s291",
+        "block_chars": 545,
+        "block_lines": 12,
+        "section_path": [
+         "<sub>告期内公司债</sub><sup>券相关重</sup>",
+         "<sub>项品种债券</sub><sup>应当披露的其</sup>",
+         "<sub>公司债券</sub>募<sup>集资金</sup>",
+         "4. 报告期末募集资金使用情况"
+        ],
+        "best_block_id": "annual_cscec_2024_report_b0230",
+        "contributions": {
+         "chroma_dense_block": 3
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 273
+       },
+       {
+        "rank": 6,
+        "scope": {
+         "label": "母公司",
+         "value": "parent_company",
+         "signals": [
+          "parent_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015625,
+        "doc_id": "text01",
+        "preview": "要系质押其持有的子公司股权，截至 2025年6月末，将持有的东江环保占总股本 2.01%的股票质押给中国建设银行进行质押融资，将持有的风华高科占总股本 6.79%的股票质押给国家开发银行进行质押融资。 关于有息债务，截至 2025年 6月末，发行人母公司有息债务余额为 436.14亿元。 关于股权质押，发行人股东未将其持有的发行人股权进行质押。 关于子公司分红政策，发行人对上市子公司的分红政策有较",
+        "has_table": false,
+        "section_id": "s071",
+        "block_chars": 1179,
+        "block_lines": 19,
+        "section_path": [
+         "第二节 发行概况",
+         "一、本期发行的基本情况",
+         "（一）本次发行的内部批准情况及注册情况",
+         "（二）本期债券的主要条款"
+        ],
+        "best_block_id": "text01_b0014",
+        "contributions": {
+         "block_bm25": 4
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 590
+       },
+       {
+        "rank": 7,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company"
+         ],
+         "ambiguous": true
+        },
+        "score": 0.015384615384615385,
+        "doc_id": "annual_cscec_2025_report",
+        "preview": "| 主要指标 | 2025年 | 2024年 | 本报告期末比上年度末增减(%) | 变动原因 | | --- | --- | --- | --- | --- | | 归属于上市公司股东的扣除非经常性损益的净利润 | 31,934,462 | 41,579,271 | -23.2 | 经营性利润减少 | | 流动比率(%) | 126.2 | 129.4 | 减少3.2个百分点 | / | | 速",
+        "has_table": true,
+        "section_id": "s266",
+        "block_chars": 522,
+        "block_lines": 12,
+        "section_path": [
+         "（五）银行间债券市场非金融企业债务融资工具",
+         "<sub>告期内公司债</sub><sup>券相关重</sup>",
+         "4. 报告期末募集资金使用情况",
+         "5. 信用评级结果调整情况"
+        ],
+        "best_block_id": "annual_cscec_2025_report_b0223",
+        "contributions": {
+         "chroma_dense_block": 5
+        },
+        "scope_ambiguity": true,
+        "estimated_tokens": 261
+       },
+       {
+        "rank": 8,
+        "scope": {
+         "label": "混合口径",
+         "value": "mixed",
+         "signals": [
+          "consolidated",
+          "parent_company",
+          "reporting_company"
+         ],
+         "ambiguous": false
+        },
+        "score": 0.015384615384615385,
+        "doc_id": "text02",
+        "preview": "以下简称“公司”、“发行人”）最近一期期末净资产为 54.49亿元（2025年 9月 30日合并财务报表中的所有者权益合计），合并口径资产负债率为 83.30%，母公司口径资产负债率为 86.90%； 发行人在本次发行前的财务指标符合相关规定。 二、发行人所属租赁业是资本密集型行业，用于租赁设备购置等资本性支出的资金除部分来源于自有资金外，主要来源于外部资金，因此融资租赁公司的资产负债率水平普遍较",
+        "has_table": false,
+        "section_id": "s008",
+        "block_chars": 1185,
+        "block_lines": 16,
+        "section_path": [
+         "十一、重要投资者保护条款",
+         "十二、投资者适当性条款",
+         "目 录",
+         "释 义"
+        ],
+        "best_block_id": "text02_b0002",
+        "contributions": {
+         "block_bm25": 5
+        },
+        "scope_ambiguity": false,
+        "estimated_tokens": 593
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 0,
+    "arguments": "{\"query\": \"美的集团 2024年 资产负债率\"}",
+    "reasoning": "The user asks: 美的集团 2024年的资产负债率是多少? Need to find. Let me search.",
+    "tool_name": "search_docs",
+    "attempt_id": 89,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 4,
+   "type": "run_understood",
+   "data": {
+    "label": "美的集团 · 2024 年资产负债率（%）",
+    "title": "美的集团 2024 年资产负债率",
+    "answer_format": "pct"
+   }
+  },
+  {
+   "seq": 5,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "doc_id": "annual_midea_2024_report",
+      "queries": [
+       "资产负债率",
+       "资产负债率 合并",
+       "主要会计数据 资产负债率"
+      ],
+      "query_results": [
+       {
+        "query": "资产负债率",
+        "doc_id": "annual_midea_2024_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 20.685214309543237,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | | | --- | --- ",
+          "block_id": "annual_midea_2024_report_b0182",
+          "has_table": true,
+          "section_id": "s179",
+          "block_chars": 4019,
+          "block_lines": 42,
+          "matched_rows": [
+           "| 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 7,093,294 | 7,093,294 | 7,093,294 | 7,093,294 | 7,093,294 |"
+          ],
+          "section_path": [
+           "6、公司控股的财务公司与关联方的往来情况",
+           "7、其他重大关联交易",
+           "十五、重大合同及其履行情况",
+           "2、重大担保"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 2010
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 19.6011286114792,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "(i) 本集团根据资产净值确定报告日的公允价值。 (ii) 除上述情况外，不存在重大影响其公允价值的不可观察输入值。 (除特别注明外，金额单位为人民币千元) ## (2) 不以公允价值计量但披露其公允价值的资产和负债 本集团以摊余成本计量的金融资产和金融负债主要包括：货币资金、应收票据、应收账款、合同资产、发放贷款和垫款、其他应收款、长期应收款、一年内到期的非流动资产(剔除附注四(12)提及一年内",
+          "block_id": "annual_midea_2024_report_b0528",
+          "has_table": false,
+          "section_id": "s451",
+          "block_chars": 611,
+          "block_lines": 11,
+          "matched_rows": [
+           "本集团不受制于外部强制性资本要求，利用资产负债率(以总负债除以总资产)监控资本结构。",
+           "于 2024 年 12 月 31 日及 2023 年 12 月 31 日，本集团的资产负债率列示如下："
+          ],
+          "section_path": [
+           "(1) 持续的以公允价值计量的资产与负债(续)",
+           "(b) 估值输入值与公允价值的关系",
+           "(2) 不以公允价值计量但披露其公允价值的资产和负债",
+           "十七 资本管理"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 306
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 17.422574674740545,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| | 2024年12月31日 | 2023年12月31日 | | --- | --- | --- | | 总负债 | 376,684,462 | 311,738,535 | | 总资产 | 604,351,853 | 486,038,184 | | 资产负债率 | 62.33% | 64.14% |",
+          "block_id": "annual_midea_2024_report_b0529",
+          "has_table": true,
+          "section_id": "s451",
+          "block_chars": 152,
+          "block_lines": 5,
+          "matched_rows": [
+           "| 资产负债率 | 62.33% | 64.14% |"
+          ],
+          "section_path": [
+           "(1) 持续的以公允价值计量的资产与负债(续)",
+           "(b) 估值输入值与公允价值的关系",
+           "(2) 不以公允价值计量但披露其公允价值的资产和负债",
+           "十七 资本管理"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 76
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 16.683629182309794,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| 项目 | 本报告期末 | 上年末 | 本报告期末比上年末增减 | | --- | --- | --- | --- | | 流动比率 | 110.59% | 111.97% | -1.38% | | 资产负债率 | 62.33% | 64.14% | -1.81% | | 速动比率 | 85.94% | 87.95% | -2.01% | | | 本报告期 | 上年同期 | 本报告期比上年同期增",
+          "block_id": "annual_midea_2024_report_b0205",
+          "has_table": true,
+          "section_id": "s215",
+          "block_chars": 490,
+          "block_lines": 13,
+          "matched_rows": [
+           "| 资产负债率 | 62.33% | 64.14% | -1.81% |"
+          ],
+          "section_path": [
+           "五、报告期内合并报表范围亏损超过上年末净资产 10%",
+           "六、报告期末除债券外的有息债务逾期情况",
+           "七、报告期内是否有违反规章制度的情况",
+           "八、截至报告期末公司近两年的主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 245
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company",
+            "reporting_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 13.844454543327814,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "团于资产负债表日，已签约而尚不必在资产负债表上列示的资本性支出承诺： 2024 年 12 月 31 日 2023 年 12 月 31 日 房屋、建筑物及机器设备 4,595,387 4,005,911 于 2025年 2 月，本集团以 5.42 亿欧元的交易对价完成了此次收购。 于 2024 年 6 月, 本集团与 Heritage B B.V.达成一项收购 Teka Industrial,S.A",
+          "block_id": "annual_midea_2024_report_b0510",
+          "has_table": false,
+          "section_id": "s437",
+          "block_chars": 575,
+          "block_lines": 14,
+          "matched_rows": [],
+          "section_path": [
+           "(1) 资本性支出承诺事项",
+           "十三 资产负债表日后事项",
+           "(1) 利润分配情况说明",
+           "十四 资产负债表日后经营租赁收款额"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 288
+         }
+        ]
+       },
+       {
+        "query": "资产负债率 合并",
+        "doc_id": "annual_midea_2024_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 29.303317268215498,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "(i) 本集团根据资产净值确定报告日的公允价值。 (ii) 除上述情况外，不存在重大影响其公允价值的不可观察输入值。 (除特别注明外，金额单位为人民币千元) ## (2) 不以公允价值计量但披露其公允价值的资产和负债 本集团以摊余成本计量的金融资产和金融负债主要包括：货币资金、应收票据、应收账款、合同资产、发放贷款和垫款、其他应收款、长期应收款、一年内到期的非流动资产(剔除附注四(12)提及一年内",
+          "block_id": "annual_midea_2024_report_b0528",
+          "has_table": false,
+          "section_id": "s451",
+          "block_chars": 611,
+          "block_lines": 11,
+          "matched_rows": [
+           "本集团不受制于外部强制性资本要求，利用资产负债率(以总负债除以总资产)监控资本结构。",
+           "于 2024 年 12 月 31 日及 2023 年 12 月 31 日，本集团的资产负债率列示如下："
+          ],
+          "section_path": [
+           "(1) 持续的以公允价值计量的资产与负债(续)",
+           "(b) 估值输入值与公允价值的关系",
+           "(2) 不以公允价值计量但披露其公允价值的资产和负债",
+           "十七 资本管理"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 306
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 28.8307612393542,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "3,000 元)。 本集团财务部门负责管理汇率波动风险，通过组建专业团队，结算币种的自然对冲、签署远期外汇对冲合约和控制外币资产负债规模等措施最大程度地降低上述外汇风险，减少汇率波动对经营业绩的影响。 2024年度财务报表附注 (除特别注明外，金额单位为人民币千元) (1) 市场风险(续) (b) 利率风险 本集团的利率风险主要产生于长期银行借款及应付债券等带息债务。 浮动利率的金融负债使本集团面",
+          "block_id": "annual_midea_2024_report_b0513",
+          "has_table": false,
+          "section_id": "s443",
+          "block_chars": 1111,
+          "block_lines": 24,
+          "matched_rows": [],
+          "section_path": [
+           "(1) 市场风险",
+           "(c) 其他价格风险",
+           "(2) 信用风险",
+           "(3) 流动性风险"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 556
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 27.47126348093541,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | | | --- | --- ",
+          "block_id": "annual_midea_2024_report_b0182",
+          "has_table": true,
+          "section_id": "s179",
+          "block_chars": 4019,
+          "block_lines": 42,
+          "matched_rows": [
+           "| 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 7,093,294 | 7,093,294 | 7,093,294 | 7,093,294 | 7,093,294 |"
+          ],
+          "section_path": [
+           "6、公司控股的财务公司与关联方的往来情况",
+           "7、其他重大关联交易",
+           "十五、重大合同及其履行情况",
+           "2、重大担保"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 2010
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 27.153743935388277,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| | 2024年12月31日 | 2023年12月31日 | | --- | --- | --- | | 总负债 | 376,684,462 | 311,738,535 | | 总资产 | 604,351,853 | 486,038,184 | | 资产负债率 | 62.33% | 64.14% |",
+          "block_id": "annual_midea_2024_report_b0529",
+          "has_table": true,
+          "section_id": "s451",
+          "block_chars": 152,
+          "block_lines": 5,
+          "matched_rows": [
+           "| 资产负债率 | 62.33% | 64.14% |"
+          ],
+          "section_path": [
+           "(1) 持续的以公允价值计量的资产与负债(续)",
+           "(b) 估值输入值与公允价值的关系",
+           "(2) 不以公允价值计量但披露其公允价值的资产和负债",
+           "十七 资本管理"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 76
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 25.021298130326027,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| 项目 | 本报告期末 | 上年末 | 本报告期末比上年末增减 | | --- | --- | --- | --- | | 流动比率 | 110.59% | 111.97% | -1.38% | | 资产负债率 | 62.33% | 64.14% | -1.81% | | 速动比率 | 85.94% | 87.95% | -2.01% | | | 本报告期 | 上年同期 | 本报告期比上年同期增",
+          "block_id": "annual_midea_2024_report_b0205",
+          "has_table": true,
+          "section_id": "s215",
+          "block_chars": 490,
+          "block_lines": 13,
+          "matched_rows": [
+           "| 资产负债率 | 62.33% | 64.14% | -1.81% |"
+          ],
+          "section_path": [
+           "五、报告期内合并报表范围亏损超过上年末净资产 10%",
+           "六、报告期末除债券外的有息债务逾期情况",
+           "七、报告期内是否有违反规章制度的情况",
+           "八、截至报告期末公司近两年的主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 245
+         }
+        ]
+       },
+       {
+        "query": "主要会计数据 资产负债率",
+        "doc_id": "annual_midea_2024_report",
+        "results": [
+         {
+          "rank": 1,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company"
+           ],
+           "ambiguous": false
+          },
+          "score": 54.5370109060164,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "(i) 本集团根据资产净值确定报告日的公允价值。 (ii) 除上述情况外，不存在重大影响其公允价值的不可观察输入值。 (除特别注明外，金额单位为人民币千元) ## (2) 不以公允价值计量但披露其公允价值的资产和负债 本集团以摊余成本计量的金融资产和金融负债主要包括：货币资金、应收票据、应收账款、合同资产、发放贷款和垫款、其他应收款、长期应收款、一年内到期的非流动资产(剔除附注四(12)提及一年内",
+          "block_id": "annual_midea_2024_report_b0528",
+          "has_table": false,
+          "section_id": "s451",
+          "block_chars": 611,
+          "block_lines": 11,
+          "matched_rows": [
+           "本集团不受制于外部强制性资本要求，利用资产负债率(以总负债除以总资产)监控资本结构。",
+           "于 2024 年 12 月 31 日及 2023 年 12 月 31 日，本集团的资产负债率列示如下："
+          ],
+          "section_path": [
+           "(1) 持续的以公允价值计量的资产与负债(续)",
+           "(b) 估值输入值与公允价值的关系",
+           "(2) 不以公允价值计量但披露其公允价值的资产和负债",
+           "十七 资本管理"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 306
+         },
+         {
+          "rank": 2,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group",
+            "parent_company"
+           ],
+           "ambiguous": true
+          },
+          "score": 49.4457913850784,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| | 2024年12月31日 | 2023年12月31日 | | --- | --- | --- | | 总负债 | 376,684,462 | 311,738,535 | | 总资产 | 604,351,853 | 486,038,184 | | 资产负债率 | 62.33% | 64.14% |",
+          "block_id": "annual_midea_2024_report_b0529",
+          "has_table": true,
+          "section_id": "s451",
+          "block_chars": 152,
+          "block_lines": 5,
+          "matched_rows": [
+           "| 资产负债率 | 62.33% | 64.14% |"
+          ],
+          "section_path": [
+           "(1) 持续的以公允价值计量的资产与负债(续)",
+           "(b) 估值输入值与公允价值的关系",
+           "(2) 不以公允价值计量但披露其公允价值的资产和负债",
+           "十七 资本管理"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": true,
+          "estimated_tokens": 76
+         },
+         {
+          "rank": 3,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 48.62462767976608,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | 公司对外担保情况(不包括对子公司的担保) | | | --- | --- ",
+          "block_id": "annual_midea_2024_report_b0182",
+          "has_table": true,
+          "section_id": "s179",
+          "block_chars": 4019,
+          "block_lines": 42,
+          "matched_rows": [
+           "| 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 直接或间接为资产负债率超过70%的被担保对象提供的债务担保余额(E) | 7,093,294 | 7,093,294 | 7,093,294 | 7,093,294 | 7,093,294 |"
+          ],
+          "section_path": [
+           "6、公司控股的财务公司与关联方的往来情况",
+           "7、其他重大关联交易",
+           "十五、重大合同及其履行情况",
+           "2、重大担保"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 2010
+         },
+         {
+          "rank": 4,
+          "scope": {
+           "label": "合并",
+           "value": "consolidated",
+           "signals": [
+            "consolidated"
+           ],
+           "ambiguous": false
+          },
+          "score": 48.21665948419431,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "| 项目 | 本报告期末 | 上年末 | 本报告期末比上年末增减 | | --- | --- | --- | --- | | 流动比率 | 110.59% | 111.97% | -1.38% | | 资产负债率 | 62.33% | 64.14% | -1.81% | | 速动比率 | 85.94% | 87.95% | -2.01% | | | 本报告期 | 上年同期 | 本报告期比上年同期增",
+          "block_id": "annual_midea_2024_report_b0205",
+          "has_table": true,
+          "section_id": "s215",
+          "block_chars": 490,
+          "block_lines": 13,
+          "matched_rows": [
+           "| 资产负债率 | 62.33% | 64.14% | -1.81% |"
+          ],
+          "section_path": [
+           "五、报告期内合并报表范围亏损超过上年末净资产 10%",
+           "六、报告期末除债券外的有息债务逾期情况",
+           "七、报告期内是否有违反规章制度的情况",
+           "八、截至报告期末公司近两年的主要会计数据和财务指标"
+          ],
+          "matched_terms": [
+           "资产负债率"
+          ],
+          "scope_ambiguity": false,
+          "estimated_tokens": 245
+         },
+         {
+          "rank": 5,
+          "scope": {
+           "label": "混合口径",
+           "value": "mixed",
+           "signals": [
+            "consolidated",
+            "group"
+           ],
+           "ambiguous": false
+          },
+          "score": 47.709117635329314,
+          "doc_id": "annual_midea_2024_report",
+          "preview": "## (d) 租金收入 投资性房地产的租金收入在租约期内以直线法于利润表内确认。 (除特别注明外，金额单位为人民币千元) ## (e) 手续费及佣金收入 手续费及佣金收入在提供相关服务时计入当期损益。 如本集团在贷款承诺期满时还没有发放贷款，有关收费将确认为手续费及佣金收入。 ## (27) 政府补助 政府补助为本集团从政府无偿取得的货币性资产或非货币性资产，包括税费返还、财政补贴等。 政府补助在",
+          "block_id": "annual_midea_2024_report_b0251",
+          "has_table": false,
+          "section_id": "s344",
+          "block_chars": 1189,
+          "block_lines": 30,
+          "matched_rows": [],
+          "section_path": [
+           "(i) 商誉减值准备(续)",
+           "(ii) 所得税和递延所得税",
+           "(iii) 第三层次金融工具的公允价值评估",
+           "(32) 重要会计政策变更"
+          ],
+          "matched_terms": [],
+          "scope_ambiguity": false,
+          "estimated_tokens": 595
+         }
+        ]
+       }
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 1,
+    "arguments": "{\"doc_id\": \"annual_midea_2024_report\", \"queries\": [\"资产负债率\", \"资产负债率 合并\", \"主要会计数据 资产负债率\"], \"top_k\": 5}",
+    "reasoning": "Let me search in the midea 2024 report for 资产负债率.",
+    "tool_name": "search_in_document",
+    "attempt_id": 89,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 6,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "text": "| 项目 | 本报告期末 | 上年末 | 本报告期末比上年末增减 |\n| --- | --- | --- | --- |\n| 流动比率 | 110.59% | 111.97% | -1.38% |\n| 资产负债率 | 62.33% | 64.14% | -1.81% |\n| 速动比率 | 85.94% | 87.95% | -2.01% |\n|  | 本报告期 | 上年同期 | 本报告期比上年同期增减 |\n| 扣除非经常性损益后净利润 | 36,066,635 | 33,122,326 | 8.89% |\n| EBITDA全部债务比 | 50.76% | 52.32% | -1.56% |\n| 利息保障倍数 | 20.03 | 15.34 | 30.58% |\n| 现金利息保障倍数 | 42.47 | 30.88 | 37.53% |\n| EBITDA利息保障倍数 | 23.22 | 17.96 | 29.29% |\n| 贷款偿还率 | 100.00% | 100.00% | 0.00% |\n| 利息偿付率 | 100.00% | 100.00% | 0.00% |",
+      "scope": {
+       "label": "合并",
+       "value": "consolidated",
+       "signals": [
+        "consolidated"
+       ],
+       "ambiguous": false
+      },
+      "doc_id": "annual_midea_2024_report",
+      "block_id": "annual_midea_2024_report_b0205",
+      "complete": true,
+      "has_table": true,
+      "row_offset": 0,
+      "section_id": "s215",
+      "block_chars": 490,
+      "block_lines": 13,
+      "next_row_offset": null,
+      "remaining_lines": 0,
+      "scope_ambiguity": false,
+      "returned_line_end_exclusive": 13
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 2,
+    "arguments": "{\"doc_id\": \"annual_midea_2024_report\", \"block_id\": \"annual_midea_2024_report_b0205\"}",
+    "reasoning": "Consistent answer: 62.33%. Let me cite block b0205 and b0529. Let me read to confirm exact text.",
+    "tool_name": "read_section",
+    "attempt_id": 89,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 7,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "end": 135,
+      "level": "exact",
+      "quote": "| 资产负债率 | 62.33% | 64.14% | -1.81% |",
+      "start": 99,
+      "doc_id": "annual_midea_2024_report",
+      "block_id": "annual_midea_2024_report_b0205",
+      "grounded": true,
+      "matched_text": "| 资产负债率 | 62.33% | 64.14% | -1.81% |"
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 3,
+    "arguments": "{\"doc_id\": \"annual_midea_2024_report\", \"block_id\": \"annual_midea_2024_report_b0205\", \"quote\": \"| 资产负债率 | 62.33% | 64.14% | -1.81% |\"}",
+    "reasoning": "Answer 62.33%. Cite.",
+    "tool_name": "cite",
+    "attempt_id": 89,
+    "citation_no": 1
+   }
+  },
+  {
+   "seq": 8,
+   "type": "step",
+   "data": {
+    "result": {
+     "ok": true,
+     "data": {
+      "raw": [
+       "62.33%"
+      ],
+      "submitted": [
+       "62.33%"
+      ]
+     },
+     "response_version": "open-tools-response-h1.2.5-v4"
+    },
+    "step_no": 4,
+    "arguments": "{\"answers\": [\"62.33%\"]}",
+    "reasoning": null,
+    "tool_name": "finalize",
+    "attempt_id": 89,
+    "citation_no": null
+   }
+  },
+  {
+   "seq": 9,
+   "type": "answer_written",
+   "data": {
+    "text": "美的集团2024年的资产负债率为62.33%[1]。\n\n根据美的集团2024年年度报告披露，资产负债率本报告期为62.33%，上年同期为64.14%，变动为-1.81%[1]。",
+    "citations": [
+     1
+    ],
+    "attempt_id": 89,
+    "unverified": []
+   }
+  },
+  {
+   "seq": 10,
+   "type": "attempt_finished",
+   "data": {
+    "final": {
+     "raw": [
+      "62.33%"
+     ],
+     "name": "finalize",
+     "written": {
+      "text": "美的集团2024年的资产负债率为62.33%[1]。\n\n根据美的集团2024年年度报告披露，资产负债率本报告期为62.33%，上年同期为64.14%，变动为-1.81%[1]。",
+      "citations": [
+       1
+      ],
+      "unverified": []
+     },
+     "submitted": [
+      "62.33%"
+     ]
+    },
+    "violation": null,
+    "attempt_id": 89
+   }
+  }
+ ]
+}

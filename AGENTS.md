@@ -21,6 +21,8 @@
 ## 测试
 
 - 只写企业后端常用的测试：单元测试、接口测试、集成测试（真实 PG/Redis）。
+- 前端另有端到端测试（Playwright，`web/app/e2e/`）：真浏览器像用户一样操作页面，后端换成按录制数据回放的假 API，
+  只测浏览器里才看得出来的交互（出场顺序、刷新、断线重连等）。改了前端交互后运行 `npm run e2e`。
 - **一个测试对应一个“出了问题会造成事故”的场景**，测试名写清楚场景。
 - 不写 smoke 脚本、不做哈希/清单一致性校验之类的测试。
 - 模型一律用 `tests/fakes.py` 的 FakeLLM，测试不调用真实模型、不联网。
@@ -38,6 +40,7 @@
 | Celery worker | Linux：WSL2 或容器（Celery 官方不支持 Windows） | `wsl docker compose up worker` |
 | 集成测试（需要真实 PG/Redis） | Windows，先把 PG/Redis 起好 | `conda run -n margin pytest -m integration` |
 | 前端 | Windows，Node 24 + Vite | `npm run dev` |
+| 前端端到端测试 | Windows，本机 Chrome；假 API 和 Vite 由 Playwright 自动起 | `cd web/app && npm run e2e` |
 | 前端设计稿 | 本地浏览器直接打开 `web/design/*.html` | 不发布到任何在线平台 |
 | 自训模型 | 实验室服务器 vLLM，OpenAI 兼容接口 | `.env` 里配 `MARGIN_LLM_BASE_URL` |
 | CI | GitHub Actions（ubuntu） | push 时自动跑 |
