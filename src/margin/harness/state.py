@@ -17,6 +17,7 @@ from typing import Any
 @dataclass
 class EpisodeState:
     # 题目：question / options / answer_format（finalize 按它规范化答案）
+    #       / require_citation（产品模式：没有引用就交答案时提醒一次）
     task: dict[str, Any]
 
     # ---- 检索与阅读的进度 ----
@@ -25,6 +26,7 @@ class EpisodeState:
     located_pairs: set[tuple[str, str]] = field(default_factory=set)  # 可读取的 (doc, block)
     visible_texts: dict[tuple[str, str], list[str]] = field(default_factory=dict)  # 读过的原文
     citations: list[dict[str, Any]] = field(default_factory=list)  # 成功的引用
+    citation_reminded: bool = False  # 产品模式：已经因为没有引用被 finalize 拒过一次
 
     # ---- 工作笔记（RC6-C 的核心：写笔记 = 压缩上下文）----
     note: str | None = None

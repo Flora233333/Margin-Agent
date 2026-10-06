@@ -55,7 +55,7 @@ def test_duplicate_delivery_is_executed_only_once(db):
 
     assert first.epoch == 1
     assert first.task == {"question": "甲公司2023年营业收入是多少亿元？", "options": None,
-                          "answer_format": "num"}
+                          "answer_format": "num", "require_citation": True}
     assert second is None
 
 

@@ -49,7 +49,8 @@ class Lease:
     run_id: int
     epoch: int
     model: str
-    task: dict[str, Any]  # 交给 Harness 的题目：question / options / answer_format（可能为空）
+    # 交给 Harness 的题目：question / options / answer_format（可能为空）/ require_citation
+    task: dict[str, Any]
     needs_understanding: bool = False  # 这道题还没“理解”过（runs.title 为空），见 understand.py
 
 
@@ -75,7 +76,7 @@ def claim(engine: Engine, attempt_id: int, worker: str) -> Lease | None:
                   {"attempt_id": attempt_id, "epoch": row.lease_epoch})
         run = session.execute(select(Run).where(Run.id == row.run_id)).scalar_one()
         task = {"question": run.question, "options": run.options,
-                "answer_format": run.answer_format}
+                "answer_format": run.answer_format, "require_citation": run.require_citation}
         return Lease(attempt_id, row.run_id, row.lease_epoch, row.model, task,
                      needs_understanding=run.title is None)
 

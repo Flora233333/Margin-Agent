@@ -119,3 +119,40 @@ def test_finalize_normalizes_answers(make_registry, answer_format, answers, expe
     assert result["data"]["submitted"] == expected
     # 结束后不能再调用工具
     assert run(registry, "search_docs", query="甲公司")["error"] == "episode_terminated"
+
+
+# ---- 产品模式的引用提醒（PLAN §5.8 ②）----
+
+PRODUCT_TASK = {"question": "甲公司2023年营业收入是多少亿元？", "answer_format": "num",
+                "require_citation": True}
+
+
+def test_uncited_answer_is_reminded_once_then_accepted_and_marked(make_registry):
+    """没有引用就交：第一次被提醒；模型坚持再交就照收，标 uncited（不能卡死，用户总要看到答案）。"""
+    registry = make_registry(PRODUCT_TASK)
+    run(registry, "search_docs", query="甲公司 2023 营业收入")
+
+    assert run(registry, "finalize", answers=["120.5"])["error"] == "citation_required"
+    result = run(registry, "finalize", answers=["120.5"])
+    assert result["data"] == {"submitted": ["120.50"], "raw": ["120.5"], "uncited": True}
+
+
+def test_answer_cited_after_reminder_is_not_marked(make_registry):
+    """被提醒后补了引用再交：正常收下，不标 uncited。"""
+    registry = make_registry(PRODUCT_TASK)
+    quote = {"doc_id": "jia_2023", "block_id": "jia_2023_b0001"}
+    run(registry, "search_docs", query="甲公司 2023 营业收入")
+    assert run(registry, "finalize", answers=["120.5"])["error"] == "citation_required"
+    run(registry, "read_section", **quote)
+    assert run(registry, "cite", quote="实现营业收入120.5亿元", **quote)["ok"] is True
+
+    assert "uncited" not in run(registry, "finalize", answers=["120.5"])["data"]
+
+
+def test_evaluation_replay_is_never_reminded(make_registry):
+    """评测回放关闭提醒：没有引用也一次收下，结果和加提醒之前完全一样。"""
+    registry = make_registry({**PRODUCT_TASK, "require_citation": False})
+    run(registry, "search_docs", query="甲公司 2023 营业收入")
+
+    assert run(registry, "finalize", answers=["120.5"])["data"] == {
+        "submitted": ["120.50"], "raw": ["120.5"]}

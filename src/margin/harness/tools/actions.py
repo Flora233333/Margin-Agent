@@ -42,12 +42,24 @@ def write_note(ctx: ToolContext, args: WriteNoteArgs) -> dict[str, Any]:
 
 
 def finalize(ctx: ToolContext, args: FinalizeArgs) -> dict[str, Any]:
-    """提交最终答案：按题目的 answer_format 规范化，格式有歧义时返回错误让模型重交。"""
+    """提交最终答案：按题目的 answer_format 规范化，格式有歧义时返回错误让模型重交。
+
+    产品模式（task 带 require_citation）：没有引用就交，提醒一次；第二次不管补没补都照收，
+    没补的在结果里标 uncited，页面写“本回答没有引用原文”。不硬性要求：
+    模型确实找不到可引用的原文时，不能卡死在这里、让用户什么都看不到。
+    只提醒一次，也就不会触发 repeated_tool_error（同一个错误连续 3 次才停）。
+    """
     state = ctx.state
     if not state.searched:
         raise ToolError("search_required",
                         "finalize requires at least one successful search_docs call",
                         "call search_docs before finalizing")
+    require_citation = bool(state.task.get("require_citation"))
+    if require_citation and not state.citations and not state.citation_reminded:
+        state.citation_reminded = True
+        raise ToolError("citation_required", "no successful cite call in this episode",
+                        "cite the source text that supports your answer before finalizing; "
+                        "if no quotable source text exists, call finalize again")
     answer_format = str(state.task.get("answer_format") or "text")
     try:
         normalized = normalize_answers(args.answers, answer_format)
@@ -59,7 +71,10 @@ def finalize(ctx: ToolContext, args: FinalizeArgs) -> dict[str, Any]:
         ) from exc
     state.final_answers = normalized
     state.terminal = "finalize"
-    return {"submitted": normalized, "raw": args.answers}
+    result: dict[str, Any] = {"submitted": normalized, "raw": args.answers}
+    if require_citation and not state.citations:
+        result["uncited"] = True  # 评测模式不加这个键，结果和以前完全一样
+    return result
 
 
 def escalate(ctx: ToolContext, args: EscalateArgs) -> dict[str, Any]:

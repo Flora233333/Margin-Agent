@@ -25,7 +25,7 @@ from datetime import datetime
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Text, UniqueConstraint, func, text
+from sqlalchemy import DateTime, ForeignKey, Index, Text, UniqueConstraint, func, text, true
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -65,6 +65,8 @@ class Run(Base):
     title: Mapped[str | None] = mapped_column(Text)
     # 结论旁边的说明，如“广晟控股 · 2022 年营业收入（亿元）”
     answer_label: Mapped[str | None] = mapped_column(Text)
+    # 没有引用就交答案时，finalize 提醒一次（迁移 0005）；评测回放关闭
+    require_citation: Mapped[bool] = mapped_column(server_default=true())
     model: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, server_default="queued")
     # 这个 run 已分配到的最大事件序号。分配新序号 = 把它加 1（会锁住这一行），

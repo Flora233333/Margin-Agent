@@ -86,6 +86,8 @@ class RunCreate(BaseModel):
     options: dict[Literal["A", "B", "C", "D"], str] | None = None  # 选择题的选项
     # 产品里不传，由 worker 理解题目后判断（PLAN §5.8 ①）；评测回放按题集给定的格式传
     answer_format: Literal["num", "pct", "tf", "mcq", "multi", "date", "rank", "text"] | None = None
+    # 没有引用就交答案时提醒一次（PLAN §5.8 ②）；评测回放、自训模型对照实验传 false，规则和以前一样
+    require_citation: bool = True
 
 
 class RunAccepted(BaseModel):
@@ -173,7 +175,8 @@ def create_run(
     请求头写作 Idempotency-Key，FastAPI 会把参数名 idempotency_key 自动对应过去。
     """
     run_id, _ = runs.create_run(db, user, idempotency_key, body.question, body.options,
-                                body.answer_format, get_settings().llm_model)
+                                body.answer_format, get_settings().llm_model,
+                                require_citation=body.require_citation)
     return RunAccepted(run_id=run_id)
 
 

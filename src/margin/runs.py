@@ -81,7 +81,7 @@ def _enqueue_attempt(session: Session, run_id: int, attempt_no: int, trigger: st
 
 def create_run(engine: Engine, owner_id: int, idempotency_key: str, question: str,
                options: dict[str, str] | None, answer_format: str | None,
-               model: str) -> tuple[int, bool]:
+               model: str, *, require_citation: bool = True) -> tuple[int, bool]:
     """提交一道题，返回 (run_id, 是否新建)。answer_format 为 None 时由 worker 理解题目后判断。
 
     幂等：前端每次提交带一个幂等键；网络超时后重试、用户连点两下，用的是同一个键，
@@ -92,7 +92,8 @@ def create_run(engine: Engine, owner_id: int, idempotency_key: str, question: st
         run_id = session.execute(
             insert(Run).values(owner_id=owner_id, idempotency_key=idempotency_key,
                                question=question, options=options,
-                               answer_format=answer_format, model=model)
+                               answer_format=answer_format, model=model,
+                               require_citation=require_citation)
             .on_conflict_do_nothing(index_elements=["owner_id", "idempotency_key"])
             .returning(Run.id)
         ).scalar_one_or_none()
@@ -101,8 +102,9 @@ def create_run(engine: Engine, owner_id: int, idempotency_key: str, question: st
                 select(Run).where(Run.owner_id == owner_id,
                                   Run.idempotency_key == idempotency_key)
             ).scalar_one()
-            if (existing.question, existing.options, existing.answer_format) != (
-                    question, options, answer_format):
+            if (existing.question, existing.options, existing.answer_format,
+                    existing.require_citation) != (
+                    question, options, answer_format, require_citation):
                 raise IdempotencyConflict
             return existing.id, False
         _enqueue_attempt(session, run_id, attempt_no=1, trigger="submit", model=model)

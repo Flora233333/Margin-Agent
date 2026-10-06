@@ -31,9 +31,10 @@ pytestmark = pytest.mark.integration
 OWNER = 1
 
 
-def submit(db, key="k1", answer_format="num"):
+def submit(db, key="k1", answer_format="num", require_citation=False):
+    """require_citation 默认关：多数测试的假模型不引用，和引用提醒无关。"""
     return runs.create_run(db, OWNER, key, "甲公司2023年营业收入是多少亿元？", None,
-                           answer_format, "DeepSeek")[0]
+                           answer_format, "DeepSeek", require_citation=require_citation)[0]
 
 
 UNDERSTOOD = ('{"title": "甲公司 2023 年营业收入", "label": "甲公司 · 2023 年营业收入（亿元）", '
@@ -147,6 +148,23 @@ def test_regenerate_does_not_understand_the_question_again(db, corpus, retriever
     assert second.completions == []
     detail = runs.get_run(db, OWNER, run_id)
     assert detail["attempts"][1]["final"]["submitted"] == ["120.50"]
+
+
+def test_product_run_without_citation_is_reminded_and_marked_uncited(db, corpus, retriever,
+                                                                     live_redis):
+    """产品题（提交时默认打开引用提醒）：开关从 runs 一路带到 finalize，
+    模型不引用就交会被提醒一次，第二次照收，答案标 uncited。"""
+    run_id = submit(db, require_citation=True)
+    llm = FakeLLM([call("search_docs", query="甲公司 2023 营业收入"),
+                   call("finalize", answers=["120.5"]),
+                   call("finalize", answers=["120.5"])])
+
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
+
+    attempt = runs.get_run(db, OWNER, run_id)["attempts"][0]
+    assert [s["result"].get("error") for s in attempt["steps"]] == [
+        None, "citation_required", None]
+    assert (attempt["status"], attempt["final"]["uncited"]) == ("completed", True)
 
 
 def test_gateway_error_fails_attempt_but_keeps_finished_steps(db, corpus, retriever, live_redis):
