@@ -1,7 +1,7 @@
 /*
- * 过程区：一次执行（attempt）的思考与工具调用，可折叠。执行中默认展开，交卷（finalize / escalate）后
- * 停留 0.7 秒自动收起，接着下面的回答按“结论 → 正文”出场（Answer.tsx，同设计稿 demo.js 的 finishWork）；
- * 用户手动点过之后就按用户的来。
+ * 过程区：一次执行（attempt）的思考与工具调用，可折叠。执行中默认展开；看着它结束的（回答也写完了），
+ * 标题换成“思考与检索 · n 步”后停留 0.7 秒再收起，接着下面的回答按“结论 → 正文”出场
+ * （Answer.tsx，同设计稿 demo.js 的 finishWork）；打开时已经结束的直接收着。用户手动点过之后就按用户的来。
  *
  * 每一步先显示思考（step.reasoning），再显示工具调用；最后一轮还没有 step 事件时，
  * 显示实时片段拼起来的思考（live），step 一到就被完整思考替换（规则见 timeline.ts）。
@@ -11,9 +11,15 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { type AnswerFormat, FORMAT_LABEL } from '../api'
 import { FOLD_DELAY_MS } from '../motion'
-import { type Attempt, ended } from '../timeline'
+import type { Attempt } from '../timeline'
 import { Icon } from './Icons'
 import { StageItem, ThoughtItem, ToolItem, UnderstandItem } from './StepItem'
+
+/** Harness 已经交了答案或放弃作答：之后就是撰写回答 */
+function ended(attempt: Attempt): boolean {
+  const last = attempt.steps.at(-1)
+  return !!last && (last.tool_name === 'finalize' || last.tool_name === 'escalate') && last.result.ok === true
+}
 
 function label(attempt: Attempt): string {
   const n = attempt.steps.length
@@ -61,25 +67,31 @@ function SwapLabel({ text }: { text: string }) {
 
 interface Props {
   attempt: Attempt
+  watched: boolean // 看着这次执行结束（不是打开页面时就已经结束），见 RunPage
   citeNos: Map<number, number>
   // 这次执行正在理解题目（第一次执行、标题还没有）：第一项先占位转圈，结果到了原地换成标题
   understanding: boolean
 }
 
-export function Work({ attempt, citeNos, understanding }: Props) {
+export function Work({ attempt, watched, citeNos, understanding }: Props) {
   const [userOpen, setUserOpen] = useState<boolean | null>(null)
   const active = attempt.status === 'queued' || attempt.status === 'running'
   const running = attempt.status === 'running'
-  const handedIn = running && ended(attempt)
-  const [folded, setFolded] = useState(false)
+  // 结束的那一次渲染就把 holding 设上（渲染中更新 state，同 SwapLabel），不会先收起一帧再展开
+  const [wasActive, setWasActive] = useState(active)
+  const [holding, setHolding] = useState(false)
+  if (wasActive !== active) {
+    setWasActive(active)
+    setHolding(!active && watched)
+  }
   useEffect(() => {
-    if (!handedIn) {
+    if (!holding) {
       return
     }
-    const timer = setTimeout(() => setFolded(true), FOLD_DELAY_MS)
+    const timer = setTimeout(() => setHolding(false), FOLD_DELAY_MS)
     return () => clearTimeout(timer)
-  }, [handedIn])
-  const open = userOpen ?? (active && !folded)
+  }, [holding])
+  const open = userOpen ?? (active || holding)
   // 实时片段里思考（reasoning）和正文（content，模型在调用工具前说的话）都显示
   const live = attempt.live ? [attempt.live.reasoning, attempt.live.content].filter(Boolean).join('\n\n') : ''
   const understood = attempt.understood
@@ -111,7 +123,10 @@ export function Work({ attempt, citeNos, understanding }: Props) {
     items.push(<ThoughtItem key={`t${attempt.live!.turn}`} text={live} current />)
   }
   if (composing) {
-    const detail = written && (written.error ? '没有写成，下面显示提交的答案和依据' : `引用 ${written.citations?.length ?? 0} 处`)
+    // 撰写中正文不在下面逐字显示（写完才按顺序出场），这里显示写了多少字，表示它在动
+    const detail = written
+      ? written.error ? '没有写成，下面显示提交的答案和依据' : `引用 ${written.citations?.length ?? 0} 处`
+      : attempt.answer && `已写 ${attempt.answer.length} 字`
     items.push(
       <StageItem key="compose" icon="note" title={written ? '撰写回答' : '正在撰写回答…'}
         detail={detail || undefined} current={!written} />,

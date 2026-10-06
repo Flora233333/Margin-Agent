@@ -16,7 +16,8 @@ import { Failure } from '../components/Failure'
 import { Icon } from '../components/Icons'
 import { Sources } from '../components/Sources'
 import { Work } from '../components/Work'
-import { ended, understoodOf } from '../timeline'
+import { FOLD_DELAY_MS, FOLD_MS } from '../motion'
+import { type Attempt, understoodOf } from '../timeline'
 import { useRunStream } from '../useRunStream'
 import { NotFound } from './NotFound'
 
@@ -115,6 +116,16 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
   const citeNos = useMemo(() => new Map(citations.map((c) => [c.stepNo, c.no])), [citations])
   useFollowBottom(latest?.status === 'running', thread)
 
+  // 追上实时（caughtUp）的那一刻已经结束的执行：打开页面时就结束了，回答直接显示；
+  // 其余的是看着它结束的，过程区停一下再收起、回答按“结论 → 正文”出场（Work.tsx、Answer.tsx）。
+  // 不能用“渲染时见过它在执行”判断：打开一道已结束的题，补发的历史事件也会经过“执行中”
+  const [settledEarly, setSettledEarly] = useState<Set<number> | null>(null)
+  if (caughtUp && settledEarly === null) {
+    const done = timeline.attempts.filter((a) => a.status === 'completed' || a.status === 'failed')
+    setSettledEarly(new Set(done.map((a) => a.id)))
+  }
+  const watched = (attempt: Attempt) => settledEarly !== null && !settledEarly.has(attempt.id)
+
   const understood = understoodOf(timeline)
   const title = understood?.title ?? run.title ?? run.question
   // 给定的格式优先（评测回放）；页面上提交的题用理解题目猜的
@@ -157,14 +168,16 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                 )}
                 <Work
                   attempt={attempt}
+                  watched={watched(attempt)}
                   citeNos={isLatest ? citeNos : NO_CITES}
                   understanding={isLatest && attempt.status === 'running' && !understood && run.title === null}
                 />
                 {attempt.status === 'failed' && <Failure error={attempt.error} />}
-                {/* 交卷后就显示回答：先结论、再逐字出现的正文（Answer.tsx），结束后换成校验过的文字 */}
-                {(attempt.status === 'completed' || attempt.final !== null) && (
+                {/* 撰写完（执行结束）才显示回答：先结论、再逐字出现的正文（Answer.tsx） */}
+                {attempt.status === 'completed' && (
                   <Answer
                     attempt={attempt}
+                    watched={watched(attempt)}
                     // 交的答案和猜的格式对不上、按文本收下了（worker.py）：这次的回答也按文本显示
                     format={attempt.final?.answer_format_fallback ? 'text' : format}
                     label={label}
@@ -192,8 +205,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
       <Sources
         citations={citations}
         others={others}
-        // 交卷后就按“结束后”排：不会再有新卡片，过程区随即收起、页面变矮，卡片不用再吸顶跟着
-        live={latest?.status === 'queued' || (latest?.status === 'running' && !ended(latest))}
+        live={latest?.status === 'running' || latest?.status === 'queued'}
         caughtUp={caughtUp}
         thread={thread}
         linked={linked}
@@ -265,11 +277,11 @@ function useFollowBottom(running: boolean, thread: RefObject<HTMLElement | null>
       return
     }
     following.current = false
-    // 等过程区收起的 0.5 秒动画播完，位置才是最终的
+    // 等过程区停留、收起的动画播完（motion.ts），位置才是最终的
     const timer = setTimeout(() => {
       const last = [...document.querySelectorAll('.attempt')].at(-1)
       last?.querySelector('.work')?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-    }, 550)
+    }, FOLD_DELAY_MS + FOLD_MS + 50)
     return () => clearTimeout(timer)
   }, [running])
 }
