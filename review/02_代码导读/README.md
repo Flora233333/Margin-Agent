@@ -8,6 +8,6 @@
 | M0–M0.5 | [M0-M0.5_Agent核心.md](M0-M0.5_Agent核心.md) | Harness 主循环、十个工具、三路检索、模型客户端、脚本 |
 | M1 | [M1_后端服务.md](M1_后端服务.md) | 配置、数据库与迁移、Outbox + 幂等、租约 + epoch、API、SSE、worker、dispatcher |
 | M1.5 | [M1.5_队列与对账.md](M1.5_队列与对账.md) | 迁移 0002、RabbitMQ（发送确认、确认期限）、对账补发 `requeue_lost`、LISTEN / NOTIFY 唤醒 |
-| M2 | [M2_过程可视化.md](M2_过程可视化.md) | 事件通知（PG NOTIFY）、实时思考片段（Redis pub/sub）、SSE 心跳、React 前端（时间线、引用旁注）、前后端联动 10 个场景的实测 |
+| M2 | [M2_过程可视化.md](M2_过程可视化.md) | 事件通知（PG NOTIFY）、实时思考片段（Redis pub/sub）、SSE 心跳、React 前端（时间线、引用旁注）、前后端联动 10 个场景的实测；M2 补完（A）：来源栏两种排法、连线、其他文档、各处动效 |
 
 相关文档：运行方式见 `../01_运行链路.md`，租约方案的推导见 `../03_架构对齐与租约方案.md`。
