@@ -72,6 +72,31 @@ def test_worker_runs_attempt_and_persists_every_step(db, corpus, retriever, live
     assert attempt["steps"][0]["reasoning"] == "先找年报"
 
 
+def test_step_events_carry_citation_numbers(db, corpus, retriever, live_redis):
+    """引用编号由 worker 随 step 事件下发。
+
+    前端来源卡片和以后的撰写回答都按这个编号，不再各算各的。
+    """
+    run_id = submit(db)
+    quote = {"doc_id": "jia_2023", "block_id": "jia_2023_b0001"}
+    llm = FakeLLM([
+        call("search_docs", query="甲公司 2023 营业收入"),
+        call("read_section", **quote),
+        call("cite", quote="实现营业收入120.5亿元", **quote),
+        call("cite", quote="实现营业收入120.5亿元", **quote),  # 重复引用同一处
+        call("cite", quote="同比增长12.4%", **quote),
+        call("finalize", answers=["120.5"]),
+    ])
+
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
+
+    events, _ = runs.events_after(db, OWNER, run_id, 0)
+    steps = [e.payload for e in events if e.type == "step"]
+    assert [(s["tool_name"], s["citation_no"]) for s in steps] == [
+        ("search_docs", None), ("read_section", None),
+        ("cite", 1), ("cite", None), ("cite", 2), ("finalize", None)]
+
+
 def test_gateway_error_fails_attempt_but_keeps_finished_steps(db, corpus, retriever, live_redis):
     """网关中途报错：这次执行判为失败（用户可重新生成），已完成的步骤保留，错误信息不带网关地址。"""
     run_id = submit(db)

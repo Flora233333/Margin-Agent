@@ -13,7 +13,7 @@ const started = (seq: number, attempt_id: number, epoch = 1): StreamEvent => ({
 })
 const step = (seq: number, attempt_id: number, step_no: number, reasoning = `完整思考 ${step_no}`): StreamEvent => ({
   type: 'step', seq,
-  data: { attempt_id, step_no, tool_name: 'search_docs', arguments: '{}', result: { ok: true }, reasoning },
+  data: { attempt_id, step_no, tool_name: 'search_docs', arguments: '{}', result: { ok: true }, reasoning, citation_no: null },
 })
 const delta = (attempt_id: number, epoch: number, turn: number, text: string): StreamEvent => ({
   type: 'delta', data: { attempt_id, epoch, turn, kind: 'reasoning', text },

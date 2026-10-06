@@ -1,8 +1,11 @@
 /*
- * 引用：从一次执行的步骤里取出通过校验的 cite 调用，编号 [1] [2]……，给回答里的引用编号和右侧的来源旁注用。
+ * 引用：从一次执行的步骤里取出带编号的 cite 调用，给回答里的引用编号和右侧的来源旁注用。
  *
- * cite 工具的结果（harness/tools/reading.py）：grounded=true 表示引文确实出自模型读过的原文，
- * matched_text 是在原文里实际匹配到的那段。没通过校验的引用不编号、不显示成来源。
+ * 编号由后端编好、随 step 事件下发（citation_no，规则见 src/margin/citations.py）：
+ * 只有通过校验的引用有编号，同一处原文引用两次只有第一次有编号。前端只按编号显示，不自己编号——
+ * 撰写回答（M2.5-4）写出的 [n] 和这里的卡片必须是同一套编号，规则只能有一份。
+ *
+ * cite 工具的结果（harness/tools/reading.py）：matched_text 是在原文里实际匹配到的那段。
  *
  * 旁注里想多显示一点上下文：模型引用之前一定读过这一块（read_section 或 find_in_block，否则校验不通过），
  * 就在那些步骤的结果里找到引文所在位置，前后各取一段。
@@ -63,18 +66,12 @@ function withContext(texts: string[], match: string): Pick<Citation, 'before' | 
 export function citationsOf(steps: StepEvent[]): Citation[] {
   const citations: Citation[] = []
   for (const step of steps) {
-    const data: Json = (step.result.data as Json) ?? {}
-    if (step.tool_name !== 'cite' || !data.grounded) {
+    if (step.citation_no === null) {
       continue
     }
-    // 同一处原文引用了两次（模型有时会重复确认），只编一个号
-    const seen = citations.some(
-      (c) => c.docId === data.doc_id && c.blockId === data.block_id && c.match === data.matched_text)
-    if (seen) {
-      continue
-    }
+    const data: Json = step.result.data as Json
     citations.push({
-      no: citations.length + 1,
+      no: step.citation_no,
       stepNo: step.step_no,
       docId: data.doc_id,
       blockId: data.block_id,

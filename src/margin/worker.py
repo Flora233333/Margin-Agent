@@ -24,6 +24,7 @@ from sqlalchemy import Engine
 
 from . import lease
 from .assembly import build_llm, build_retriever
+from .citations import CitationNumbers
 from .db import get_engine
 from .harness import build_registry, run_episode
 from .live import DeltaPublisher, make_redis
@@ -92,6 +93,9 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
         log.info("attempt %s 已被领取或已结束，跳过（重复投递）", attempt_id)
         return
 
+    # 引用编号按这次执行里的步骤顺序累计（citations.py）。
+    # M4 做“接管后从断点继续”时，要先用已经写进库的步骤把它恢复出来
+    numbers = CitationNumbers()
     with lease.LeaseKeeper(engine, held):
         try:
             trace = run_episode(
@@ -99,7 +103,8 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
                 # 走流式调用：思考片段一到就 publish 到 Redis，前端逐字显示（live.py）；
                 # 流式下“60 秒收不到数据就放弃”也才能对每一块生效
                 on_delta=DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch),
-                on_step=lambda step: lease.commit_step(engine, held, step),
+                on_step=lambda step: lease.commit_step(
+                    engine, held, step, numbers.number(step.tool_name, step.result)),
             )
         except lease.LeaseLost:
             # 执行权已被取代：什么都不再写，直接退出

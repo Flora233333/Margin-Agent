@@ -92,8 +92,12 @@ def _fence(session: Session, lease: Lease, **values: Any) -> None:
         raise LeaseLost
 
 
-def commit_step(engine: Engine, lease: Lease, step: Step) -> None:
-    """把一步写进数据库：校验 epoch + 续租 + 写步骤 + 写事件，在同一个事务里。"""
+def commit_step(engine: Engine, lease: Lease, step: Step, citation_no: int | None = None) -> None:
+    """把一步写进数据库：校验 epoch + 续租 + 写步骤 + 写事件，在同一个事务里。
+
+    citation_no：这一步是通过校验的引用时的编号（citations.py），随 step 事件下发给前端；
+    其他步骤为 None。
+    """
     with Session(engine) as session, session.begin():
         _fence(session, lease, last_step=step.turn, lease_until=func.now() + LEASE)
         session.add(StepRow(
@@ -106,6 +110,7 @@ def commit_step(engine: Engine, lease: Lease, step: Step) -> None:
         add_event(session, lease.run_id, "step", {
             "attempt_id": lease.attempt_id, "step_no": step.turn, "tool_name": step.tool_name,
             "arguments": step.arguments, "result": step.result, "reasoning": step.reasoning,
+            "citation_no": citation_no,
         })
 
 

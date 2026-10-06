@@ -22,6 +22,7 @@ export interface StepEvent {
   arguments: string
   result: Record<string, unknown>
   reasoning: string | null
+  citation_no: number | null // 通过校验的引用的编号，由后端编（src/margin/citations.py）；其他步骤为 null
 }
 
 export interface Delta {
