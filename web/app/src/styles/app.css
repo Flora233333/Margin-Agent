@@ -8,6 +8,14 @@
    .app 的 height: 100% 才有参照，简洁风宽屏时才是 .app 自己滚动（而不是整个页面） */
 #root { height: 100%; }
 
+/* 简洁风宽屏时 .app 只有一行，行高要跟着正文长。.app 的高度是固定的（100%），.main 又写了 min-height: 100vh，
+   这种情况下 auto 行只取 min-height（900px），正文溢出这一行；左右两栏（吸顶的图标栏、执行中吸顶的来源栏）
+   就只有一屏高，sticky 没有空间可“吸”。max-content 让这一行取正文的实际高度 */
+:root[data-style="clean"] .app { grid-template-rows: max-content; }
+
+/* 执行结束后把过程区滚到顶部时，留出吸顶标题栏（.main-head）的高度，不被它挡住 */
+.work { scroll-margin-top: 64px; }
+
 /* 发送按钮不可用（没输入内容或正在提交） */
 .send:disabled { opacity: 0.35; cursor: default; }
 
@@ -89,9 +97,15 @@
 /* 没有答案（放弃作答 / 停止条件）时结论行不用主色 */
 :root[data-style="clean"] .verdict.is-empty .verdict-figure { color: var(--ink-soft); font-size: 1.75rem; }
 
-/* 来源旁注：原文保留换行（表格行）；展开时放开 3 行的限制 */
+/* 来源旁注：原文保留换行（表格行）；展开后的高度由 Sources.tsx 量出来写在行内样式里 */
 .source-line { white-space: pre-wrap; overflow-wrap: anywhere; }
-.source.is-expanded .source-text { max-height: 40em; }
+/* 执行中右栏是顺序列表、整栏吸在屏幕顶部（类名由 Sources.tsx 切换）；卡片多到超出一屏时右栏自己滚动 */
+:root[data-style="clean"] .panel-body.is-live {
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+}
 .sources-empty { margin: 0; font-size: var(--text-sm); color: var(--ink-faint); }
 
 /* 执行失败的说明 */

@@ -1,9 +1,13 @@
 /*
  * 右侧来源：每条引用一张卡片（文档、位置、原文里标出引文）。
  *
- * 简洁风的“页边旁注”（D14）：宽屏时每张卡片和引用它的地方对齐——过程区里的“引用”那一步，或回答里的 [n]。
- * 卡片在轨道里绝对定位，top 由 useMarginLayout 算；窄屏（≤1180px）时 CSS 把它们变回普通列表，这里也清掉 top。
- * 算法照搬设计稿 web/design/demo.js 第 4 部分，去掉了“提前算动画终点”的部分（见 M2 导读）。
+ * 简洁风宽屏时，右栏有两种排法（useMarginLayout）：
+ *   执行中  顺序列表，整栏“吸”在屏幕顶部（.panel-body.is-live，CSS sticky）。页面一直在往下滚、过程区一直在变长，
+ *           卡片如果去对齐过程区里的步骤，会跟着滚出屏幕、被后来的卡片推开，看起来在乱飘（M2 逐帧截图 run 32）；
+ *   结束后  页边旁注（D14）：每张卡片和回答里的 [n] 对齐，互不重叠。过程区展开时也不去追里面的步骤，
+ *           卡片只跟着回答走，展开 / 收起过程区时和回答一起平移。
+ * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
+ * 算法来自设计稿 web/design/demo.js 第 4 部分。
  */
 
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -18,36 +22,83 @@ function isShown(el: Element): boolean {
   return !el.closest('.work:not(.is-open) .work-body-wrap') && el.getClientRects().length > 0
 }
 
-/** 卡片要对齐的位置：过程区展开时对齐到里面的“引用”那一步（正在看的地方），收起后对齐到回答里的 [n] */
+/** 结束后卡片对齐的位置：回答里的 [n]。执行失败、没有回答时没有锚点，排成列表 */
 function anchorOf(no: string): Element | null {
-  for (const selector of [`.step[data-cite="${no}"]`, `.answer .cite[data-src="${no}"]`]) {
-    const el = document.querySelector(selector)
-    if (el && isShown(el)) {
-      return el
+  const el = document.querySelector(`.answer .cite[data-src="${no}"]`)
+  return el && isShown(el) ? el : null
+}
+
+/*
+ * 下面两个函数算“动画播完以后”的位置和高度。
+ * 过程区展开 / 收起、原文展开都要播 0.5 秒动画；如果每一帧按当时量到的位置去追，目标一直在变，
+ * 卡片会一顿一顿地落在后面（逐帧截图里晚了约 250ms）。所以动画一开始就算出终点，卡片直接滑过去，和内容同时到达。
+ */
+
+/** 锚点上方各个过程区还要变化的高度之和（展开为正，收起为负，静止时为 0） */
+function workShift(anchor: Element): number {
+  let shift = 0
+  for (const wrap of document.querySelectorAll('.work-body-wrap')) {
+    if (wrap.compareDocumentPosition(anchor) & Node.DOCUMENT_POSITION_FOLLOWING) {
+      const open = wrap.closest('.work')!.classList.contains('is-open')
+      const finalHeight = open ? wrap.firstElementChild!.scrollHeight : 0
+      shift += finalHeight - wrap.getBoundingClientRect().height
     }
   }
-  return null
+  return shift
+}
+
+/** 一张卡片动画播完后的高度：内容的完整高度，原文区换成最终高度（展开 = 全文，收起 = 3 行） */
+function finalItemHeight(item: HTMLElement): number {
+  let height = item.querySelector('.reveal-inner')!.scrollHeight
+  const text = item.querySelector<HTMLElement>('.source-text')!
+  const threeLines = parseFloat(getComputedStyle(text).fontSize) * 1.7 * 3 // 与 base.css 的 max-height 一致
+  const finalText = text.closest('.is-expanded') ? text.scrollHeight : Math.min(text.scrollHeight, threeLines)
+  height += finalText - text.getBoundingClientRect().height
+  return height
 }
 
 function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObject<HTMLElement | null>,
-  count: number) {
+  count: number, live: boolean) {
   useLayoutEffect(() => {
     const trackEl = track.current!
+    const body = trackEl.parentElement! // .panel-body：执行中整栏吸顶
     const items = [...trackEl.querySelectorAll<HTMLElement>('.margin-item')]
+
+    /*
+     * 切换“执行中 / 结束后”时，整栏从吸顶的位置回到页面里的位置，轨道一下子跳到别处。
+     * 先记下每张卡片此刻在屏幕上的位置，切换后把它们原地放回那里（不播过渡），再滑向新位置——
+     * 这个技巧叫 FLIP（First 记下起点、Last 算终点、Invert 放回起点、Play 播放）。
+     */
+    function switchMode() {
+      const before = items.map((item) => item.getBoundingClientRect().top)
+      body.classList.toggle('is-live', live)
+      const trackTop = trackEl.getBoundingClientRect().top
+      items.forEach((item, i) => {
+        item.classList.add('is-placing')
+        item.style.top = `${before[i] - trackTop}px`
+      })
+      void trackEl.offsetWidth // 强制浏览器先应用上面的位置，再恢复过渡
+      items.forEach((item) => item.classList.remove('is-placing'))
+    }
 
     function layout() {
       if (!matchMedia(WIDE).matches) {
+        body.classList.remove('is-live')
         items.forEach((item) => (item.style.top = ''))
         trackEl.style.height = ''
         return
       }
+      if (body.classList.contains('is-live') !== live) {
+        switchMode()
+      }
       const trackTop = trackEl.getBoundingClientRect().top
-      // 每张卡片的目标位置 = 锚点的高度；从上往下排，会压住上一张就往下推
-      const placed = items.map((item, i) => {
-        const anchor = anchorOf(item.dataset.src!)
-        return { item, target: anchor ? anchor.getBoundingClientRect().top - trackTop - 6 : i * 120 }
+      // 每张卡片的目标位置：结束后是 [n] 的高度，执行中（或没有锚点）是 0，从上往下排，会压住上一张就往下推
+      const placed = items.map((item) => {
+        const anchor = live ? null : anchorOf(item.dataset.src!)
+        const target = anchor ? anchor.getBoundingClientRect().top - trackTop - 6 + workShift(anchor) : 0
+        return { item, target }
       })
-      placed.sort((a, b) => a.target - b.target)
+      placed.sort((a, b) => a.target - b.target) // 稳定排序：目标相同的按引用编号
       let floor = 0
       for (const { item, target } of placed) {
         const top = Math.max(target, floor)
@@ -55,13 +106,13 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
           // 第一次出现：直接放到位（暂时关掉 top 的过渡），不从轨道顶部滑下来
           item.classList.add('is-placing')
           item.style.top = `${top}px`
-          void item.offsetWidth // 强制浏览器先应用上面的位置，再恢复过渡
+          void item.offsetWidth
           item.classList.remove('is-placing')
           item.dataset.placed = '1'
         } else {
           item.style.top = `${top}px`
         }
-        floor = top + item.offsetHeight + GAP
+        floor = top + finalItemHeight(item) + GAP
       }
       trackEl.style.height = `${floor}px` // 卡片都是绝对定位，不占高度，要自己把轨道撑开
     }
@@ -85,15 +136,19 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
     watchChildren()
     items.forEach((item) => watcher.observe(item))
     added.observe(threadEl, { childList: true })
+    // 过程区展开 / 收起的那一刻（类名变化）就要算终点，不等它的高度开始变
+    const toggled = new MutationObserver(schedule)
+    toggled.observe(threadEl, { subtree: true, attributes: true, attributeFilter: ['class'] })
     window.addEventListener('resize', schedule)
     schedule()
     return () => {
       cancelAnimationFrame(frame)
       watcher.disconnect()
       added.disconnect()
+      toggled.disconnect()
       window.removeEventListener('resize', schedule)
     }
-  }, [track, thread, count])
+  }, [track, thread, count, live])
 }
 
 interface CardProps {
@@ -108,6 +163,14 @@ function SourceCard({ citation, linked, flash, onHover }: CardProps) {
   const [toggled, setToggled] = useState({ open: false, flash: 0 })
   const expanded = flash > toggled.flash || toggled.open
   const card = useRef<HTMLElement>(null)
+  const text = useRef<HTMLDivElement>(null)
+
+  // 原文展开的目标高度 = 原文实际高度（scrollHeight）。CSS 的 max-height 过渡需要具体的数，
+  // 写一个“足够大”的值（之前是 40em）的话，短原文会在动画开头几十毫秒内就展开完，看起来是跳的
+  useLayoutEffect(() => {
+    const el = text.current!
+    el.style.maxHeight = expanded ? `${el.scrollHeight}px` : ''
+  }, [expanded])
 
   useEffect(() => {
     if (flash === 0) {
@@ -139,8 +202,8 @@ function SourceCard({ citation, linked, flash, onHover }: CardProps) {
       <div className="source-loc">
         {citation.blockId} · 第 {citation.stepNo} 步引用
       </div>
-      {/* 收起时只露 3 行（base.css 的 max-height），展开见 app.css */}
-      <div className="source-text">
+      {/* 收起时只露 3 行（base.css 的 max-height），展开时的高度由上面的 effect 量出来 */}
+      <div className="source-text" ref={text}>
         <p className="source-line">
           {citation.before}
           <mark>{citation.match}</mark>
@@ -153,17 +216,19 @@ function SourceCard({ citation, linked, flash, onHover }: CardProps) {
 
 interface Props {
   citations: Citation[]
+  live: boolean // 最近一次执行还没结束
   thread: RefObject<HTMLElement | null>
   linked: number | null
   flash: { no: number; count: number }
   onHover: (no: number | null) => void
 }
 
-export function Sources({ citations, thread, linked, flash, onHover }: Props) {
+export function Sources({ citations, live, thread, linked, flash, onHover }: Props) {
   const track = useRef<HTMLDivElement>(null)
-  useMarginLayout(track, thread, citations.length)
+  useMarginLayout(track, thread, citations.length, live)
   return (
     <aside className="side-panel" aria-label="来源">
+      {/* is-live 类由 useMarginLayout 切换（要和卡片位置的调整在同一时刻发生），这里不写 */}
       <div className="panel-body">
         <div className="panel-head">
           <h2 className="panel-title">
