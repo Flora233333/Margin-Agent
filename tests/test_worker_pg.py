@@ -41,6 +41,12 @@ UNDERSTOOD = ('{"title": "甲公司 2023 年营业收入", "label": "甲公司 �
               '"answer_format": "num"}')
 
 
+def gateway_error(status: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "http://gateway/v1/chat/completions")
+    return httpx.HTTPStatusError(str(status), request=request,
+                                 response=httpx.Response(status, request=request))
+
+
 class BrokenGateway:
     """第一轮正常，第二轮网关返回 502。"""
 
@@ -51,9 +57,7 @@ class BrokenGateway:
         self.calls += 1
         if self.calls == 1:
             return call("search_docs", query="甲公司 营业收入")
-        request = httpx.Request("POST", "http://gateway/v1/chat/completions")
-        raise httpx.HTTPStatusError("502", request=request,
-                                    response=httpx.Response(502, request=request))
+        raise gateway_error(502)
 
 
 def test_worker_runs_attempt_and_persists_every_step(db, corpus, retriever, live_redis):
@@ -108,7 +112,7 @@ def test_answer_format_comes_from_understanding_when_not_submitted(db, corpus, r
     标题写进库，run_understood 事件排在 attempt_finished 前面（刷新页面先看到标题）。"""
     run_id = submit(db, answer_format=None)
     llm = FakeLLM([call("search_docs", query="甲公司 2023 营业收入"),
-                   call("finalize", answers=["120.5"])], texts=[UNDERSTOOD])
+                   call("finalize", answers=["120.5"])], understand=UNDERSTOOD)
 
     execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
 
@@ -124,7 +128,7 @@ def test_failed_understanding_does_not_fail_the_run(db, corpus, retriever, live_
     """理解题目时网关报错：这道题照常答完，标题退回问题原句的前 20 个字，格式按文本。"""
     run_id = submit(db, answer_format=None)
     llm = FakeLLM([call("search_docs", query="甲公司 2023 营业收入"),
-                   call("finalize", answers=["120.5亿元"])], texts=[TimeoutError()])
+                   call("finalize", answers=["120.5亿元"])], understand=TimeoutError())
 
     execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
 
@@ -137,7 +141,7 @@ def test_regenerate_does_not_understand_the_question_again(db, corpus, retriever
     """重新生成：标题和格式第一次已经有了，不再多花一次模型调用。"""
     run_id = submit(db, answer_format=None)
     first = FakeLLM([call("search_docs", query="甲公司 营业收入"),
-                     call("finalize", answers=["120.5"])], texts=[UNDERSTOOD])
+                     call("finalize", answers=["120.5"])], understand=UNDERSTOOD)
     execute(db, corpus, retriever, lambda model: first, live_redis, 1, "worker-a")
     runs.regenerate(db, OWNER, run_id)
     second = FakeLLM([call("search_docs", query="甲公司 营业收入"),
@@ -145,7 +149,7 @@ def test_regenerate_does_not_understand_the_question_again(db, corpus, retriever
 
     execute(db, corpus, retriever, lambda model: second, live_redis, 2, "worker-a")
 
-    assert second.completions == []
+    assert "understand" not in second.completions
     detail = runs.get_run(db, OWNER, run_id)
     assert detail["attempts"][1]["final"]["submitted"] == ["120.50"]
 
@@ -165,6 +169,45 @@ def test_product_run_without_citation_is_reminded_and_marked_uncited(db, corpus,
     assert [s["result"].get("error") for s in attempt["steps"]] == [
         None, "citation_required", None]
     assert (attempt["status"], attempt["final"]["uncited"]) == ("completed", True)
+
+
+def test_written_answer_is_checked_then_stored(db, corpus, retriever, live_redis):
+    """撰写的回答：模型看到的引用编号和右侧卡片一致（重复引用不另编号），
+    写错的 [n] 在进库前删掉；answer_written 事件排在 attempt_finished 前面。"""
+    run_id = submit(db)
+    quote = {"doc_id": "jia_2023", "block_id": "jia_2023_b0001"}
+    llm = FakeLLM([
+        call("search_docs", query="甲公司 2023 营业收入"),
+        call("read_section", **quote),
+        call("cite", quote="实现营业收入120.5亿元", **quote),
+        call("cite", quote="实现营业收入120.5亿元", **quote),
+        call("cite", quote="同比增长12.4%", **quote),
+        call("finalize", answers=["120.5"]),
+    ], compose="年报披露营业收入120.5亿元[1]，同比增长12.4%[2][3]。")
+
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
+
+    assert "[2] jia_2023 · jia_2023_b0001：…" in llm.last_input
+    assert "[3]" not in llm.last_input
+    written = runs.get_run(db, OWNER, run_id)["attempts"][0]["final"]["written"]
+    assert written == {"text": "年报披露营业收入120.5亿元[1]，同比增长12.4%[2]。",
+                       "citations": [1, 2], "unverified": []}
+    events, _ = runs.events_after(db, OWNER, run_id, 0)
+    assert [e.type for e in events][-2:] == ["answer_written", "attempt_finished"]
+
+
+def test_failed_compose_still_completes_with_short_answer(db, corpus, retriever, live_redis):
+    """撰写回答时网关报错：这道题照常完成，页面退回短答案；记下的错误不带网关地址。"""
+    run_id = submit(db)
+    llm = FakeLLM([call("search_docs", query="甲公司 2023 营业收入"),
+                   call("finalize", answers=["120.5"])], compose=gateway_error(502))
+
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
+
+    detail = runs.get_run(db, OWNER, run_id)
+    final = detail["attempts"][0]["final"]
+    assert (detail["status"], final["submitted"]) == ("completed", ["120.50"])
+    assert final["written"] == {"error": "llm_http_502"}
 
 
 def test_gateway_error_fails_attempt_but_keeps_finished_steps(db, corpus, retriever, live_redis):
@@ -255,14 +298,15 @@ def test_rolled_back_submission_does_not_wake_dispatcher(db, listener):
 
 def test_worker_publishes_thinking_tagged_with_attempt_and_epoch(db, corpus, retriever,
                                                                 live_redis):
-    """思考片段带着 attempt_id、epoch、轮次发到这个 run 的频道：
-    前端靠前两个丢弃旧执行残留的片段。"""
+    """思考片段和回答正文带着 attempt_id、epoch、轮次发到这个 run 的频道：
+    前端靠前两个丢弃旧执行残留的片段；回答正文排在最后一步之后。"""
     run_id = submit(db)
     pubsub = live_redis.pubsub()
     pubsub.subscribe(live.channel(run_id))
     pubsub.get_message(timeout=1)  # 第一条是“订阅成功”的确认
     llm = FakeLLM([call("search_docs", reasoning="先找年报", query="甲公司 营业收入"),
-                   call("finalize", reasoning="可以提交了", answers=["120.5"])])
+                   call("finalize", reasoning="可以提交了", answers=["120.5"])],
+                  compose="营业收入为120.5亿元。")
 
     execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
 
@@ -271,7 +315,8 @@ def test_worker_publishes_thinking_tagged_with_attempt_and_epoch(db, corpus, ret
         messages.append(json.loads(message["data"]))
     pubsub.close()
     assert [(m["turn"], m["kind"], m["text"]) for m in messages] == [
-        (0, "reasoning", "先找年报"), (1, "reasoning", "可以提交了")]
+        (0, "reasoning", "先找年报"), (1, "reasoning", "可以提交了"),
+        (2, "answer", "营业收入为120.5亿元。")]
     assert {(m["attempt_id"], m["epoch"]) for m in messages} == {(1, 1)}
 
 

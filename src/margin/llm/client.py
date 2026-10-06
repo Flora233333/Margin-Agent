@@ -180,3 +180,10 @@ class OpenAICompatibleClient:
 
     def close(self) -> None:
         self.http.close()
+
+
+def describe_error(exc: Exception) -> str:
+    """写进数据库、会展示给用户的错误说明。不用 str(exc)：httpx 的报错里带网关地址。"""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"llm_http_{exc.response.status_code}"
+    return type(exc).__name__

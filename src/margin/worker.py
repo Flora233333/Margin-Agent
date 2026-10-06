@@ -19,7 +19,6 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from functools import cache
 from typing import Any
 
-import httpx
 import redis
 from celery import Celery
 from sqlalchemy import Engine
@@ -27,10 +26,11 @@ from sqlalchemy import Engine
 from . import lease
 from .assembly import build_llm, build_retriever
 from .citations import CitationNumbers
+from .compose import compose
 from .db import get_engine
 from .harness import TOOLS, build_registry, run_episode
 from .live import DeltaPublisher, make_redis
-from .llm import ChatModel
+from .llm import ChatModel, describe_error
 from .retrieval import Corpus, HybridRetriever
 from .settings import get_settings
 from .understand import understand
@@ -80,13 +80,6 @@ def _live_redis() -> redis.Redis:
     return make_redis(get_settings().redis_url)
 
 
-def _describe(exc: Exception) -> str:
-    """写进数据库、会展示给用户的错误说明。不用 str(exc)：httpx 的报错里带网关地址。"""
-    if isinstance(exc, httpx.HTTPStatusError):
-        return f"llm_http_{exc.response.status_code}"
-    return type(exc).__name__
-
-
 def _understand(engine: Engine, held: lease.Lease, llm: ChatModel) -> str:
     """理解题目并写库（在另一个线程里和 Harness 并行），返回答案格式。"""
     try:
@@ -134,15 +127,22 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
             # 提交时没给答案格式（产品里的题）才需要等；评测回放带着格式，finalize 照常
             if held.task["answer_format"] is None:
                 tools = _tools_waiting_for(understood)
+        publish = DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch)
         try:
             trace = run_episode(
                 held.task, llm, build_registry(held.task, corpus, retriever, tools),
                 # 走流式调用：思考片段一到就 publish 到 Redis，前端逐字显示（live.py）；
                 # 流式下“60 秒收不到数据就放弃”也才能对每一块生效
-                on_delta=DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch),
+                on_delta=publish,
                 on_step=lambda step: lease.commit_step(
                     engine, held, step, numbers.number(step.tool_name, step.result)),
             )
+            written = None
+            # 交了答案或放弃作答才写回答；触发停止条件（violation）时没有可写的结论
+            if trace.final is not None:
+                turn = len(trace.steps)  # 回答的片段排在最后一步之后
+                written = compose(llm, held.task["question"], trace.final, trace.steps,
+                                  on_text=lambda text: publish(turn, "answer", text))
             if understood is not None:
                 understood.result()  # 让 run_understood 事件排在 attempt_finished 前面
         except lease.LeaseLost:
@@ -152,9 +152,9 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
         except Exception as exc:
             # 网关报错、超时等：这次执行判为失败，用户可以点“重新生成”（M4 加自动重试）
             log.exception("attempt %s 执行失败", attempt_id)
-            lease.fail(engine, held, _describe(exc))
+            lease.fail(engine, held, describe_error(exc))
             return
-        lease.finish(engine, held, trace.final, trace.violation)
+        lease.finish(engine, held, trace.final, trace.violation, written)
     log.info("attempt %s 完成：%s", attempt_id, trace.violation or trace.final)
 
 

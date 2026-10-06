@@ -135,12 +135,21 @@ def save_understanding(engine: Engine, lease: Lease, understood: Understanding) 
 
 
 def finish(engine: Engine, lease: Lease, final: dict[str, Any] | None,
-           violation: str | None) -> None:
-    """Harness 正常结束（提交了答案，或触发了停止条件）。"""
+           violation: str | None, written: dict[str, Any] | None = None) -> None:
+    """Harness 正常结束（提交了答案，或触发了停止条件）。
+
+    written：撰写的回答（compose.py），存进 final.written，并写 answer_written 事件：
+    前端用它替换逐字显示的片段（片段里可能有被校验删掉的 [n]）。
+    """
+    if written is not None:
+        final = {**final, "written": written}
     with Session(engine) as session, session.begin():
         _fence(session, lease, status="completed", final=final, violation=violation,
                finished_at=func.now())
         session.execute(update(Run).where(Run.id == lease.run_id).values(status="completed"))
+        if written is not None:
+            add_event(session, lease.run_id, "answer_written",
+                      {"attempt_id": lease.attempt_id, **written})
         add_event(session, lease.run_id, "attempt_finished",
                   {"attempt_id": lease.attempt_id, "final": final, "violation": violation})
 
