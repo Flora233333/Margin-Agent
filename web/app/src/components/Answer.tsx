@@ -2,14 +2,17 @@
  * 回答：写在纸面上的正文（不加框）。
  *   结论行  大号的答案 + 一行说明（简洁风的 .verdict）；
  *   依据    每条通过校验的引用一行，末尾是可点的编号 [n]，点了跳到右侧对应的来源旁注；
- *   账目行  模型、步数、引用数。
+ *   账目行  模型、步数、引用数；“复制”按钮（结论 + 依据，纯文本）。
+ * 结论是单个数字时，出现时从 0 滚动到这个数（CountUp，设计稿的 countUp）。
  * 重新生成过的题，更早的执行只显示结论行（citations 传 null）：引用编号和右侧旁注只属于最近一次执行。
  * 模型交答案用的是 finalize 工具（answers 数组），不写一段自然语言回答，所以“正文”就是依据列表。
  */
 
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { AnswerFormat } from '../api'
 import type { Citation } from '../citations'
 import type { Attempt } from '../timeline'
+import { Icon } from './Icons'
 
 const FORMAT_LABEL: Record<AnswerFormat, string> = {
   num: '数值', pct: '百分比', tf: '判断', mcq: '单选', multi: '多选', date: '日期', rank: '排序', text: '文本',
@@ -37,6 +40,43 @@ interface Props {
   onCiteClick: (no: number) => void
 }
 
+/** 结论行的文字：判断题换回“正确 / 错误”，其余照原样（多个答案用顿号连接）；没有提交答案时为 null */
+function figureOf(attempt: Attempt, format: AnswerFormat): string | null {
+  const submitted = (attempt.final?.submitted as string[] | undefined) ?? []
+  if (attempt.final?.name === 'escalate' || submitted.length === 0) {
+    return null
+  }
+  // 判断题：harness 把答案统一成 A（正确）/ B（错误）（harness/answers.py），显示时换回文字
+  return format === 'tf' ? (submitted[0] === 'A' ? '正确' : '错误') : submitted.join('、')
+}
+
+/**
+ * 数字从 0 滚动到目标值，先快后慢，0.8 秒；小数位数和目标值相同。
+ * 每一帧直接改文字（textContent），不经过 React 的 state，免得一秒重新渲染 60 次。
+ * 用 useLayoutEffect 在浏览器画出来之前就把文字设成 0，否则会先闪一下最终的数。
+ */
+function CountUp({ value }: { value: string }) {
+  const el = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const target = Number(value)
+    const decimals = (value.split('.')[1] ?? '').length
+    const start = performance.now()
+    let frame = 0
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / 800)
+      el.current!.textContent = (target * (1 - (1 - t) ** 3)).toFixed(decimals)
+      if (t < 1) {
+        frame = requestAnimationFrame(tick)
+      }
+    }
+    tick(start)
+    return () => cancelAnimationFrame(frame)
+  }, [value])
+  return <span ref={el}>{value}</span>
+}
+
+const NUMBER = /^-?\d+(\.\d+)?$/
+
 function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' | 'options'>) {
   const final = attempt.final
   if (final?.name === 'escalate') {
@@ -60,8 +100,7 @@ function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' 
       </div>
     )
   }
-  // 判断题：harness 把答案统一成 A（正确）/ B（错误）（harness/answers.py），显示时换回文字
-  const figure = format === 'tf' ? (submitted[0] === 'A' ? '正确' : '错误') : submitted.join('、')
+  const figure = figureOf(attempt, format)!
   const unit = format === 'pct' && !figure.endsWith('%') ? '%' : ''
   // 选择题：结论行显示字母，说明里带上选项原文
   const chosen = options ? submitted.map((key) => options[key]).filter(Boolean).join('；') : ''
@@ -69,13 +108,45 @@ function Verdict({ attempt, format, options }: Pick<Props, 'attempt' | 'format' 
     <div className="verdict">
       <div className="verdict-main">
         <span className="verdict-figure">
-          {figure}
+          {NUMBER.test(figure) ? <CountUp value={figure} /> : figure}
           {unit && <span className="verdict-unit">{unit}</span>}
         </span>
         <span className="verdict-label">{chosen || `${FORMAT_LABEL[format]}答案`}</span>
       </div>
     </div>
   )
+}
+
+/** 复制按钮：成功后图标换成 ✓、文字变“已复制”，1.5 秒后恢复 */
+function CopyButton({ text }: { text: string }) {
+  const [state, setState] = useState<'idle' | 'copied' | 'failed'>('idle')
+  useEffect(() => {
+    if (state === 'idle') {
+      return
+    }
+    const timer = setTimeout(() => setState('idle'), 1500)
+    return () => clearTimeout(timer)
+  }, [state])
+  // 剪贴板是浏览器接口，可能因为没有权限被拒绝（例如页面不在前台），这时告诉用户没复制成功
+  const copy = () => navigator.clipboard.writeText(text).then(() => setState('copied'), () => setState('failed'))
+  return (
+    <button className={state === 'copied' ? 'icon-btn copy-btn is-swapped' : 'icon-btn copy-btn'} type="button" onClick={() => void copy()}>
+      <span className="swap">
+        <Icon name="copy" />
+        <Icon name="ok" />
+      </span>
+      <span className="btn-label">{{ idle: '复制', copied: '已复制', failed: '复制失败' }[state]}</span>
+    </button>
+  )
+}
+
+/** 复制的内容：结论一行，依据每条一行（[n] 引文（文档）） */
+function plainText(attempt: Attempt, format: AnswerFormat, citations: Citation[]): string {
+  const lines = [figureOf(attempt, format) ?? '没有答案']
+  for (const c of citations) {
+    lines.push(`[${c.no}] ${c.match}（${c.docId}）`)
+  }
+  return lines.join('\n')
 }
 
 export function Answer(props: Props) {
@@ -115,6 +186,7 @@ export function Answer(props: Props) {
           <span>{attempt.steps.length} 步</span>
           <span>{citations.length} 处引用</span>
         </span>
+        <CopyButton text={plainText(attempt, props.format, citations)} />
       </div>
     </section>
   )
