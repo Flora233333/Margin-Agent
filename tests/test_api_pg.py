@@ -60,6 +60,15 @@ def test_invalid_submission_is_rejected_without_creating_a_run(client, headers, 
     assert client.get("/runs/1").status_code == 404
 
 
+def test_submission_without_answer_format_is_accepted(client):
+    """前端不再让用户选答案格式：不带格式也能提交，标题和格式等 worker 理解完再出现。"""
+    response = submit(client, body={"question": QUESTION["question"]})
+
+    assert response.status_code == 202
+    detail = client.get("/runs/1").json()
+    assert (detail["answer_format"], detail["title"]) == (None, None)
+
+
 def test_other_users_run_returns_404(client):
     submit(client)
     app.dependency_overrides[current_user] = lambda: 999

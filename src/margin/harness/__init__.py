@@ -8,6 +8,6 @@
 """
 
 from .loop import Step, Trace, run_episode
-from .tools import build_registry
+from .tools import TOOLS, build_registry
 
-__all__ = ["Step", "Trace", "build_registry", "run_episode"]
+__all__ = ["TOOLS", "Step", "Trace", "build_registry", "run_episode"]

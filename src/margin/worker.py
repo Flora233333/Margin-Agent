@@ -15,7 +15,9 @@ import logging
 import os
 import socket
 from collections.abc import Callable
+from concurrent.futures import Future, ThreadPoolExecutor
 from functools import cache
+from typing import Any
 
 import httpx
 import redis
@@ -26,11 +28,12 @@ from . import lease
 from .assembly import build_llm, build_retriever
 from .citations import CitationNumbers
 from .db import get_engine
-from .harness import build_registry, run_episode
+from .harness import TOOLS, build_registry, run_episode
 from .live import DeltaPublisher, make_redis
 from .llm import ChatModel
 from .retrieval import Corpus, HybridRetriever
 from .settings import get_settings
+from .understand import understand
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +87,30 @@ def _describe(exc: Exception) -> str:
     return type(exc).__name__
 
 
+def _understand(engine: Engine, held: lease.Lease, llm: ChatModel) -> str:
+    """理解题目并写库（在另一个线程里和 Harness 并行），返回答案格式。"""
+    try:
+        return lease.save_understanding(engine, held, understand(llm, held.task["question"]))
+    except lease.LeaseLost:
+        # 执行权已被取代：标题不写了；主线程下一次提交步骤时也会发现并停止
+        return "text"
+
+
+def _tools_waiting_for(understood: Future[str]) -> dict[str, Any]:
+    """工具表里的 finalize 换成“先等答案格式，再提交”，其余工具不变。
+
+    finalize 要按答案格式规范化短答案（例如 num 保留两位小数），而格式由理解题目给出。
+    理解平均 6 秒，Harness 到 finalize 通常已经过了一两分钟，这里几乎不用真的等。
+    """
+    finalize, args_model = TOOLS["finalize"]
+
+    def finalize_after_understanding(ctx: Any, args: Any) -> dict[str, Any]:
+        ctx.state.task["answer_format"] = understood.result()
+        return finalize(ctx, args)
+
+    return {**TOOLS, "finalize": (finalize_after_understanding, args_model)}
+
+
 def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
             make_llm: Callable[[str], ChatModel], live_redis: redis.Redis, attempt_id: int,
             worker: str) -> None:
@@ -96,16 +123,28 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
     # 引用编号按这次执行里的步骤顺序累计（citations.py）。
     # M4 做“接管后从断点继续”时，要先用已经写进库的步骤把它恢复出来
     numbers = CitationNumbers()
-    with lease.LeaseKeeper(engine, held):
+    llm = make_llm(held.model)
+    # 退出 with 时先等理解题目的线程结束，再停止续租：那个线程写库也要校验租约
+    with lease.LeaseKeeper(engine, held), ThreadPoolExecutor(max_workers=1) as pool:
+        tools = TOOLS
+        understood = None
+        # 第一次执行才理解题目；重新生成时标题已经有了，不再调用
+        if held.needs_understanding:
+            understood = pool.submit(_understand, engine, held, llm)
+            # 提交时没给答案格式（产品里的题）才需要等；评测回放带着格式，finalize 照常
+            if held.task["answer_format"] is None:
+                tools = _tools_waiting_for(understood)
         try:
             trace = run_episode(
-                held.task, make_llm(held.model), build_registry(held.task, corpus, retriever),
+                held.task, llm, build_registry(held.task, corpus, retriever, tools),
                 # 走流式调用：思考片段一到就 publish 到 Redis，前端逐字显示（live.py）；
                 # 流式下“60 秒收不到数据就放弃”也才能对每一块生效
                 on_delta=DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch),
                 on_step=lambda step: lease.commit_step(
                     engine, held, step, numbers.number(step.tool_name, step.result)),
             )
+            if understood is not None:
+                understood.result()  # 让 run_understood 事件排在 attempt_finished 前面
         except lease.LeaseLost:
             # 执行权已被取代：什么都不再写，直接退出
             log.warning("attempt %s 执行权已被取代，停止执行", attempt_id)

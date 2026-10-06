@@ -59,7 +59,12 @@ class Run(Base):
     idempotency_key: Mapped[str] = mapped_column(Text)
     question: Mapped[str] = mapped_column(Text)
     options: Mapped[dict[str, Any] | None]  # 选择题的选项 {"A": "...", ...}
-    answer_format: Mapped[str] = mapped_column(Text)
+    # 答案格式：空 = 由“理解题目”判断后回填（迁移 0004）；评测回放提交时直接给定
+    answer_format: Mapped[str | None] = mapped_column(Text)
+    # 理解题目写出的提纲，左栏显示；空时显示问题原句
+    title: Mapped[str | None] = mapped_column(Text)
+    # 结论旁边的说明，如“广晟控股 · 2022 年营业收入（亿元）”
+    answer_label: Mapped[str | None] = mapped_column(Text)
     model: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, server_default="queued")
     # 这个 run 已分配到的最大事件序号。分配新序号 = 把它加 1（会锁住这一行），

@@ -80,9 +80,9 @@ def _enqueue_attempt(session: Session, run_id: int, attempt_no: int, trigger: st
 
 
 def create_run(engine: Engine, owner_id: int, idempotency_key: str, question: str,
-               options: dict[str, str] | None, answer_format: str,
+               options: dict[str, str] | None, answer_format: str | None,
                model: str) -> tuple[int, bool]:
-    """提交一道题，返回 (run_id, 是否新建)。
+    """提交一道题，返回 (run_id, 是否新建)。answer_format 为 None 时由 worker 理解题目后判断。
 
     幂等：前端每次提交带一个幂等键；网络超时后重试、用户连点两下，用的是同一个键，
     只会建一个 run。靠的是 runs(owner_id, idempotency_key) 唯一约束 + ON CONFLICT DO NOTHING：
@@ -135,7 +135,7 @@ def list_runs(engine: Engine, owner_id: int, limit: int) -> list[dict[str, Any]]
     """这个用户最近提交的题目（新的在前），给前端左侧的历史列表用。"""
     with Session(engine) as session:
         rows = session.execute(
-            select(Run.id, Run.question, Run.status, Run.created_at)
+            select(Run.id, Run.question, Run.title, Run.status, Run.created_at)
             .where(Run.owner_id == owner_id).order_by(Run.id.desc()).limit(limit)
         ).all()
         return [row._asdict() for row in rows]
@@ -157,7 +157,8 @@ def get_run(engine: Engine, owner_id: int, run_id: int) -> dict[str, Any]:
             .order_by(Step.attempt_id, Step.step_no)
         ).scalars().all()
         return {
-            "id": run.id, "question": run.question, "options": run.options,
+            "id": run.id, "question": run.question, "title": run.title,
+            "answer_label": run.answer_label, "options": run.options,
             "answer_format": run.answer_format, "model": run.model, "status": run.status,
             "created_at": run.created_at,
             "attempts": [

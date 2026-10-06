@@ -84,7 +84,8 @@ class RunCreate(BaseModel):
 
     question: str = Field(min_length=1, max_length=2000)
     options: dict[Literal["A", "B", "C", "D"], str] | None = None  # 选择题的选项
-    answer_format: Literal["num", "pct", "tf", "mcq", "multi", "date", "rank", "text"]
+    # 产品里不传，由 worker 理解题目后判断（PLAN §5.8 ①）；评测回放按题集给定的格式传
+    answer_format: Literal["num", "pct", "tf", "mcq", "multi", "date", "rank", "text"] | None = None
 
 
 class RunAccepted(BaseModel):
@@ -119,6 +120,7 @@ class AttemptOut(BaseModel):
 class RunSummary(BaseModel):
     id: int
     question: str
+    title: str | None  # 理解题目后得到的标题；还没理解完时为空，前端显示问题原句
     status: str
     created_at: datetime
 
@@ -126,8 +128,10 @@ class RunSummary(BaseModel):
 class RunDetail(BaseModel):
     id: int
     question: str
+    title: str | None
+    answer_label: str | None  # 结论旁边的一行说明
     options: dict[str, str] | None
-    answer_format: str
+    answer_format: str | None
     model: str
     status: str
     created_at: datetime

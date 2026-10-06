@@ -31,9 +31,13 @@ pytestmark = pytest.mark.integration
 OWNER = 1
 
 
-def submit(db, key="k1"):
-    return runs.create_run(db, OWNER, key, "甲公司2023年营业收入是多少亿元？", None, "num",
-                           "DeepSeek")[0]
+def submit(db, key="k1", answer_format="num"):
+    return runs.create_run(db, OWNER, key, "甲公司2023年营业收入是多少亿元？", None,
+                           answer_format, "DeepSeek")[0]
+
+
+UNDERSTOOD = ('{"title": "甲公司 2023 年营业收入", "label": "甲公司 · 2023 年营业收入（亿元）", '
+              '"answer_format": "num"}')
 
 
 class BrokenGateway:
@@ -95,6 +99,54 @@ def test_step_events_carry_citation_numbers(db, corpus, retriever, live_redis):
     assert [(s["tool_name"], s["citation_no"]) for s in steps] == [
         ("search_docs", None), ("read_section", None),
         ("cite", 1), ("cite", None), ("cite", 2), ("finalize", None)]
+
+
+def test_answer_format_comes_from_understanding_when_not_submitted(db, corpus, retriever,
+                                                                  live_redis):
+    """产品里提交不带答案格式：理解题目判断为 num，finalize 按 num 规范化（120.5 -> 120.50）；
+    标题写进库，run_understood 事件排在 attempt_finished 前面（刷新页面先看到标题）。"""
+    run_id = submit(db, answer_format=None)
+    llm = FakeLLM([call("search_docs", query="甲公司 2023 营业收入"),
+                   call("finalize", answers=["120.5"])], texts=[UNDERSTOOD])
+
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
+
+    detail = runs.get_run(db, OWNER, run_id)
+    assert detail["attempts"][0]["final"]["submitted"] == ["120.50"]
+    assert (detail["title"], detail["answer_format"]) == ("甲公司 2023 年营业收入", "num")
+    events, _ = runs.events_after(db, OWNER, run_id, 0)
+    types = [e.type for e in events]
+    assert types.index("run_understood") < types.index("attempt_finished")
+
+
+def test_failed_understanding_does_not_fail_the_run(db, corpus, retriever, live_redis):
+    """理解题目时网关报错：这道题照常答完，标题退回问题原句的前 20 个字，格式按文本。"""
+    run_id = submit(db, answer_format=None)
+    llm = FakeLLM([call("search_docs", query="甲公司 2023 营业收入"),
+                   call("finalize", answers=["120.5亿元"])], texts=[TimeoutError()])
+
+    execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
+
+    detail = runs.get_run(db, OWNER, run_id)
+    assert (detail["status"], detail["answer_format"]) == ("completed", "text")
+    assert detail["title"] == "甲公司2023年营业收入是多少亿元？"[:20]
+
+
+def test_regenerate_does_not_understand_the_question_again(db, corpus, retriever, live_redis):
+    """重新生成：标题和格式第一次已经有了，不再多花一次模型调用。"""
+    run_id = submit(db, answer_format=None)
+    first = FakeLLM([call("search_docs", query="甲公司 营业收入"),
+                     call("finalize", answers=["120.5"])], texts=[UNDERSTOOD])
+    execute(db, corpus, retriever, lambda model: first, live_redis, 1, "worker-a")
+    runs.regenerate(db, OWNER, run_id)
+    second = FakeLLM([call("search_docs", query="甲公司 营业收入"),
+                      call("finalize", answers=["120.5"])])
+
+    execute(db, corpus, retriever, lambda model: second, live_redis, 2, "worker-a")
+
+    assert second.completions == []
+    detail = runs.get_run(db, OWNER, run_id)
+    assert detail["attempts"][1]["final"]["submitted"] == ["120.50"]
 
 
 def test_gateway_error_fails_attempt_but_keeps_finished_steps(db, corpus, retriever, live_redis):

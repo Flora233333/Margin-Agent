@@ -37,9 +37,13 @@ TOOLS = {
 }
 
 
-def build_registry(task: dict, corpus: Corpus, retriever: HybridRetriever) -> ToolRegistry:
-    """为一道题创建工具集：每道题一个新的 EpisodeState，状态互不影响。"""
-    return ToolRegistry(ToolContext(corpus, retriever, EpisodeState(task)), TOOLS)
+def build_registry(task: dict, corpus: Corpus, retriever: HybridRetriever,
+                   tools: dict = TOOLS) -> ToolRegistry:
+    """为一道题创建工具集：每道题一个新的 EpisodeState，状态互不影响。
+
+    tools：可以替换某个工具的实现（worker 给 finalize 包一层“等答案格式”），工具说明不变。
+    """
+    return ToolRegistry(ToolContext(corpus, retriever, EpisodeState(task)), tools)
 
 
 __all__ = ["TOOLS", "ToolRegistry", "build_registry"]

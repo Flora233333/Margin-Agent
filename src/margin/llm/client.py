@@ -6,6 +6,10 @@ DeepSeek 官方 API、vLLM 部署的自训模型、LM Studio 都实现了同一�
 思考过程（CoT）的字段名各家不同：DeepSeek / 旧版 vLLM 用 reasoning_content，新版 vLLM 用 reasoning。
 这里统一成 LLMResponse.reasoning，Harness 不需要关心是哪家模型。
 
+两个入口：
+    chat()      Harness 用，带十个工具的说明，模型每轮调用一个工具；
+    complete()  不带工具，模型直接写文字：理解题目、撰写回答（M2.5，同一个模型、独立的提示词）。
+
 两种调用方式，返回的 LLMResponse 完全一样：
     非流式：等模型全部生成完，一次拿到整条回复。
     流式（传 on_delta）：服务端用 SSE 一小块一小块地推，每来一块思考 / 正文就回调一次，
@@ -52,11 +56,14 @@ class LLMResponse:
 
 
 class ChatModel(Protocol):
-    """Harness 只依赖这个接口。测试里用 FakeLLM 实现它，不需要真的调模型。"""
+    """Harness 和 worker 只依赖这个接口。测试里用 FakeLLM 实现它，不需要真的调模型。"""
 
     def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]],
              max_tokens: int, tool_choice: str,
              on_delta: OnDelta | None = None) -> LLMResponse: ...
+
+    def complete(self, messages: list[dict[str, Any]], max_tokens: int,
+                 on_delta: OnDelta | None = None) -> LLMResponse: ...
 
 
 class OpenAICompatibleClient:
@@ -87,6 +94,16 @@ class OpenAICompatibleClient:
             "max_tokens": max_tokens,
             **self.extra_body,
         }
+        return self._send(body, on_delta)
+
+    def complete(self, messages: list[dict[str, Any]], max_tokens: int,
+                 on_delta: OnDelta | None = None) -> LLMResponse:
+        """不带工具的调用：请求里没有 tools，模型的回复就是 content 里的文字。"""
+        body = {"model": self.model, "messages": messages, "max_tokens": max_tokens,
+                **self.extra_body}
+        return self._send(body, on_delta)
+
+    def _send(self, body: dict[str, Any], on_delta: OnDelta | None) -> LLMResponse:
         if on_delta is not None:
             return self._chat_stream(body, on_delta)
 

@@ -29,6 +29,7 @@ from .harness import Step
 from .models import Attempt, Run
 from .models import Step as StepRow
 from .runs import add_event
+from .understand import Understanding
 
 log = logging.getLogger(__name__)
 
@@ -48,7 +49,8 @@ class Lease:
     run_id: int
     epoch: int
     model: str
-    task: dict[str, Any]  # 交给 Harness 的题目：question / options / answer_format
+    task: dict[str, Any]  # 交给 Harness 的题目：question / options / answer_format（可能为空）
+    needs_understanding: bool = False  # 这道题还没“理解”过（runs.title 为空），见 understand.py
 
 
 def claim(engine: Engine, attempt_id: int, worker: str) -> Lease | None:
@@ -74,7 +76,8 @@ def claim(engine: Engine, attempt_id: int, worker: str) -> Lease | None:
         run = session.execute(select(Run).where(Run.id == row.run_id)).scalar_one()
         task = {"question": run.question, "options": run.options,
                 "answer_format": run.answer_format}
-        return Lease(attempt_id, row.run_id, row.lease_epoch, row.model, task)
+        return Lease(attempt_id, row.run_id, row.lease_epoch, row.model, task,
+                     needs_understanding=run.title is None)
 
 
 def _fence(session: Session, lease: Lease, **values: Any) -> None:
@@ -112,6 +115,22 @@ def commit_step(engine: Engine, lease: Lease, step: Step, citation_no: int | Non
             "arguments": step.arguments, "result": step.result, "reasoning": step.reasoning,
             "citation_no": citation_no,
         })
+
+
+def save_understanding(engine: Engine, lease: Lease, understood: Understanding) -> str:
+    """写入理解题目的结果，并写 run_understood 事件（刷新页面也能恢复标题）。返回最终的答案格式。
+
+    和 commit_step 一样先校验 epoch：执行权已被取代的 worker 不能再改这道题。
+    调用方已经给定答案格式（评测回放）时保留给定的，只写标题和说明。
+    """
+    with Session(engine) as session, session.begin():
+        _fence(session, lease, lease_until=func.now() + LEASE)
+        answer_format = lease.task["answer_format"] or understood.answer_format
+        session.execute(update(Run).where(Run.id == lease.run_id).values(
+            title=understood.title, answer_label=understood.label, answer_format=answer_format))
+        add_event(session, lease.run_id, "run_understood", {
+            "title": understood.title, "label": understood.label, "answer_format": answer_format})
+        return answer_format
 
 
 def finish(engine: Engine, lease: Lease, final: dict[str, Any] | None,
