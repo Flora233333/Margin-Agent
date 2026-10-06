@@ -146,6 +146,26 @@ def test_answer_not_matching_guessed_format_is_accepted_as_text(db, corpus, retr
         assert attempt["final"]["answer_format_fallback"] == "date"
 
 
+def test_number_with_the_labelled_unit_is_accepted_as_number(db, corpus, retriever, live_redis):
+    """模型看不到格式，数值题常带着单位交（“120.5亿元”）：单位和结论说明“（亿元）”一致，去掉单位按数值收，
+    页面才有大号结论。单位对不上（“0.012万亿元”）不能去——去了数就错了，按文本收下。
+    重新生成时说明从库里取，规则相同。"""
+    run_id = submit(db, answer_format=None)
+    first = FakeLLM([call("search_docs", query="甲公司 营业收入"),
+                     call("finalize", answers=["120.5 亿元"])], understand=UNDERSTOOD)
+    execute(db, corpus, retriever, lambda model: first, live_redis, 1, "worker-a")
+    runs.regenerate(db, OWNER, run_id)
+    second = FakeLLM([call("search_docs", query="甲公司 营业收入"),
+                      call("finalize", answers=["0.012万亿元"])])
+    execute(db, corpus, retriever, lambda model: second, live_redis, 2, "worker-a")
+
+    first_final, second_final = [a["final"] for a in runs.get_run(db, OWNER, run_id)["attempts"]]
+    assert (first_final["submitted"], first_final["raw"], first_final["unit_removed"]) == (
+        ["120.50"], ["120.5 亿元"], "亿元")
+    assert (second_final["submitted"], second_final["answer_format_fallback"]) == (
+        ["0.012万亿元"], "num")
+
+
 def test_failed_understanding_does_not_fail_the_run(db, corpus, retriever, live_redis):
     """理解题目时网关报错：这道题照常答完，标题退回问题原句的前 20 个字，格式按文本。"""
     run_id = submit(db, answer_format=None)

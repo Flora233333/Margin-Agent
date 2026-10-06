@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import socket
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -81,17 +82,42 @@ def _live_redis() -> redis.Redis:
     return make_redis(get_settings().redis_url)
 
 
-def _understand(engine: Engine, held: lease.Lease, llm: ChatModel) -> str:
-    """理解题目并写库（在另一个线程里和 Harness 并行），返回猜的答案格式。"""
+# 理解题目的结果里 finalize 要用的两样：猜的答案格式、结论说明
+# （例如“甲公司 · 2023 年营业收入（亿元）”）
+Guess = tuple[str, str | None]
+
+# 结论说明末尾括号里的单位，例如“（亿元）”“(元/股)”
+LABEL_UNIT = re.compile(r"[（(]([^（）()]+)[）)]\s*$")
+
+
+def _understand(engine: Engine, held: lease.Lease, llm: ChatModel) -> Guess:
+    """理解题目并写库（在另一个线程里和 Harness 并行），返回猜的答案格式和结论说明。"""
     understood = understand(llm, held.task["question"])
     try:
         lease.save_understanding(engine, held, understood)
     except lease.LeaseLost:
         pass  # 执行权已被取代：标题不写了；主线程下一次提交步骤时也会发现并停止
-    return understood.answer_format
+    return understood.answer_format, understood.label
 
 
-def _tools_with_guessed_format(guess: Callable[[], str]) -> dict[str, Any]:
+def _without_unit(answers: list[str], label: str | None) -> tuple[list[str], str] | None:
+    """答案都是“数字 + 单位”、并且单位和结论说明末尾括号里的一字不差时，去掉单位；否则返回 None。
+
+    例：说明“宁德时代 · 2025 年经营活动现金流量净额（亿元）”，
+    答案 ["1,332.20亿元"] -> (["1,332.20"], "亿元")。
+    单位不是查表认的，就用说明里写的那个：结论行显示的是“数字 + 说明”，单位相同才能去掉。
+    答案“1.2万亿元”、说明“（亿元）”时不去——去了数就错了一万倍。
+    """
+    match = LABEL_UNIT.search(label or "")
+    if match is None:
+        return None
+    unit = match.group(1).strip()
+    if not all(a.strip().endswith(unit) for a in answers):
+        return None
+    return [a.strip().removesuffix(unit).strip() for a in answers], unit
+
+
+def _tools_with_guessed_format(guess: Callable[[], Guess]) -> dict[str, Any]:
     """产品里的题没有给定格式：finalize 换成“按猜的格式试，对不上就按文本收下”，其余工具不变。
 
     猜的格式来自理解题目。第一次执行时理解题目在另一个线程里，guess() 等它的结果
@@ -99,17 +125,29 @@ def _tools_with_guessed_format(guess: Callable[[], str]) -> dict[str, Any]:
     猜错时不能退回让模型改：主流程的模型看不到格式，只看到“没法按 date 规范化”，
     会去猜系统要什么、把对的答案改成别的形式（run 66 被退回 4 次，最后推出两个日期交上去）。
     所以对不上就按文本收下，结果里记下 answer_format_fallback（猜的是什么），页面按文本显示。
+
+    按文本收下之前先试一次去掉单位：模型看不到格式，数值题常交“541.61亿元”，按 num 收不下，
+    页面就没有大号结论（10-06 实测 3 道数值题里 2 道这样）。
+    单位和结论说明里的一致才去（_without_unit），raw 仍记模型交的原文，unit_removed 记去掉了什么。
     """
     finalize, args_model = TOOLS["finalize"]
 
     def finalize_with_guess(ctx: Any, args: Any) -> dict[str, Any]:
-        guessed = guess()
+        guessed, label = guess()
         ctx.state.task["answer_format"] = guessed
         try:
             return finalize(ctx, args)
         except ToolError as exc:
             if exc.code != "answer_format_invalid":
                 raise  # 没搜索过、没引用（提醒）等别的前置条件照常退回
+        bare = _without_unit(args.answers, label)
+        if bare is not None:
+            answers, unit = bare
+            try:
+                result = finalize(ctx, args.model_copy(update={"answers": answers}))
+                return {**result, "raw": args.answers, "unit_removed": unit}
+            except ToolError:
+                pass  # 去掉单位还是不像数（例如“约541亿元”）：按文本收下
         ctx.state.task["answer_format"] = "text"
         return {**finalize(ctx, args), "answer_format_fallback": guessed}
 
@@ -138,8 +176,8 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
             understood = pool.submit(_understand, engine, held, llm)
         # 提交时没给答案格式（产品里的题）才按猜的格式“软校验”；评测回放带着格式，finalize 严格校验
         if held.task["answer_format"] is None:
-            guessed = held.guessed_format or "text"
-            tools = _tools_with_guessed_format(understood.result if understood else lambda: guessed)
+            stored: Guess = (held.guessed_format or "text", held.answer_label)
+            tools = _tools_with_guessed_format(understood.result if understood else lambda: stored)
         publish = DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch)
         try:
             trace = run_episode(

@@ -133,7 +133,9 @@ function describe(step: StepEvent, citeNo?: number): Card {
           ? undefined
           : data.answer_format_fallback
             ? `按文本收下（自动判断的格式是“${FORMAT_LABEL[data.answer_format_fallback as AnswerFormat]}”，答案不是这种形式）`
-            : '格式校验通过',
+            : data.unit_removed
+              ? `去掉单位“${data.unit_removed}”后格式校验通过（和结论说明里的单位一致）`
+              : '格式校验通过',
       }
     case 'escalate':
       return {

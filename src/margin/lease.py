@@ -53,6 +53,7 @@ class Lease:
     task: dict[str, Any]
     needs_understanding: bool = False  # 这道题还没“理解”过（runs.title 为空），见 understand.py
     guessed_format: str | None = None  # 之前理解题目猜的格式（重新生成时用）
+    answer_label: str | None = None  # 之前理解题目给的结论说明（重新生成时用，取里面的单位）
 
 
 def claim(engine: Engine, attempt_id: int, worker: str) -> Lease | None:
@@ -79,7 +80,8 @@ def claim(engine: Engine, attempt_id: int, worker: str) -> Lease | None:
         task = {"question": run.question, "options": run.options,
                 "answer_format": run.answer_format, "require_citation": run.require_citation}
         return Lease(attempt_id, row.run_id, row.lease_epoch, row.model, task,
-                     needs_understanding=run.title is None, guessed_format=run.guessed_format)
+                     needs_understanding=run.title is None, guessed_format=run.guessed_format,
+                     answer_label=run.answer_label)
 
 
 def _fence(session: Session, lease: Lease, **values: Any) -> None:
