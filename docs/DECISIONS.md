@@ -290,5 +290,19 @@
 - **没选**：真实后端 + 假模型。要起 PG、RabbitMQ、embedding 和语料，又慢又重；后端那一侧已有接口、集成测试。
   代价是假 API 的推流规则要和真 API 保持一致（补发 → caught_up → 实时 → 结束关闭），改 api.py 的推流时要同步改它。
 - **新增开发依赖** `@playwright/test`（只在 `web/app` 的 devDependencies）。本机用已装的 Chrome，不下载浏览器；
-  以后上 CI 时加一步 `npx playwright install chromium`（约 150MB）。仓库目前还没有 CI 配置。
+  CI 上装 Playwright 自带的 Chromium（见 D27）。
 - 测试不调模型、不联网，符合 AGENTS.md 的测试约定；23 个测试约 2 分钟。
+
+### D27 · 2026-10-06 · CI 用 GitHub Actions，后端集成测试和前端端到端测试都在 CI 里跑
+
+- **为什么要**：测试原来只在本机跑，忘了跑或者本机环境刚好“碰巧能过”（例如本机有 `.env`、装了 Chrome）都发现不了。
+  push 时自动跑一遍，坏了在 GitHub 上一眼看到。
+- **两个任务并行**（`.github/workflows/ci.yml`）：
+  - backend：官方 Python 3.11 + pyproject 的 `pip install -e . --group dev`（不用 conda，AGENTS.md 早就这样约定）；
+    PG（`pgvector/pgvector:pg18`）、Redis 用 Actions 的 services 起，和 compose.yaml 同一个镜像；
+    跑 `pip check`、ruff、单元测试、`pytest -m integration`。
+  - frontend：Node 24，`npm ci` 后跑 oxlint、vitest、`npm run build`（含 tsc 类型检查）、端到端测试；失败时上传截图和 trace。
+- **没有密钥**：测试用 FakeLLM 和 conftest 里的小语料，不调模型、不读语料。`Settings` 的必填项
+  （模型地址、语料路径）在 worker.py 导入时就会读，CI 里填不存在的占位地址。
+- **没放进 CI**：RabbitMQ（只有一个测试用到 broker，故意连一个不存在的端口）、embedding 服务、真实模型。
+- 本机验证：在没有 `.env` 的目录用 CI 同样的环境变量跑 pytest，单元 61、集成 53 全过。

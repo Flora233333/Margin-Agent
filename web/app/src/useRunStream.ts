@@ -63,8 +63,9 @@ export function useRunStream(runId: number, onSettled: () => void) {
       setTimeline(timelineRef.current)
     }
 
+    // 不在这里设 connecting：重连时状态要一直是 retrying（页面显示“正在重连”），直到 onopen 真的连上。
+    // 以前这里设回 connecting：API 停机时每 2 秒重试一次，提示就跟着闪掉一次（e2e 里数到 4 次）
     function open() {
-      setConnection('connecting')
       source = new EventSource(eventsUrl(runId, timelineRef.current.lastSeq))
       alive() // 连接一直建立不起来（请求挂住）也算断了
       source.onopen = () => {
@@ -107,6 +108,9 @@ export function useRunStream(runId: number, onSettled: () => void) {
     }
   }, [runId, generation])
 
-  const reopen = useCallback(() => setGeneration((g) => g + 1), [])
+  const reopen = useCallback(() => {
+    setConnection('connecting')
+    setGeneration((g) => g + 1)
+  }, [])
   return { timeline, connection, caughtUp, reopen }
 }

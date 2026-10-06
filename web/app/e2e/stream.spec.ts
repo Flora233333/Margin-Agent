@@ -81,20 +81,44 @@ test('执行中刷新页面：补发的历史卡片不画连线，之后的步�
   expect(errors).toEqual([])
 })
 
-test('连接“半死”（不发数据也不断开）：25 秒后自动重连续上，步骤不重复、不缺（M2-8）', async ({ page }) => {
+test('连接“半死”、API 重启中：25 秒后显示“正在重连”，恢复前一直显示不闪，恢复后续上，步骤不重复、不缺（M2-8）', async ({ page }) => {
+  // 数“正在重连”被插进页面几次：一直显示是 1 次；每次重试都闪掉再出现就是好几次
+  await page.addInitScript(() => {
+    const w = window as unknown as { hintShown: number }
+    w.hintShown = 0
+    new MutationObserver((records) => {
+      for (const record of records) {
+        for (const node of record.addedNodes) {
+          if (node.textContent?.includes('正在重连')) {
+            w.hintShown += 1
+          }
+        }
+      }
+    }).observe(document, { childList: true, subtree: true })
+  })
   const streams: string[] = []
   page.on('request', (r) => r.url().includes('/events') && streams.push(new URL(r.url()).search))
   const id = await submit(page, 'text_long')
   await atLeast(page, 4)
-  await page.request.post(`${MOCK_API}/__stall/${id}`)
+  // 现有连接卡住；之后 32 秒内新连接都返回 502
+  await page.request.post(`${MOCK_API}/__stall/${id}?down_ms=32000`)
   const stuckAt = await page.locator('.steps > .step').count()
   await page.waitForTimeout(5000)
   // 连接卡住了：这段时间页面上什么都没多（假 API 那边其实还在往下执行）
   await expect(page.locator('.steps > .step')).toHaveCount(stuckAt)
 
+  // 25 秒没收到任何数据，前端认定连接已断，开始重连，页面提示
+  const hint = page.getByText('连接中断，正在重连…')
+  await expect(hint).toBeVisible({ timeout: 30_000 })
+  await page.waitForTimeout(2500)
+  await expect(hint).toBeVisible()
+
+  // API 恢复：从最后收到的 seq 之后接上，提示消失
   await waitSettled(page)
-  // 25 秒没收到任何数据，前端关掉旧连接、从最后收到的 seq 之后重新订阅
-  expect(streams.length).toBeGreaterThanOrEqual(2)
+  await expect(hint).toBeHidden()
+  // 重连失败了好几次（每 2 秒一次），提示从出现到恢复一直在，中间没有闪掉（M2.5-8 之前每次重试闪一下）
+  expect(streams.length).toBeGreaterThanOrEqual(4)
+  expect(await page.evaluate(() => (window as unknown as { hintShown: number }).hintShown)).toBe(1)
   expect(Number(new URLSearchParams(streams.at(-1)).get('after'))).toBeGreaterThan(0)
   await expect(page.locator('.steps > .step')).toHaveCount(itemCount('text_long'))
 })

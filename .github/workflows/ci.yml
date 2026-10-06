@@ -1,0 +1,76 @@
+# 每次 push 自动跑全部检查：后端 lint + 单元测试 + 集成测试（真 PG / Redis），前端 lint + 单元测试 + 构建 + 端到端测试。
+# CI 不用 conda（AGENTS.md）：官方 Python 3.11 + 同一份 pyproject 的 pip install。
+# 测试不调模型、不读语料（FakeLLM + conftest 里的小语料），所以 CI 里没有密钥，也不需要密钥。
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    # 和 compose.yaml 同样的镜像；端口映射到 runner 本机，测试连 127.0.0.1
+    services:
+      postgres:
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_DB: margin
+          POSTGRES_USER: margin
+          POSTGRES_PASSWORD: margin_dev
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U margin" --health-interval 5s --health-timeout 3s --health-retries 10
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      MARGIN_DATABASE_URL: postgresql://margin:margin_dev@127.0.0.1:5432/margin
+      MARGIN_REDIS_URL: redis://127.0.0.1:6379/0
+      # 下面几项是 Settings 的必填项（worker.py 导入时就会读配置），测试里用不到，填占位
+      MARGIN_LLM_BASE_URL: http://llm.invalid/v1
+      MARGIN_BLOCKS_PATH: /nonexistent/blocks.jsonl
+      MARGIN_MANIFEST_PATH: /nonexistent/manifest.json
+      MARGIN_ALIAS_PATH: /nonexistent/aliases.jsonl
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+      # --group 要 pip 25.1 以上
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e . --group dev
+      - run: python -m pip check
+      - run: ruff check src tests scripts
+      - run: pytest
+      - run: pytest -m integration
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web/app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/app/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build # 含 tsc 类型检查
+      # 本机用装好的 Chrome；CI 上装 Playwright 自带的 Chromium（--with-deps 连系统库一起装）
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: web/app/test-results/
+          retention-days: 7

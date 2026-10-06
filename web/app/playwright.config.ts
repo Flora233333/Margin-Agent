@@ -11,6 +11,10 @@ import { defineConfig } from '@playwright/test'
 const MOCK_PORT = 8100
 const WEB_PORT = 5174
 
+// 本机开着代理软件时（设了 HTTP_PROXY），Playwright 检查服务是否起来的请求也会走代理，
+// 代理连不上本机端口就回 502，等满 60 秒报超时。本地服务一律直连
+process.env.NO_PROXY = 'localhost,127.0.0.1'
+
 export default defineConfig({
   testDir: 'e2e',
   timeout: 90_000, // 半死连接那条要等前端 25 秒的心跳超时

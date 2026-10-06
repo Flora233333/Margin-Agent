@@ -12,7 +12,9 @@
  *
  * 给测试用的控制接口（真 API 没有）：
  *   GET  /__ids          固定数据名 -> 已结束的题的 id
- *   POST /__stall/{id}   这道题现有的连接从此一个字都不发、也不关（模拟“半死”的连接），新连接照常
+ *   POST /__stall/{id}?down_ms=N
+ *                        这道题现有的连接从此一个字都不发、也不关（模拟“半死”的连接）；
+ *                        之后 N 毫秒内新连接都返回 502（模拟 API 进程重启中，Vite 代理就是这样回的），再之后照常
  *
  * 用法：node e2e/mock-api.mjs（端口 MOCK_PORT，默认 8100）。由 playwright.config.ts 自动启动。
  */
@@ -56,6 +58,7 @@ function newRun(id, name, live) {
     published: [], // 已经发生的持久事件
     subscribers: new Set(),
     running: false,
+    downUntil: 0, // 在这个时刻之前 /events 返回 502
   }
   if (!live) {
     run.published = fixture.events
@@ -213,9 +216,11 @@ const server = createServer(async (request, response) => {
     return sendJson(response, 200, ids)
   }
   if (request.method === 'POST' && (match = path.match(/^\/__stall\/(\d+)$/))) {
-    for (const subscriber of runs.get(Number(match[1])).subscribers) {
+    const run = runs.get(Number(match[1]))
+    for (const subscriber of run.subscribers) {
       subscriber.stalled = true
     }
+    run.downUntil = Date.now() + Number(url.searchParams.get('down_ms') ?? 0)
     return sendJson(response, 200, { ok: true })
   }
   if (request.method === 'GET' && path === '/runs') {
@@ -256,6 +261,9 @@ const server = createServer(async (request, response) => {
       return sendJson(response, 202, { attempt_no: run.played })
     }
     if (request.method === 'GET' && match[2] === '/events') {
+      if (Date.now() < run.downUntil) {
+        return sendJson(response, 502, { detail: 'API 重启中' })
+      }
       const after = Math.max(Number(url.searchParams.get('after') ?? 0), Number(request.headers['last-event-id'] ?? 0))
       return stream(request, response, run, after)
     }
