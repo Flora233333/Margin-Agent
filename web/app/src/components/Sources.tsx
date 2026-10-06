@@ -4,8 +4,9 @@
  * 简洁风宽屏时，右栏有两种排法（useMarginLayout）：
  *   执行中  顺序列表，整栏“吸”在屏幕顶部（.panel-body.is-live，CSS sticky）。页面一直在往下滚、过程区一直在变长，
  *           卡片如果去对齐过程区里的步骤，会跟着滚出屏幕、被后来的卡片推开，看起来在乱飘（M2 逐帧截图 run 32）；
- *   结束后  页边旁注（D14）：每张卡片和回答里的 [n] 对齐，互不重叠。过程区展开时也不去追里面的步骤，
- *           卡片只跟着回答走，展开 / 收起过程区时和回答一起平移。
+ *   结束后  从最近一次执行的过程区顶部（收起时那个框的上沿）开始，按编号往下排（D14 修订，2026-10-06）。
+ *           过程区展开是往下长的，它的上沿不动，所以展开 / 收起过程区时卡片不动。
+ *           原来是每张卡片对齐回答里的 [n]：展开过程区时回答被推下去，卡片跟着整栏下移，作者试用后改成现在这样。
  * 窄屏（≤1180px）时 CSS 把卡片变回普通列表，这里清掉 top。
  * 执行中每出现一张新卡片，从过程区里引用它的那一步画一条线过去，1.5 秒后收回（useAnnounce），表示“这条证据从这里来”。
  * 结束后鼠标停在回答里的 [n] 或卡片上，两边一起高亮，并从 [n] 画一条线到卡片（useLinkLine）。
@@ -26,7 +27,12 @@ function isShown(el: Element): boolean {
   return !el.closest('.work:not(.is-open) .work-body-wrap') && el.getClientRects().length > 0
 }
 
-/** 结束后卡片对齐的位置：回答里的 [n]。执行失败、没有回答时没有锚点，排成列表 */
+/** 结束后卡片从这里排起：最近一次执行的过程区 */
+function startOf(): Element | null {
+  return [...document.querySelectorAll('.attempt .work')].at(-1) ?? null
+}
+
+/** 回答里的 [n]（悬停连线的起点）；撰写失败、旧题时是依据列表里的编号 */
 function anchorOf(no: string): Element | null {
   const el = document.querySelector(`.answer .cite[data-src="${no}"]`)
   return el && isShown(el) ? el : null
@@ -38,7 +44,8 @@ function anchorOf(no: string): Element | null {
  * 卡片会一顿一顿地落在后面（逐帧截图里晚了约 250ms）。所以动画一开始就算出终点，卡片直接滑过去，和内容同时到达。
  */
 
-/** 锚点上方各个过程区还要变化的高度之和（展开为正，收起为负，静止时为 0） */
+/** 锚点上方各个过程区还要变化的高度之和（展开为正，收起为负，静止时为 0）。
+ *  锚点是最近一次的过程区：它自己展开不算（往下长），重新生成过的题，上面更早的过程区展开会把它推下去 */
 function workShift(anchor: Element): number {
   let shift = 0
   for (const wrap of document.querySelectorAll('.work-body-wrap')) {
@@ -99,20 +106,12 @@ function useMarginLayout(track: RefObject<HTMLDivElement | null>, thread: RefObj
         switchMode()
       }
       const trackTop = trackEl.getBoundingClientRect().top
-      // 每张卡片的目标位置：结束后是 [n] 的高度，执行中（或没有锚点）是 0，从上往下排，会压住上一张就往下推。
-      // “其他文档”的目标是无穷大：永远排在最后
-      const placed = items.map((item) => {
-        if (item.classList.contains('group')) {
-          return { item, target: Infinity }
-        }
-        const anchor = live ? null : anchorOf(item.dataset.src!)
-        const target = anchor ? anchor.getBoundingClientRect().top - trackTop - 6 + workShift(anchor) : 0
-        return { item, target }
-      })
-      placed.sort((a, b) => a.target - b.target) // 稳定排序：目标相同的按引用编号
-      let floor = 0
-      for (const { item, target } of placed) {
-        const top = target === Infinity ? floor : Math.max(target, floor)
+      // 起点：执行中是轨道顶部（整栏吸顶）；结束后是最近一次过程区的上沿。卡片按 DOM 顺序（编号顺序，
+      // “其他文档”在最后）一张接一张往下排
+      const start = live ? null : startOf()
+      let floor = start ? Math.max(0, start.getBoundingClientRect().top - trackTop + workShift(start)) : 0
+      for (const item of items) {
+        const top = floor
         if (!item.dataset.placed) {
           // 第一次出现：直接放到位（暂时关掉 top 的过渡），不从轨道顶部滑下来
           item.classList.add('is-placing')

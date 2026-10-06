@@ -9,6 +9,8 @@
  *
  * 旁注里想多显示一点上下文：模型引用之前一定读过这一块（read_section 或 find_in_block，否则校验不通过），
  * 就在那些步骤的结果里找到引文所在位置，前后各取一段。
+ * 语料是 PDF 转成的 markdown，原文里夹着 <sub> 之类的标签和 ![](images/…) 图片链接，显示前去掉（readable）；
+ * 只改显示，库里存的原文和引文不动（溯源仍以原文为准）。
  *
  * 另外整理“检索命中的其他文档”（searchedDocsOf）：search_docs 命中、但没有被引用的文档。
  * 模型没有引用任何原文时（例如 run 31 直接算完就交答案），右栏至少能看到它查过、读过哪些文档。
@@ -47,8 +49,18 @@ function textsOf(steps: StepEvent[], docId: string, blockId: string): string[] {
   return texts
 }
 
-function withContext(texts: string[], match: string): Pick<Citation, 'before' | 'match' | 'after'> {
-  for (const text of texts) {
+const TAG = /<\/?[a-zA-Z][^>]*>/g // <sub>、</sub>、<br/> 等 HTML 标签
+const IMAGE = /!\[[^\]]*\]\([^)]*\)/g // markdown 图片：![说明](images/xxx.jpg)
+
+/** 原文里给机器看的标记换成人能读的：标签去掉，图片换成“〔图片〕” */
+export function readable(text: string): string {
+  return text.replace(IMAGE, '〔图片〕').replace(TAG, '')
+}
+
+function withContext(texts: string[], rawMatch: string): Pick<Citation, 'before' | 'match' | 'after'> {
+  // 先整理整段原文再截前后文：先截再整理的话，截断处可能留下半个标签（例如 “<su”）
+  const match = readable(rawMatch)
+  for (const text of texts.map(readable)) {
     const at = text.indexOf(match)
     if (at >= 0) {
       const start = Math.max(0, at - CONTEXT_CHARS)

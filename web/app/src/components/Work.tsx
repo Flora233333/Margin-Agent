@@ -7,7 +7,7 @@
  * M2.5 起前后各多一项：第一项“理解题目”（标题、判断的答案格式），最后一项“撰写回答”。
  */
 
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { type AnswerFormat, FORMAT_LABEL } from '../api'
 import type { Attempt } from '../timeline'
 import { Icon } from './Icons'
@@ -75,6 +75,33 @@ export function Work({ attempt, citeNos }: { attempt: Attempt; citeNos: Map<numb
   const composing = attempt.answer !== '' || attempt.written !== null || (running && ended(attempt))
   const written = attempt.written
 
+  const items: ReactNode[] = []
+  if (understood) {
+    const detail = [`答案格式：${FORMAT_LABEL[understood.answer_format as AnswerFormat]}`, understood.label]
+    items.push(
+      <StageItem key="understood" icon="read" title={<>理解题目 <q>{understood.title}</q></>}
+        detail={detail.filter(Boolean).join(' · ')} current={false} />,
+    )
+  }
+  attempt.steps.forEach((step, i) => {
+    const last = running && !live && !composing && i === attempt.steps.length - 1
+    if (step.reasoning) {
+      items.push(<ThoughtItem key={`t${step.step_no}`} text={step.reasoning} />)
+    }
+    items.push(<ToolItem key={`s${step.step_no}`} step={step} current={last} citeNo={citeNos.get(step.step_no)} />)
+  })
+  if (live) {
+    // key 和这一轮 step 到达后的完整思考相同（t + 轮次）：到达时原地换成完整思考
+    items.push(<ThoughtItem key={`t${attempt.live!.turn}`} text={live} current />)
+  }
+  if (composing) {
+    const detail = written && (written.error ? '没有写成，下面显示提交的答案和依据' : `引用 ${written.citations?.length ?? 0} 处`)
+    items.push(
+      <StageItem key="compose" icon="note" title={written ? '撰写回答' : '正在撰写回答…'}
+        detail={detail || undefined} current={!written} />,
+    )
+  }
+
   const classes = ['work', open && 'is-open', active && 'is-running'].filter(Boolean).join(' ')
   return (
     <section className={classes}>
@@ -90,39 +117,14 @@ export function Work({ attempt, citeNos }: { attempt: Attempt; citeNos: Map<numb
       <div className="work-body-wrap reveal">
         <div className="reveal-inner">
           <div className="work-body">
-            <ol className="steps">
-              {understood && (
-                <StageItem
-                  key="understood"
-                  icon="read"
-                  title={<>理解题目 <q>{understood.title}</q></>}
-                  detail={[`答案格式：${FORMAT_LABEL[understood.answer_format as AnswerFormat]}`, understood.label]
-                    .filter(Boolean)
-                    .join(' · ')}
-                  current={false}
-                />
-              )}
-              {attempt.steps.map((step, i) => {
-                const last = running && !live && !composing && i === attempt.steps.length - 1
-                return [
-                  step.reasoning && <ThoughtItem key={`t${step.step_no}`} text={step.reasoning} />,
-                  <ToolItem key={`s${step.step_no}`} step={step} current={last} citeNo={citeNos.get(step.step_no)} />,
-                ]
-              })}
-              {/* key 和 step 到达后的完整思考相同：React 原地换掉文字，不会删掉重建、重播出现动画 */}
-              {live && <ThoughtItem key={`t${attempt.live!.turn}`} text={live} current />}
-              {composing && (
-                <StageItem
-                  key="compose"
-                  icon="note"
-                  title={written ? '撰写回答' : '正在撰写回答…'}
-                  detail={
-                    written ? (written.error ? '没有写成，下面显示提交的答案和依据' : `引用 ${written.citations?.length ?? 0} 处`) : undefined
-                  }
-                  current={!written}
-                />
-              )}
-            </ol>
+            {/*
+              所有条目放在同一个数组里渲染（items），不要拆成“步骤数组 + 单独的实时思考”几块：
+              React 只在同一个数组的兄弟之间按 key 认出“同一个元素”。实时思考（key t3）原来单独占一个位置，
+              step 3 到达后完整思考（也是 t3）出现在步骤数组里，位置不同，React 就删掉旧的、新建一个，
+              新建的条目重播 0.5 秒的出现动画——长长一段思考从上往下重新展开一遍，整个过程区跳一下。
+              放进同一个数组后，t3 原地保留，只换文字。
+            */}
+            <ol className="steps">{items}</ol>
           </div>
         </div>
       </div>

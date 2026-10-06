@@ -177,7 +177,9 @@ export function ThoughtItem({ text, current = false }: { text: string; current?:
           <span className="step-node">
             <i className="thought-dot" />
           </span>
-          {current ? <StreamingText text={text} /> : <p className="thought-text">{text}</p>}
+          {/* 结束的思考也用 StreamingText：step 到达、current 变成 false 时 <p> 保持同一个元素，
+              已经淡入完的文字原样留着；打开页面时一次拿到的完整思考没有“切口”，就是普通文字 */}
+          <StreamingText text={text} />
         </div>
       </div>
     </li>
