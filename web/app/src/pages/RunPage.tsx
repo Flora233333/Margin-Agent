@@ -117,7 +117,8 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
 
   const understood = understoodOf(timeline)
   const title = understood?.title ?? run.title ?? run.question
-  const format = (understood?.answer_format ?? run.answer_format ?? 'text') as AnswerFormat
+  // 给定的格式优先（评测回放）；页面上提交的题用理解题目猜的
+  const format = (run.answer_format ?? understood?.answer_format ?? run.guessed_format ?? 'text') as AnswerFormat
   const label = understood?.label ?? run.answer_label
   // 打开页面时还没理解完：理解结果一到，刷新左侧列表，那里也换成标题
   const knownTitle = useRef(run.title !== null)
@@ -164,7 +165,8 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                 {(attempt.status === 'completed' || attempt.answer !== '') && (
                   <Answer
                     attempt={attempt}
-                    format={format}
+                    // 交的答案和猜的格式对不上、按文本收下了（worker.py）：这次的回答也按文本显示
+                    format={attempt.final?.answer_format_fallback ? 'text' : format}
                     label={label}
                     options={run.options}
                     model={run.model}

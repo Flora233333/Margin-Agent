@@ -5,6 +5,7 @@
  */
 
 import { type ReactNode, useState } from 'react'
+import { type AnswerFormat, FORMAT_LABEL } from '../api'
 import type { StepEvent } from '../timeline'
 import { Icon } from './Icons'
 
@@ -128,7 +129,11 @@ function describe(step: StepEvent, citeNo?: number): Card {
             提交答案 <span className="mono">{(data.submitted ?? args.answers ?? []).join('、')}</span>
           </>
         ),
-        detail: step.result.ok ? '格式校验通过' : undefined,
+        detail: !step.result.ok
+          ? undefined
+          : data.answer_format_fallback
+            ? `按文本收下（自动判断的格式是“${FORMAT_LABEL[data.answer_format_fallback as AnswerFormat]}”，答案不是这种形式）`
+            : '格式校验通过',
       }
     case 'escalate':
       return {

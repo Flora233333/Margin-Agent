@@ -15,7 +15,7 @@ import logging
 import os
 import socket
 from collections.abc import Callable
-from concurrent.futures import Future, ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 from functools import cache
 from typing import Any
 
@@ -29,6 +29,7 @@ from .citations import CitationNumbers
 from .compose import compose
 from .db import get_engine
 from .harness import TOOLS, build_registry, run_episode
+from .harness.tools.base import ToolError
 from .live import DeltaPublisher, make_redis
 from .llm import ChatModel, describe_error
 from .retrieval import Corpus, HybridRetriever
@@ -81,27 +82,38 @@ def _live_redis() -> redis.Redis:
 
 
 def _understand(engine: Engine, held: lease.Lease, llm: ChatModel) -> str:
-    """理解题目并写库（在另一个线程里和 Harness 并行），返回答案格式。"""
+    """理解题目并写库（在另一个线程里和 Harness 并行），返回猜的答案格式。"""
+    understood = understand(llm, held.task["question"])
     try:
-        return lease.save_understanding(engine, held, understand(llm, held.task["question"]))
+        lease.save_understanding(engine, held, understood)
     except lease.LeaseLost:
-        # 执行权已被取代：标题不写了；主线程下一次提交步骤时也会发现并停止
-        return "text"
+        pass  # 执行权已被取代：标题不写了；主线程下一次提交步骤时也会发现并停止
+    return understood.answer_format
 
 
-def _tools_waiting_for(understood: Future[str]) -> dict[str, Any]:
-    """工具表里的 finalize 换成“先等答案格式，再提交”，其余工具不变。
+def _tools_with_guessed_format(guess: Callable[[], str]) -> dict[str, Any]:
+    """产品里的题没有给定格式：finalize 换成“按猜的格式试，对不上就按文本收下”，其余工具不变。
 
-    finalize 要按答案格式规范化短答案（例如 num 保留两位小数），而格式由理解题目给出。
-    理解平均 6 秒，Harness 到 finalize 通常已经过了一两分钟，这里几乎不用真的等。
+    猜的格式来自理解题目。第一次执行时理解题目在另一个线程里，guess() 等它的结果
+    （平均 6 秒，Harness 到 finalize 通常已经过了一两分钟，几乎不用真的等）；重新生成时用库里存的。
+    猜错时不能退回让模型改：主流程的模型看不到格式，只看到“没法按 date 规范化”，
+    会去猜系统要什么、把对的答案改成别的形式（run 66 被退回 4 次，最后推出两个日期交上去）。
+    所以对不上就按文本收下，结果里记下 answer_format_fallback（猜的是什么），页面按文本显示。
     """
     finalize, args_model = TOOLS["finalize"]
 
-    def finalize_after_understanding(ctx: Any, args: Any) -> dict[str, Any]:
-        ctx.state.task["answer_format"] = understood.result()
-        return finalize(ctx, args)
+    def finalize_with_guess(ctx: Any, args: Any) -> dict[str, Any]:
+        guessed = guess()
+        ctx.state.task["answer_format"] = guessed
+        try:
+            return finalize(ctx, args)
+        except ToolError as exc:
+            if exc.code != "answer_format_invalid":
+                raise  # 没搜索过、没引用（提醒）等别的前置条件照常退回
+        ctx.state.task["answer_format"] = "text"
+        return {**finalize(ctx, args), "answer_format_fallback": guessed}
 
-    return {**TOOLS, "finalize": (finalize_after_understanding, args_model)}
+    return {**TOOLS, "finalize": (finalize_with_guess, args_model)}
 
 
 def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
@@ -124,9 +136,10 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
         # 第一次执行才理解题目；重新生成时标题已经有了，不再调用
         if held.needs_understanding:
             understood = pool.submit(_understand, engine, held, llm)
-            # 提交时没给答案格式（产品里的题）才需要等；评测回放带着格式，finalize 照常
-            if held.task["answer_format"] is None:
-                tools = _tools_waiting_for(understood)
+        # 提交时没给答案格式（产品里的题）才按猜的格式“软校验”；评测回放带着格式，finalize 严格校验
+        if held.task["answer_format"] is None:
+            guessed = held.guessed_format or "text"
+            tools = _tools_with_guessed_format(understood.result if understood else lambda: guessed)
         publish = DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch)
         try:
             trace = run_episode(

@@ -52,7 +52,8 @@ export interface RunDetail {
   title: string | null
   answer_label: string | null // 结论旁边的一行说明
   options: Record<string, string> | null
-  answer_format: AnswerFormat | null // 空 = 还在等理解题目的结果
+  answer_format: AnswerFormat | null // 调用方给定的格式（评测回放）；页面上提交的题为空
+  guessed_format: AnswerFormat | null // 理解题目猜的格式
   model: string
   status: RunStatus
   created_at: string

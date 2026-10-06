@@ -133,7 +133,8 @@ class RunDetail(BaseModel):
     title: str | None
     answer_label: str | None  # 结论旁边的一行说明
     options: dict[str, str] | None
-    answer_format: str | None
+    answer_format: str | None  # 调用方给定的格式；产品里的题为空
+    guessed_format: str | None  # 理解题目猜的格式
     model: str
     status: str
     created_at: datetime

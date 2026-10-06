@@ -118,10 +118,32 @@ def test_answer_format_comes_from_understanding_when_not_submitted(db, corpus, r
 
     detail = runs.get_run(db, OWNER, run_id)
     assert detail["attempts"][0]["final"]["submitted"] == ["120.50"]
-    assert (detail["title"], detail["answer_format"]) == ("甲公司 2023 年营业收入", "num")
+    assert (detail["title"], detail["guessed_format"]) == ("甲公司 2023 年营业收入", "num")
+    assert detail["answer_format"] is None  # 猜的格式不写进“给定的格式”，见迁移 0006
     events, _ = runs.events_after(db, OWNER, run_id, 0)
     types = [e.type for e in events]
     assert types.index("run_understood") < types.index("attempt_finished")
+
+
+def test_answer_not_matching_guessed_format_is_accepted_as_text(db, corpus, retriever, live_redis):
+    """理解题目把“有什么时间要求”猜成了日期，模型交的是规定原文：按文本收下，不退回。
+    退回的话模型看不到格式，只能猜系统要什么，会把对的答案改成编出来的日期（run 66）。
+    重新生成时用库里存的猜测，同样不硬卡。"""
+    run_id = submit(db, answer_format=None)
+    reply = "自施行之日起6个月内完成较高风险客户，2年内完成全部存量客户"
+    guessed_date = '{"title": "存量客户识别时限", "answer_format": "date"}'
+    first = FakeLLM([call("search_docs", query="存量客户 受益所有人 时间"),
+                     call("finalize", answers=[reply])], understand=guessed_date)
+    execute(db, corpus, retriever, lambda model: first, live_redis, 1, "worker-a")
+    runs.regenerate(db, OWNER, run_id)
+    second = FakeLLM([call("search_docs", query="存量客户 受益所有人 时间"),
+                      call("finalize", answers=[reply])])
+    execute(db, corpus, retriever, lambda model: second, live_redis, 2, "worker-a")
+
+    for attempt in runs.get_run(db, OWNER, run_id)["attempts"]:
+        assert [s["tool_name"] for s in attempt["steps"]] == ["search_docs", "finalize"]
+        assert attempt["final"]["raw"] == [reply]  # 一次就收下（文本规范化会把全角逗号换成半角）
+        assert attempt["final"]["answer_format_fallback"] == "date"
 
 
 def test_failed_understanding_does_not_fail_the_run(db, corpus, retriever, live_redis):
@@ -133,7 +155,7 @@ def test_failed_understanding_does_not_fail_the_run(db, corpus, retriever, live_
     execute(db, corpus, retriever, lambda model: llm, live_redis, 1, "worker-a")
 
     detail = runs.get_run(db, OWNER, run_id)
-    assert (detail["status"], detail["answer_format"]) == ("completed", "text")
+    assert (detail["status"], detail["guessed_format"]) == ("completed", "text")
     assert detail["title"] == "甲公司2023年营业收入是多少亿元？"[:20]
 
 

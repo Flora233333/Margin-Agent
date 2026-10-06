@@ -59,8 +59,10 @@ class Run(Base):
     idempotency_key: Mapped[str] = mapped_column(Text)
     question: Mapped[str] = mapped_column(Text)
     options: Mapped[dict[str, Any] | None]  # 选择题的选项 {"A": "...", ...}
-    # 答案格式：空 = 由“理解题目”判断后回填（迁移 0004）；评测回放提交时直接给定
+    # 调用方给定的答案格式（评测回放），finalize 严格按它校验；产品里的题为空（迁移 0006）
     answer_format: Mapped[str | None] = mapped_column(Text)
+    # 理解题目猜的格式：只用来规范化和显示，交的答案对不上时按文本收下（worker.py）
+    guessed_format: Mapped[str | None] = mapped_column(Text)
     # 理解题目写出的提纲，左栏显示；空时显示问题原句
     title: Mapped[str | None] = mapped_column(Text)
     # 结论旁边的说明，如“广晟控股 · 2022 年营业收入（亿元）”

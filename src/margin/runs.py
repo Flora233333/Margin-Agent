@@ -161,7 +161,8 @@ def get_run(engine: Engine, owner_id: int, run_id: int) -> dict[str, Any]:
         return {
             "id": run.id, "question": run.question, "title": run.title,
             "answer_label": run.answer_label, "options": run.options,
-            "answer_format": run.answer_format, "model": run.model, "status": run.status,
+            "answer_format": run.answer_format, "guessed_format": run.guessed_format,
+            "model": run.model, "status": run.status,
             "created_at": run.created_at,
             "attempts": [
                 {"attempt_no": a.attempt_no, "trigger": a.trigger, "status": a.status,
