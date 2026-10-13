@@ -34,7 +34,8 @@ def main() -> None:
     parser.add_argument("--format", default="text", help="答案类型：num/pct/tf/mcq/multi/date/text")
     parser.add_argument("--option", action="append", default=[], help="选项，如 A=甲公司更高")
     parser.add_argument("--search-only", action="store_true")
-    parser.add_argument("--model", help="模型名：DeepSeek / GLM，默认读配置")
+    parser.add_argument("--model", help="模型名：DeepSeek / GLM / 自训模型，默认读配置")
+    parser.add_argument("--replica", type=int, default=0, help="自训模型有多个副本时用第几个")
     parser.add_argument("--stream", action="store_true", help="流式调用，边生成边打印思考")
     parser.add_argument("--json-out", type=Path, help="把结果另存为 JSON")
     args = parser.parse_args()
@@ -53,7 +54,7 @@ def main() -> None:
     options = dict(item.split("=", 1) for item in args.option) or None
     task = {"question": args.question, "options": options, "answer_format": args.format}
     print(f"模型：{model}")
-    llm = build_llm(settings, model)
+    llm = build_llm(settings, model, args.replica)
     shown_turn = -1
 
     def show_delta(turn: int, kind: str, text: str) -> None:

@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     llm_base_url: str
     llm_model: str = "DeepSeek"  # 默认模型（学校网关主用）；脚本可用 --model 临时换
     llm_api_key: SecretStr = SecretStr("")
+    # 自训模型（实验室服务器上的 vLLM）：模型名 -> 地址列表，一张卡一个副本一个地址。
+    # 不在表里的模型走上面的网关。
+    # 环境变量写 JSON，例如 MARGIN_LOCAL_MODELS={"C2": ["http://127.0.0.1:18080/v1", "http://127.0.0.1:18081/v1"]}
+    local_models: dict[str, list[str]] = {}
 
     # ---- 语料（只读）----
     blocks_path: Path

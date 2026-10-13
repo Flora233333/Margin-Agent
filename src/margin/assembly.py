@@ -28,7 +28,18 @@ def build_retriever(settings: Settings) -> tuple[Corpus, HybridRetriever]:
     return corpus, retriever
 
 
-def build_llm(settings: Settings, model: str) -> OpenAICompatibleClient:
+# 自训模型按训练时的采样参数调用（和 RC6-C 评测同一组），否则测到的不是训练出来的那个行为：
+# 温度 0.6、开思考、单次最多 5000 token。max_tokens 放在这里会覆盖调用方传的值
+# （Harness 默认 8192、理解题目 2000、撰写回答 4000），三处都按训练时的 5000
+LOCAL_SAMPLING = {"temperature": 0.6, "max_tokens": 5000,
+                  "chat_template_kwargs": {"enable_thinking": True}}
+
+
+def build_llm(settings: Settings, model: str, replica: int = 0) -> OpenAICompatibleClient:
+    """replica：自训模型有几个副本（一张卡一个）时用哪一个，按序号取余；网关的模型不用它。"""
+    urls = settings.local_models.get(model)
+    if urls:
+        return OpenAICompatibleClient(urls[replica % len(urls)], model, extra_body=LOCAL_SAMPLING)
     return OpenAICompatibleClient(
         settings.llm_base_url, model, settings.llm_api_key.get_secret_value()
     )

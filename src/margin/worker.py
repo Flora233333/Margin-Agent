@@ -72,8 +72,18 @@ def _components() -> tuple[Corpus, HybridRetriever]:
 
 
 @cache
-def _llm(model: str) -> ChatModel:
-    return build_llm(get_settings(), model)
+def _llm(model: str, replica: int) -> ChatModel:
+    return build_llm(get_settings(), model, replica)
+
+
+def _llm_for(model: str, attempt_id: int) -> ChatModel:
+    """自训模型有多个副本时按 attempt 序号轮流分到各张卡上；网关的模型只有一份，固定用 0。
+
+    先换算成“第几个副本”再查缓存：直接拿 attempt_id 当缓存键，每道题都会新建一个客户端
+    （连同它的连接池），而且永远不释放。
+    """
+    replicas = len(get_settings().local_models.get(model, [])) or 1
+    return _llm(model, attempt_id % replicas)
 
 
 @cache
@@ -212,4 +222,5 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
 @celery_app.task(name="margin.execute_attempt")
 def execute_attempt(attempt_id: int) -> None:
     corpus, retriever = _components()
-    execute(get_engine(), corpus, retriever, _llm, _live_redis(), attempt_id, worker_id())
+    execute(get_engine(), corpus, retriever, lambda model: _llm_for(model, attempt_id),
+            _live_redis(), attempt_id, worker_id())
