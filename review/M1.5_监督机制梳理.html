@@ -1,0 +1,1875 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M1.5 监督机制梳理</title>
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #1f2328; --muted: #656d76; --card: #ffffff; --border: #d8dee4;
+  --code-bg: #f3f2ee; --hl: #fff1b8;
+  --disp: #2563eb; --disp-bg: #e8effd;
+  --worker: #15803d; --worker-bg: #e6f4ea;
+  --mq: #c2410c; --mq-bg: #fdeee5;
+  --pg: #7c3aed; --pg-bg: #f1eafd;
+  --api: #0e7490; --api-bg: #e0f4f8;
+  --warn: #b91c1c; --warn-bg: #fdecec;
+  --ok: #15803d;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+    --code-bg: #23272e; --hl: #4a4020;
+    --disp: #7aa7ff; --disp-bg: #1d2a44; --worker: #5fd08a; --worker-bg: #183224;
+    --mq: #ff9a63; --mq-bg: #3a2418; --pg: #b79cff; --pg-bg: #2a2140;
+    --api: #5cc8dc; --api-bg: #173238; --warn: #ff7b7b; --warn-bg: #3d1e1e; --ok: #5fd08a;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+  --code-bg: #23272e; --hl: #4a4020;
+  --disp: #7aa7ff; --disp-bg: #1d2a44; --worker: #5fd08a; --worker-bg: #183224;
+  --mq: #ff9a63; --mq-bg: #3a2418; --pg: #b79cff; --pg-bg: #2a2140;
+  --api: #5cc8dc; --api-bg: #173238; --warn: #ff7b7b; --warn-bg: #3d1e1e; --ok: #5fd08a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.75 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 21px; margin: 52px 0 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+h3 { font-size: 17px; margin: 28px 0 8px; }
+p, li { margin: 6px 0; }
+.sub { color: var(--muted); margin: 0 0 16px; }
+a { color: var(--disp); }
+code { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+  background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; font: 13px/1.6 "Cascadia Code", Consolas, monospace; margin: 8px 0; }
+pre code { background: none; padding: 0; }
+pre .hl { background: var(--hl); display: inline-block; min-width: 100%; }
+pre .c { color: var(--muted); }
+.src { font-size: 12px; color: var(--muted); margin: 12px 0 -4px; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 14px 0; }
+.qa { border-left: 4px solid var(--disp); }
+.qa h3 { margin-top: 0; }
+.note { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+.good { border-left: 4px solid var(--ok); }
+.tag { display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 10px; font-weight: 600; white-space: nowrap; line-height: 20px; }
+.t-disp { color: var(--disp); background: var(--disp-bg); }
+.t-worker { color: var(--worker); background: var(--worker-bg); }
+.t-mq { color: var(--mq); background: var(--mq-bg); }
+.t-pg { color: var(--pg); background: var(--pg-bg); }
+.t-api { color: var(--api); background: var(--api-bg); }
+.t-new { color: var(--warn); background: var(--warn-bg); }
+.t-user { color: var(--fg); background: var(--code-bg); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; font-size: 13px; }
+.toc { font-size: 14px; columns: 2; column-gap: 28px; }
+@media (max-width: 720px) { .toc { columns: 1; } }
+.changes { font-size: 14px; }
+
+/* 结构图 */
+.arch { display: grid; grid-template-columns: 1fr 1fr 1.6fr; gap: 12px; margin: 12px 0; }
+.arch .col { display: flex; flex-direction: column; gap: 12px; }
+.box { border: 2px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 13px; line-height: 1.6; background: var(--card); }
+.box h4 { margin: 0 0 4px; font-size: 14px; }
+.box ul { margin: 4px 0 0; padding-left: 18px; }
+.box.disp { border-color: var(--disp); } .box.disp h4 { color: var(--disp); }
+.box.mq { border-color: var(--mq); } .box.mq h4 { color: var(--mq); }
+.box.pg { border-color: var(--pg); } .box.pg h4 { color: var(--pg); }
+.box.api { border-color: var(--api); } .box.api h4 { color: var(--api); }
+.box.worker { border-color: var(--worker); border-style: dashed; } .box.worker > h4 { color: var(--worker); }
+.box.inner { border-color: var(--worker); background: var(--worker-bg); margin-top: 8px; }
+.kids { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.kid { border: 1.5px solid var(--worker); border-radius: 8px; padding: 6px 8px; font-size: 12px; background: var(--card); }
+.kid b { color: var(--worker); }
+.thread { display: block; margin-top: 3px; padding: 1px 6px; border-radius: 4px; background: var(--code-bg); }
+@media (max-width: 760px) { .arch { grid-template-columns: 1fr; } }
+
+/* 四阶段泳道图 */
+.lanes { display: grid; grid-template-columns: repeat(4, 1fr); margin: 12px 0; }
+.state { text-align: center; font-weight: 700; padding: 10px 6px; border: 2px solid var(--fg);
+  border-radius: 8px; margin: 0 14px; position: relative; background: var(--card); font-size: 14px; }
+.state small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.state:not(.last)::after { content: "→"; position: absolute; right: -24px; top: 50%;
+  transform: translateY(-50%); font-size: 20px; color: var(--muted); }
+.watch { margin: 10px 8px 0; display: flex; flex-direction: column; gap: 8px; }
+.w { border-radius: 7px; padding: 7px 9px; font-size: 13px; line-height: 1.55; border-left: 4px solid; }
+.w .who { display: block; font-size: 11px; font-weight: 700; letter-spacing: .5px; }
+.w b { display: block; }
+.w.disp { background: var(--disp-bg); border-color: var(--disp); } .w.disp .who { color: var(--disp); }
+.w.worker { background: var(--worker-bg); border-color: var(--worker); } .w.worker .who { color: var(--worker); }
+.w.mq { background: var(--mq-bg); border-color: var(--mq); } .w.mq .who { color: var(--mq); }
+.w.pg { background: var(--pg-bg); border-color: var(--pg); } .w.pg .who { color: var(--pg); }
+.w.api { background: var(--api-bg); border-color: var(--api); } .w.api .who { color: var(--api); }
+.w .new { color: var(--warn); font-weight: 700; font-size: 11px; }
+@media (max-width: 760px) {
+  .lanes { grid-template-columns: 1fr; gap: 18px; }
+  .state:not(.last)::after { content: "↓"; right: 50%; top: auto; bottom: -26px; transform: translateX(50%); }
+}
+
+/* 动画播放器 */
+.player { border: 1px solid var(--border); border-radius: 12px; background: var(--card); padding: 12px; margin: 14px 0; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.tabs button, .ctrl button { font: inherit; font-size: 13px; border: 1px solid var(--border); background: var(--bg);
+  color: var(--fg); padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+.tabs button.on { background: var(--disp); border-color: var(--disp); color: #fff; }
+.ctrl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.ctrl .count { color: var(--muted); font-size: 13px; }
+.ctrl .hint { color: var(--muted); font-size: 12px; margin-left: auto; }
+#stage { width: 100%; height: auto; display: block; background: var(--bg); border-radius: 8px; border: 1px solid var(--border); }
+#stage text { fill: var(--fg); font-family: inherit; }
+#stage .muted { fill: var(--muted); }
+#stage .comp rect.body { fill: var(--card); stroke: var(--border); stroke-width: 2; transition: stroke .3s, opacity .3s; }
+#stage .comp.hl rect.body { stroke-width: 3.5; }
+#stage #comp-api.hl rect.body { stroke: var(--api); }
+#stage #comp-pg.hl rect.body { stroke: var(--pg); }
+#stage #comp-disp.hl rect.body { stroke: var(--disp); }
+#stage #comp-mq.hl rect.body { stroke: var(--mq); }
+#stage .wk.hl rect.body { stroke: var(--worker); }
+#stage .comp.dead { opacity: .35; }
+#stage .comp.dead rect.body { stroke: var(--warn); stroke-dasharray: 6 4; }
+#stage .flow { stroke: var(--border); stroke-width: 2; fill: none; }
+#stage .lane { fill: var(--code-bg); stroke: var(--border); }
+#stage .container { fill: none; stroke: var(--worker); stroke-dasharray: 6 4; stroke-width: 1.5; }
+#stage .tok { transition: transform .8s ease, opacity .4s; }
+#stage .tok rect { stroke-width: 1.5; }
+#stage .tok text { font-size: 12px; font-weight: 600; }
+#stage .k-msg rect { fill: var(--mq-bg); stroke: var(--mq); } #stage .k-msg text { fill: var(--mq); }
+#stage .k-notify rect { fill: var(--pg-bg); stroke: var(--pg); } #stage .k-notify text { fill: var(--pg); }
+#stage .k-ack rect { fill: var(--worker-bg); stroke: var(--worker); } #stage .k-ack text { fill: var(--worker); }
+#stage .k-claim rect { fill: var(--disp-bg); stroke: var(--disp); } #stage .k-claim text { fill: var(--disp); }
+#stage .k-err rect { fill: var(--warn-bg); stroke: var(--warn); } #stage .k-err text { fill: var(--warn); }
+.cap { margin: 10px 2px 6px; font-size: 15px; min-height: 52px; }
+.cap .time { font-family: Consolas, monospace; color: var(--muted); margin: 0 6px; font-size: 13px; }
+.panels { display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px; }
+@media (max-width: 760px) { .panels { grid-template-columns: 1fr; } }
+.panel { min-width: 0; overflow-x: auto; }
+.panel h5 { margin: 4px 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+.panel table { font-size: 12px; margin: 4px 0 8px; }
+.panel td, .panel th { padding: 3px 6px; white-space: nowrap; }
+.panel td.chg { background: var(--hl); font-weight: 700; }
+.panel .empty { color: var(--muted); font-size: 12px; }
+#code pre { margin-top: 4px; font-size: 12px; }
+
+svg.fig { width: 100%; height: auto; display: block; margin: 8px 0; }
+svg.fig text { fill: var(--fg); font-family: inherit; }
+svg.fig .muted { fill: var(--muted); }
+svg.fig .axis { stroke: var(--muted); stroke-width: 1; }
+svg.fig .bar-load { fill: var(--mq-bg); stroke: var(--mq); }
+svg.fig .bar-run { fill: var(--worker-bg); stroke: var(--worker); }
+svg.fig .mark-ok { fill: var(--ok); }
+svg.fig .mark-bad { fill: var(--warn); }
+svg.fig .line-grace { stroke: var(--warn); stroke-width: 2; stroke-dasharray: 6 4; }
+svg.fig .t-warn { fill: var(--warn); }
+svg.fig .t-ok { fill: var(--ok); }
+
+.chain { margin: 8px 0; }
+.chain .step { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--card);
+  font-size: 13px; line-height: 1.6; position: relative; }
+.chain .step + .step { margin-top: 20px; }
+.chain .step + .step::before { content: "↓"; position: absolute; top: -21px; left: 18px; color: var(--muted); }
+.chain .step.bad { border-color: var(--warn); }
+.chain .step.ok { border-color: var(--ok); }
+.cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 10px 0; }
+.cols2 > div { min-width: 0; }
+.cols2 h4 { margin: 0 0 4px; font-size: 14px; }
+@media (max-width: 760px) { .cols2 { grid-template-columns: 1fr; } }
+.flowlist { counter-reset: s; list-style: none; padding: 0; }
+.flowlist li { counter-increment: s; position: relative; padding: 6px 10px 6px 40px; margin: 6px 0;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+.flowlist li::before { content: counter(s); position: absolute; left: 10px; top: 7px; width: 22px; height: 22px;
+  border-radius: 50%; background: var(--disp); color: #fff; font-size: 12px; text-align: center; line-height: 22px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>M1.5 监督机制梳理</h1>
+<p class="sub">先讲清 Celery 和 RabbitMQ 的关系（带动画），再看每个阶段由谁盯着，最后逐条回答问题。代码片段都摘自当前仓库，标了文件和行号。</p>
+
+<div class="card changes">
+<b>第五版</b>（2026-10-13）：第五轮 Q26，推演“只看时间、带退避和上限的直接重发”，并和“有空位才发”对比；第七节新增一条 M3 候选方案。<br>
+<b>第四版</b>（2026-10-12）：第三节新增第四轮问答 Q16～Q25；动画新增两个“重新生成”场景，数据表多了 runs 表。<b>更正两处</b>：① AMQP 心跳实际约 60 秒，不是 120 秒（Celery 提 120，RabbitMQ 提 60，取较小值，Q19）；② Q14 里“到期后 4 条全部放回”是 4.3 之前的行为，4.3 的 quorum 队列只放回超时的那条。另把第一节 Q13 那句“交换机按路由键找队列”改成了白话；第四节 #10 写全了三条规则；第七节新增 3 条建议。<br>
+<b>第三版</b>（2026-10-11）：第三节新增第三轮问答 Q11～Q15（RabbitMQ 怎么分配、续租是什么、worker 怎么订阅、ack 用什么函数、对账为什么绕一圈），配示意图；第七节新增一条 review 发现。<br>
+<b>第二版改了什么</b>（2026-10-11）
+<ul>
+  <li>新增第一节“Celery 与 RabbitMQ”，附逐步动画（正常流程和 5 个故障场景）。</li>
+  <li>四阶段图的每一格都写上主语（谁做的）。</li>
+  <li><b>纠正两处错误</b>：
+    ① 第一版写“worker 收到消息、claim 前死了，消息回到队列”。这只在<b>整个 worker（主进程）</b>死掉时成立；如果只死了一个<b>子进程</b>，Celery 默认照样确认消息，消息就没了，要靠对账补发（见 1.4）。
+    ② 第一版把 RabbitMQ 的 1 小时确认期限叫作“最后一道保险”。它其实不是兜底；而且查官方文档发现，RabbitMQ 4.3 起经典队列根本不执行确认期限，我们的配置实际不生效，见 Q10。</li>
+  <li>第二轮的 7 个问题写在第三节 Q4～Q10。</li>
+</ul>
+</div>
+
+<div class="card toc">
+  <div><a href="#celery">一、Celery 与 RabbitMQ（专题）</a></div>
+  <div><a href="#anim">　1.5 动画：一道题怎么走、出事时怎么收场</a></div>
+  <div><a href="#map">二、一道题的四个阶段，谁在盯着</a></div>
+  <div><a href="#qa">三、问答（Q1～Q26）</a></div>
+  <div><a href="#qa4">　第四轮（Q16～Q25）</a></div>
+  <div><a href="#qa5">　第五轮（Q26：只看时间的重发）</a></div>
+  <div><a href="#table">四、全部机制一览表</a></div>
+  <div><a href="#order">五、乱序和水位线</a></div>
+  <div><a href="#time">六、时间参数为什么这样排</a></div>
+  <div><a href="#gaps">七、还管不到的地方、review 发现</a></div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="celery">一、Celery 与 RabbitMQ（专题）</h2>
+
+<h3>1.1 一共几个程序，各自是什么</h3>
+<p>先记住一句话：<b>RabbitMQ 是一个独立的服务器程序，Celery 是一个 Python 库。</b>两者没有包含关系，跑在不同的容器里。</p>
+
+<div class="arch">
+  <div class="col">
+    <div class="box api"><h4>API 容器</h4>FastAPI。收到提交后写库，不碰 RabbitMQ。</div>
+    <div class="box pg"><h4>PostgreSQL 容器</h4>唯一的裁判：outbox、attempts 等表都在这里。</div>
+  </div>
+  <div class="col">
+    <div class="box disp"><h4>dispatcher 容器</h4>一个 Python 进程，做两件事：
+      <ul><li><b>投递</b>：把 outbox 里待发的行发给 RabbitMQ</li><li><b>巡检</b>：每 15 秒查一次有没有卡住的 attempt</li></ul>
+      它只把 Celery 当“发消息的工具”用（<code>send_task</code>），自己不执行任务。</div>
+    <div class="box mq"><h4>RabbitMQ 容器</h4>消息中转站（Erlang 写的服务器程序）。里面有一个队列叫 <code>celery</code>。<br>它不认识 attempt，只负责存消息、推消息、等确认。</div>
+  </div>
+  <div class="box worker">
+    <h4>worker 容器（命令：<code>celery -A margin.worker worker --concurrency 4</code>）</h4>
+    这是用 Celery 库写成的程序。启动后有 <b>1 个主进程 + 4 个子进程</b>。
+    <div class="box inner"><b>主进程 × 1</b>：唯一和 RabbitMQ 连着的进程
+      <ul>
+        <li>开工时向 RabbitMQ 登记：“我要 celery 队列的消息，最多同时给我 4 条”</li>
+        <li>收下 RabbitMQ 推来的消息，交给空闲的子进程（进程间管道，不走网络）</li>
+        <li>子进程做完后，<b>替它</b>向 RabbitMQ 发确认（ack）</li>
+        <li>和 RabbitMQ 保持心跳（AMQP 协议自带，实际约 60 秒，见 Q19）</li>
+        <li>给每个任务计时，超过 25 分钟杀掉那个子进程</li>
+        <li>子进程死了就补一个新的</li>
+      </ul>
+    </div>
+    <div class="kids">
+      <div class="kid"><b>子进程 1</b>（同一时间只跑 1 道题）
+        <span class="thread">主线程：claim → Harness → 写库</span>
+        <span class="thread">续租线程：每 15 秒往 PG 写一次“我还活着”（Q12）</span>
+        <span class="thread">理解题目线程（只在第一次执行时）</span></div>
+      <div class="kid"><b>子进程 2</b><span class="thread">同上</span></div>
+      <div class="kid"><b>子进程 3</b><span class="thread">同上</span></div>
+      <div class="kid"><b>子进程 4</b><span class="thread">同上</span></div>
+    </div>
+    <p style="margin:8px 0 0;font-size:12px;color:var(--muted)">子进程不连 RabbitMQ，只连 PG。要扩容就多开几个 worker 容器，每个容器都有自己的主进程和子进程。</p>
+  </div>
+</div>
+
+<div class="tablewrap">
+<table>
+<tr><th>谁 → 谁</th><th>说什么</th></tr>
+<tr><td><span class="tag t-api">API</span> → <span class="tag t-pg">PG</span></td><td>建任务（同一个事务写 run、attempt、outbox），NOTIFY outbox</td></tr>
+<tr><td><span class="tag t-pg">PG</span> → <span class="tag t-disp">dispatcher</span></td><td>通知“outbox 有新行了”（dispatcher 有一条专门 LISTEN 的连接）</td></tr>
+<tr><td><span class="tag t-disp">dispatcher</span> → <span class="tag t-mq">RabbitMQ</span></td><td>发消息“执行 attempt 12”，等 RabbitMQ 回“存好了”；巡检时读队列状态</td></tr>
+<tr><td><span class="tag t-mq">RabbitMQ</span> → <span class="tag t-worker">worker 主进程</span></td><td>推消息；主进程回 ack、发心跳</td></tr>
+<tr><td><span class="tag t-worker">主进程</span> ↔ <span class="tag t-worker">子进程</span></td><td>交任务、收“做完了”（管道）</td></tr>
+<tr><td><span class="tag t-worker">子进程</span> → <span class="tag t-pg">PG</span></td><td>claim、续租、写步骤、finish</td></tr>
+<tr><td><span class="tag t-disp">dispatcher</span> → <span class="tag t-pg">PG</span></td><td>改 outbox 状态；巡检时改 attempts（判失败、补发）</td></tr>
+</table>
+</div>
+
+<h3>1.2 你原来的理解，对照实际</h3>
+<table>
+<tr><th>你的理解</th><th>实际</th></tr>
+<tr><td>Celery 主进程包含不同 worker 的子进程</td><td>Celery 是库，不是进程。“一个 worker”就是一个用 Celery 写的程序：<b>1 个主进程 + N 个子进程</b>。多个 worker 是多个容器，彼此独立，没有更上层的“Celery 主进程”</td></tr>
+<tr><td>每个 worker 里分多个主线程</td><td>每个<b>子进程</b>有 1 个主线程，同一时间只跑 1 道题。4 个子进程 = 最多同时 4 道题</td></tr>
+<tr><td>每个主线程有自己的子线程（心跳）</td><td><b>对</b>。执行时子进程里会多开一个续租线程，每 15 秒往 PG 写一次“我还活着”（Q12）。<br>另有一个<b>不相关</b>的心跳：主进程和 RabbitMQ 之间，Celery 自带，用来让 RabbitMQ 知道这条连接还活着</td></tr>
+</table>
+
+<h3>1.3 RabbitMQ 主动推，还是 worker 自己来领？</h3>
+<p><b>RabbitMQ 主动推，推给 worker 主进程，但有额度限制。</b></p>
+<ol>
+  <li>主进程开工时只说一次：“我订阅 <code>celery</code> 队列，<b>手上没确认的最多 4 条</b>”（预取数 4）。</li>
+  <li>之后 RabbitMQ 一有消息就推过来，直到这个主进程手上有 4 条没确认。</li>
+  <li>主进程每 ack 一条，额度就空出一个，RabbitMQ 接着推下一条。</li>
+</ol>
+<p>打个比方：外卖平台（RabbitMQ）给骑手（主进程）派单，骑手最多同时接 4 单。不用骑手去店里问“有单吗”，送完一单平台自动派下一单。（RabbitMQ 也支持“自己来领”的方式，Celery 不用。）</p>
+<div class="src">src/margin/worker.py:47-50　额度是怎么来的</div>
+<pre><code><span class="hl">task_acks_late=True,            # 执行完才确认：正在执行的那条也占着额度</span>
+<span class="hl">worker_prefetch_multiplier=1,   # 每个子进程 1 条 × 4 个子进程 = 额度 4</span></code></pre>
+<p>结果：4 个子进程都在忙时，额度正好用完，RabbitMQ 不会再推，消息留在队列里排队。不会有消息压在忙碌的 worker 手里。</p>
+
+<h3>1.4 确认（ack）：谁发、什么时候发、发不了会怎样（最重要的一节）</h3>
+<p>消息推给主进程以后，RabbitMQ 只关心一件事：<b>这条消息最后是确认了（删掉），还是没确认（放回队列）</b>。</p>
+<div class="tablewrap">
+<table>
+<tr><th>发生了什么</th><th>谁发现</th><th>消息去哪</th><th>attempt 还停在</th><th>之后谁收拾</th></tr>
+<tr><td>任务正常结束（包括 claim 失败后跳过）</td><td>主进程</td><td>ack，删掉</td><td>completed / failed / 原样</td><td>—</td></tr>
+<tr><td>任务抛异常（claim <b>之前</b>：加载语料出错、claim 时 PG 连不上）</td><td>主进程</td><td><b>ack，删掉</b></td><td>pending</td><td><span class="tag t-new">对账</span></td></tr>
+<tr><td><b>只死了一个子进程</b>（例如内存不够，系统杀掉它）</td><td>主进程</td><td><b>ack，删掉</b>（Celery 默认）</td><td>claim 前：pending<br>claim 后：running</td><td>pending → <span class="tag t-new">对账</span><br>running → 租约巡检</td></tr>
+<tr><td>任务超过 25 分钟</td><td>主进程计时，杀掉子进程</td><td>ack，删掉</td><td>running</td><td>租约巡检</td></tr>
+<tr><td><b>整个 worker 死了</b>（容器 kill、重启）</td><td>RabbitMQ：TCP 连接断了</td><td><b>放回队列</b></td><td>claim 前：pending<br>claim 后：running</td><td>pending → 下一个 worker 直接领走<br>running → 租约巡检</td></tr>
+<tr><td>主进程卡死、网络断了</td><td>RabbitMQ：心跳超时</td><td>放回队列</td><td>同上</td><td>同上</td></tr>
+</table>
+</div>
+<p>为什么只死一个子进程时消息也会删掉？Celery 的规则写在库代码里：</p>
+<div class="src">celery/worker/request.py:612-624（Celery 5.6.3 库代码，主进程里执行）</div>
+<pre><code>is_worker_lost = isinstance(exc, WorkerLostError)        <span class="c"># 子进程死了</span>
+if self.task.acks_late:
+    reject = (
+<span class="hl">        (self.task.reject_on_worker_lost and is_worker_lost)   # 这个开关我们没开（默认关）</span>
+        or ...)
+    ack = self.task.acks_on_failure_or_timeout             <span class="c"># 默认 True</span>
+    if reject:
+        self.reject(requeue=True)          <span class="c"># 放回队列</span>
+<span class="hl">    elif ack:
+        self.acknowledge()                 # 默认走这里：照样确认，消息删掉</span></code></pre>
+<p>能不能打开 <code>task_reject_on_worker_lost</code>，让子进程死了也放回队列？能，但有风险：如果某道题每次都把子进程撑爆，它会被无限放回、无限重来。现在的做法是消息删掉，交给对账补发，补 3 次还不行就判失败，有上限。</p>
+
+<h3 id="anim">1.5 动画：一道题怎么走、出事时怎么收场</h3>
+<p>选一个场景，点“下一步”（或按键盘 → ←）。每一步写着<b>谁</b>在做什么；下面的表是 PG 里的数据，变化的格子标黄；右下是这一步对应的代码。</p>
+<div class="legend">
+  <span class="tag t-mq">消息</span><span class="tag t-pg">NOTIFY</span><span class="tag t-worker">确认 / ack</span>
+  <span class="tag t-disp">读写数据库</span><span class="tag t-new">失败</span>
+</div>
+
+<div class="player">
+  <div class="tabs" id="tabs"></div>
+  <svg id="stage" viewBox="0 0 960 400" role="img" aria-label="Celery 与 RabbitMQ 流程动画">
+    <!-- 连线 -->
+    <path class="flow" d="M80 80 V170"/>
+    <path class="flow" d="M170 220 H230"/>
+    <path class="flow" d="M370 220 H430"/>
+    <path class="flow" d="M600 190 C620 190 630 80 655 80"/>
+    <path class="flow" d="M792 120 V135"/>
+    <path class="flow" d="M650 392 H95 V290"/>
+    <text x="380" y="388" font-size="11" class="muted" text-anchor="middle">子进程 → PG：claim / 续租 / 写步骤 / finish</text>
+    <!-- 组件 -->
+    <g class="comp" id="comp-api"><rect class="body" x="20" y="30" width="120" height="50" rx="8"/>
+      <text x="80" y="60" text-anchor="middle" font-size="14" font-weight="700">API</text></g>
+    <g class="comp" id="comp-pg"><rect class="body" x="20" y="170" width="150" height="120" rx="10"/>
+      <text x="95" y="195" text-anchor="middle" font-size="14" font-weight="700">PostgreSQL</text>
+      <text x="95" y="214" text-anchor="middle" font-size="11" class="muted">outbox · attempts</text></g>
+    <g class="comp" id="comp-disp"><rect class="body" x="230" y="175" width="140" height="90" rx="8"/>
+      <text x="300" y="200" text-anchor="middle" font-size="14" font-weight="700">dispatcher</text>
+      <text x="300" y="218" text-anchor="middle" font-size="11" class="muted">投递 + 巡检</text></g>
+    <g class="comp" id="comp-mq"><rect class="body" x="430" y="150" width="170" height="120" rx="8"/>
+      <text x="515" y="172" text-anchor="middle" font-size="14" font-weight="700">RabbitMQ</text>
+      <text x="515" y="190" text-anchor="middle" font-size="11" class="muted">队列 celery</text>
+      <rect class="lane" x="442" y="206" width="146" height="32" rx="6"/>
+      <text id="mq-stat" x="515" y="258" text-anchor="middle" font-size="11" class="muted"></text></g>
+    <rect class="container" x="640" y="15" width="308" height="365" rx="12"/>
+    <text x="940" y="372" text-anchor="end" font-size="11" class="muted">worker 容器</text>
+    <g class="comp wk" id="comp-main"><rect class="body" x="655" y="35" width="275" height="85" rx="8"/>
+      <text x="792" y="58" text-anchor="middle" font-size="13" font-weight="700">主进程（唯一连 RabbitMQ）</text>
+      <text x="792" y="76" text-anchor="middle" font-size="11" class="muted">收消息 · 分任务 · ack · 心跳 · 计时</text></g>
+    <g class="comp wk" id="comp-c1"><rect class="body" x="655" y="135" width="130" height="110" rx="8"/>
+      <text x="720" y="155" text-anchor="middle" font-size="13" font-weight="700">子进程 1</text>
+      <text id="cs1" x="720" y="174" text-anchor="middle" font-size="11" class="muted"></text></g>
+    <g class="comp wk" id="comp-c2"><rect class="body" x="800" y="135" width="130" height="110" rx="8"/>
+      <text x="865" y="155" text-anchor="middle" font-size="13" font-weight="700">子进程 2</text>
+      <text id="cs2" x="865" y="174" text-anchor="middle" font-size="11" class="muted"></text></g>
+    <g class="comp wk" id="comp-c3"><rect class="body" x="655" y="255" width="130" height="105" rx="8"/>
+      <text x="720" y="275" text-anchor="middle" font-size="13" font-weight="700">子进程 3</text>
+      <text id="cs3" x="720" y="294" text-anchor="middle" font-size="11" class="muted"></text></g>
+    <g class="comp wk" id="comp-c4"><rect class="body" x="800" y="255" width="130" height="105" rx="8"/>
+      <text x="865" y="275" text-anchor="middle" font-size="13" font-weight="700">子进程 4</text>
+      <text id="cs4" x="865" y="294" text-anchor="middle" font-size="11" class="muted"></text></g>
+    <g id="tokens"></g>
+  </svg>
+  <div class="ctrl">
+    <button id="prev">◀ 上一步</button><button id="next">下一步 ▶</button><button id="play">自动播放</button>
+    <span class="count" id="count"></span><span class="hint">键盘 ← → 也可以</span>
+  </div>
+  <div class="cap" id="cap"></div>
+  <div class="panels">
+    <div class="panel" id="db"></div>
+    <div class="panel" id="code"></div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="map">二、一道题的四个阶段，谁在盯着</h2>
+<p>一道题从提交到结束，PG 里依次是四种样子。每一格的第一行是主语。</p>
+<div class="legend">
+  <span class="tag t-api">API</span><span class="tag t-disp">dispatcher</span>
+  <span class="tag t-worker">worker（主进程 / 子进程）</span><span class="tag t-mq">RabbitMQ</span>
+  <span class="tag t-pg">PostgreSQL</span><span class="tag t-new">M1.5 新增</span>
+</div>
+
+<div class="lanes">
+  <div>
+    <div class="state">① 待发出<small>outbox = pending</small></div>
+    <div class="watch">
+      <div class="w api"><span class="who">API</span><b>同一个事务写入</b>run、attempt、outbox 要么全有，要么全没有</div>
+      <div class="w disp"><span class="who">dispatcher · 投递</span><b>收到通知就发</b>没通知时最多 10 秒自己扫一次 outbox <span class="new">M1.5</span></div>
+      <div class="w disp"><span class="who">dispatcher · 投递</span><b>发失败就退避</b>把 outbox 的 next_attempt_at 往后写 2、4、8……60 秒</div>
+    </div>
+  </div>
+  <div>
+    <div class="state">② 已发出，没人领<small>outbox = sent<br>attempt = pending</small></div>
+    <div class="watch">
+      <div class="w disp"><span class="who">dispatcher · 投递</span><b>发送确认</b>RabbitMQ 回“存好了”才把 outbox 标 sent <span class="new">M1.5</span></div>
+      <div class="w mq"><span class="who">RabbitMQ</span><b>消息写盘</b>RabbitMQ 重启不丢 <span class="new">M1.5</span></div>
+      <div class="w mq"><span class="who">RabbitMQ</span><b>整个 worker 断线就放回</b>没确认的消息回到队列。只死一个子进程不算，见 1.4</div>
+      <div class="w disp"><span class="who">dispatcher · 巡检（15 秒）</span><b>对账</b>发出超过 2 分钟没人领，按三条规则判丢失 → 补发；补 3 次 → delivery_lost <span class="new">M1.5</span></div>
+    </div>
+  </div>
+  <div>
+    <div class="state">③ 执行中<small>attempt = running</small></div>
+    <div class="watch">
+      <div class="w worker"><span class="who">子进程 · 主线程</span><b>claim</b>重复的消息领不到，直接跳过</div>
+      <div class="w worker"><span class="who">子进程 · 续租线程（15 秒）</span><b>续租</b>把租约往后推 90 秒</div>
+      <div class="w worker"><span class="who">子进程 · 主线程</span><b>epoch 检查</b>每次写库核对执行权，旧的写不进去</div>
+      <div class="w worker"><span class="who">worker 主进程</span><b>硬时限 25 分钟</b>杀掉卡住的子进程</div>
+      <div class="w disp"><span class="who">dispatcher · 巡检（15 秒）</span><b>租约过期</b>90 秒没续租 → lease_expired</div>
+    </div>
+  </div>
+  <div>
+    <div class="state last">④ 结束<small>completed / failed</small></div>
+    <div class="watch">
+      <div class="w pg"><span class="who">PostgreSQL</span><b>不再变化</b>之后任何 claim、续租、写步骤都更新 0 行</div>
+      <div class="w api"><span class="who">用户 → API</span><b>重新生成</b>成功、失败都能点：新建一个 attempt，回到 ①。执行中点返回 409（Q16）</div>
+    </div>
+  </div>
+</div>
+<ul>
+  <li><b>PG 是唯一的裁判。</b>RabbitMQ 只负责叫醒 worker，“该不该执行、执行权归谁”全由 PG 里一条带条件的 UPDATE 决定。</li>
+  <li><b>阶段 ② 是 M1 的漏洞。</b>M1 只有阶段 ③ 的租约巡检，消息在 ② 没了就没人管。M1.5 的对账补的就是这一格。</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="qa">三、问答</h2>
+<h3>第一轮（已按第一节修订）</h3>
+
+<div class="card qa">
+<h3>Q1：worker 断开后消息回到哪？attempt 还是 running，下一个 worker 也领不了？</h3>
+<p><b>三点你都说对了。</b>（这里说的是“整个 worker 死了”。只死一个子进程的情况见 1.4。）</p>
+<ol>
+  <li>RabbitMQ 发现连接断了，把消息放回 <code>celery</code> 队列。</li>
+  <li>attempt 还是 running。下一个 worker 收到消息，claim 只认 pending，更新 0 行，返回 None，跳过；任务函数正常返回，主进程 ack，<b>消息就没了</b>。</li>
+  <li>没人续租了。90 秒后租约到期，dispatcher 巡检判为 <code>lease_expired</code>。</li>
+  <li>用户点“重新生成”，从头跑。M1.5 不会自动接着跑，接管排在 M4。</li>
+</ol>
+<p>“消息放回队列”真正有用的场景：<b>整个 worker 死的时候，子进程还没来得及 claim</b>。这时 attempt 还是 pending，下一个 worker 直接领走。动画场景“worker 容器被 kill”演示了执行中被 kill 的情况。</p>
+<div class="src">src/margin/worker.py:161-164</div>
+<pre><code>held = lease.claim(engine, attempt_id, worker)
+<span class="hl">if held is None:</span>
+    log.info("attempt %s 已被领取或已结束，跳过（重复投递）", attempt_id)
+<span class="hl">    return      # 正常返回 → 主进程照常 ack，这条消息就没了</span></code></pre>
+</div>
+
+<div class="card qa">
+<h3>Q2：M1.5 到底加了哪些监督？</h3>
+<p>监督只有一个：<b>dispatcher 每 15 秒的巡检</b>，M1 就有。M1.5 往巡检里加了一项。</p>
+<table>
+<tr><th>巡检里的检查</th><th>盯哪种 attempt</th><th>阶段</th></tr>
+<tr><td><code>expire_leases</code>：租约过期 → 判失败</td><td>running</td><td>M1</td></tr>
+<tr><td><code>requeue_lost</code>：消息没了 → 补发；补 3 次 → 判失败</td><td>pending（消息已发出）</td><td><span class="tag t-new">M1.5</span></td></tr>
+</table>
+<p>M1.5 另外两处改动不算监督：发送确认让“发出去”这一步更可靠；LISTEN / NOTIFY 是<b>减少</b>轮询。</p>
+</div>
+
+<div class="card qa">
+<h3>Q3：多消费者时顺序不一致，水位线还靠得住吗？</h3>
+<p>RabbitMQ 往外推的顺序是先进先出。乱的是<b>各个子进程真正 claim（写下 started_at）的时刻</b>：子进程 1 拿到 A 后先要加载语料，子进程 2 拿到 B 马上就 claim 了。乱序一般几秒，最多一两分钟，2 分钟宽限期就是为它留的。判错一次的代价是一条重复消息，claim 会挡掉它。详见第五节。</p>
+</div>
+
+<h3>第二轮</h3>
+
+<div class="card qa">
+<h3>Q4：requeue_lost 具体应对什么情况？</h3>
+<p>一句话：<b>outbox 是 sent，attempt 却一直是 pending，而 RabbitMQ 里已经没有这条消息了。</b>没有消息就没有 worker 会来执行，这道题会永远卡住（M1 的漏洞）。消息“没了”有这几种来路：</p>
+<table>
+<tr><th>来路</th><th>例子</th><th>常见吗</th></tr>
+<tr><td>子进程在 claim 之前死了</td><td>加载语料时内存不够，系统杀掉子进程，主进程照样 ack（1.4）</td><td>最可能碰到</td></tr>
+<tr><td>任务在 claim 之前抛异常</td><td>claim 那一刻 PG 正好重启、连不上；语料文件读不到</td><td>偶尔</td></tr>
+<tr><td>队列里的消息没了</td><td>有人在管理界面清空队列；RabbitMQ 数据卷删了</td><td>少见（故障演练用的就是清空队列）</td></tr>
+</table>
+<p>共同点：PG 以为“已经交给 RabbitMQ 了”，实际上没人会执行。requeue_lost 就是去 PG 里找出这种 attempt，把 outbox 改回 pending，让 dispatcher 再发一次。动画场景“子进程 claim 前死了”和“队列里的消息没了”分别演示了这两种来路。</p>
+</div>
+
+<div class="card qa">
+<h3>Q5：outbox 改成 sent 以后就不会变了吗？</h3>
+<p><b>会变，只有一种情况：对账判定丢失时，dispatcher 把它从 sent 改回 pending。</b>outbox 只有两个状态，行也从来不删：</p>
+<table>
+<tr><th>变化</th><th>谁改</th><th>什么时候</th></tr>
+<tr><td>（新建）→ pending</td><td>API</td><td>提交、重新生成</td></tr>
+<tr><td>pending → pending（tries + 1，next_attempt_at 往后）</td><td>dispatcher · 投递</td><td>发送失败</td></tr>
+<tr><td>pending → sent（记 sent_at）</td><td>dispatcher · 投递</td><td>RabbitMQ 回了“存好了”</td></tr>
+<tr><td><b>sent → pending</b>（redeliveries + 1）</td><td>dispatcher · 巡检（requeue_lost）</td><td>判定消息丢了，最多 3 次</td></tr>
+</table>
+<p>题做完以后 outbox 一直停在 sent。补发 3 次后判 delivery_lost 时，outbox 也停在 sent（redeliveries = 3），失败写在 attempt 上。</p>
+</div>
+
+<div class="card qa">
+<h3>Q6：“没通知最多 10 秒扫一次”和“每 15 秒巡检”都是 dispatcher，为什么有两项？</h3>
+<p>是同一个 dispatcher 进程，在同一个循环里做<b>两件不同的事</b>：</p>
+<table>
+<tr><th></th><th>投递</th><th>巡检</th></tr>
+<tr><td>查什么</td><td>outbox 里 <b>pending</b> 的行（还没发出去的）</td><td>attempts 里<b>卡住</b>的：running 但租约过期；pending 但消息已发出 2 分钟以上</td></tr>
+<tr><td>做什么</td><td>发给 RabbitMQ</td><td>判失败、补发</td></tr>
+<tr><td>什么时候</td><td>收到 NOTIFY 立刻做；没通知时最多隔 10 秒（或者等到最早的退避到期）</td><td>固定每 15 秒</td></tr>
+<tr><td>函数</td><td><code>dispatch_once</code></td><td><code>expire_leases</code> + <code>requeue_lost</code></td></tr>
+</table>
+<p>打个比方：快递员一边<b>送件</b>（有新件就送，没新件也每 10 分钟看一眼货架），一边每 15 分钟<b>查一次账</b>，看有没有送丢的。</p>
+<div class="src">src/margin/dispatcher.py:294-311　一个循环，两件事</div>
+<pre><code>while True:
+<span class="hl">    sent = dispatch_once(engine, publish)                          # ① 投递：每一圈都做</span>
+    if time.monotonic() - last_inspect &gt;= INSPECT_EVERY_SECONDS:      <span class="c"># 15 秒到了</span>
+<span class="hl">        expired = lease.expire_leases(engine)                      # ② 巡检：租约过期</span>
+<span class="hl">        requeued, failed = requeue_lost(engine, read_queue_state(...))   # ② 巡检：对账</span>
+        last_inspect = time.monotonic()
+    <span class="c"># 睡到：有通知 / 最早一条退避到期 / 该巡检了 / 10 秒，哪个先到算哪个，然后回到循环开头</span>
+    wait_for_notify(listener, max(0.0, min(seconds_until_due(engine), until_inspect)))</code></pre>
+</div>
+
+<div class="card qa">
+<h3>Q7：“发失败就退避”是谁告诉 dispatcher 失败的？失败的标志是什么？延迟是不是 outbox 里的下次发送时间？</h3>
+<p><b>失败的标志：<code>publish()</code> 抛出 <code>OperationalError</code> 异常。</b>publish 发完会等 RabbitMQ 的回复，三种失败都会变成这个异常：</p>
+<table>
+<tr><th>失败</th><th>谁告诉的</th></tr>
+<tr><td>连不上</td><td>操作系统：连接被拒绝</td></tr>
+<tr><td>拒收</td><td>RabbitMQ 回一个“不收”（nack），例如队列满了</td></tr>
+<tr><td>迟迟不确认</td><td>没人告诉：等 5 秒没收到“存好了”，自己算超时</td></tr>
+</table>
+<p><b>延迟你记得对，就是 outbox 的 <code>next_attempt_at</code>（下次投递时间）。</b>“退避”就是把这个时间往后写：</p>
+<div class="src">src/margin/dispatcher.py:68, 76-83</div>
+<pre><code>.where(Outbox.status == "pending", <span class="hl">Outbox.next_attempt_at &lt;= func.now()</span>)   <span class="c"># 只取到期的行</span>
+...
+<span class="hl">except OperationalError:          # publish 抛异常 = 发送失败</span>
+    row.tries += 1
+    delay = timedelta(seconds=min(2 ** row.tries, MAX_BACKOFF_SECONDS))   <span class="c"># 2、4、8……60 秒</span>
+<span class="hl">    row.next_attempt_at = func.clock_timestamp() + delay   # 写进 outbox</span>
+    break</code></pre>
+<p>到期时没人发通知，所以 dispatcher 睡觉前用 <code>seconds_until_due</code> 算一下“最早一条还有几秒到期”，只睡那么久。动画场景“RabbitMQ 连不上”演示了整个过程。</p>
+</div>
+
+<div class="card qa">
+<h3>Q8：worker 收到消息、claim 前死了，attempt 是不是还没改状态，还是 pending？</h3>
+<p><b>对，还是 pending</b>，started_at 也是空的：claim 是第一次改 attempt 的地方，claim 之前没人动过它。</p>
+<p>但消息去哪，要看死的是谁：</p>
+<table>
+<tr><th>死的是</th><th>消息</th><th>怎么接上</th></tr>
+<tr><td>整个 worker（主进程）</td><td>RabbitMQ 放回队列</td><td>下一个 worker 收到，claim 成功，正常执行。不用巡检</td></tr>
+<tr><td>只死了一个子进程</td><td>主进程照样 ack，<b>删掉</b></td><td>2 分钟后对账发现，补发</td></tr>
+</table>
+<div class="src">src/margin/worker.py:213-217　claim 之前还要先加载语料，这段时间死了就是这种情况</div>
+<pre><code>def execute_attempt(attempt_id: int) -&gt; None:
+<span class="hl">    corpus, retriever = _components()       # 第一次约 2 秒；BM25 缓存丢失时约 100 秒</span>
+    execute(get_engine(), corpus, retriever, ...)   <span class="c"># execute 的第一行才是 lease.claim</span></code></pre>
+</div>
+
+<div class="card qa">
+<h3>Q9：“超过 2 分钟没人领”是谁知道的？三条规则按什么顺序？</h3>
+<p><b>dispatcher 在巡检里调用 requeue_lost，查 PG 知道的。</b>PG 里有两样东西：outbox 的 <code>sent_at</code>（什么时候发出的），attempts 的 <code>status</code> / <code>started_at</code>（有没有人领）。RabbitMQ 不参与判断，只在规则 ② 里提供一个数：队列里还有几条消息。</p>
+<p>每次巡检的顺序：</p>
+<ol class="flowlist">
+  <li><b>问 RabbitMQ</b>：队列里就绪几条、几个消费者（<code>read_queue_state</code>）。消费者是 0 → 整个跳过（没有 worker 在线，补了也没人收）。</li>
+  <li><b>找候选</b>（一条 SQL）：outbox 是 sent、attempt 是 pending、<code>sent_at</code> 早于“现在 − 2 分钟”。没有候选 → 结束。</li>
+  <li><b>算水位线</b>（一条 SQL）：最近 1 小时里，已经有人领（started_at 有值）的消息中，最晚的 sent_at。</li>
+  <li><b>逐个候选判断</b>，按 ① → ② → ③ 的顺序看，<b>任何一条成立就算丢了</b>，后面的不再看：
+    <br>① 我的 sent_at 早于水位线（比我晚发的都有人领了）
+    <br>② 队列里就绪的消息是 0（队列空了，我还没人领）
+    <br>③ 我发出超过 30 分钟</li>
+  <li><b>判定丢了以后</b>：补发次数已到 3 → 判 attempt 失败（delivery_lost）；否则 outbox 改回 pending、redeliveries + 1。</li>
+  <li>有补发就发一个 NOTIFY，叫醒投递，马上重发。</li>
+</ol>
+<div class="src">src/margin/dispatcher.py:179-219　对应上面 1～6 步</div>
+<pre><code><span class="hl">if queue is not None and queue.consumers == 0:                 # 1</span>
+    return [], []
+candidates = session.execute(select(...).where(                  <span class="c"># 2</span>
+    Outbox.status == "sent", Attempt.status == "pending",
+<span class="hl">    Outbox.sent_at &lt; func.now() - GRACE)).all()                # 2 分钟</span>
+watermark = session.scalar(select(func.max(Outbox.sent_at))...   <span class="c"># 3</span>
+    .where(Outbox.status == "sent", Attempt.started_at.is_not(None), ...))
+for outbox_id, attempt_id, sent_at, redeliveries in candidates:
+<span class="hl">    lost = ((watermark is not None and sent_at &lt; watermark)      # 4 ①
+            or (queue is not None and queue.ready == 0)          #   ②
+            or sent_at &lt; now - FALLBACK)                         #   ③</span>
+    if not lost:
+        continue
+    if redeliveries &gt;= MAX_REDELIVERIES:                         <span class="c"># 5</span>
+        _fail_undelivered(session, attempt_id); continue
+    update(Outbox)...values(status="pending", redeliveries=Outbox.redeliveries + 1)
+if requeued:
+    notify_outbox(session)                                       <span class="c"># 6</span></code></pre>
+<p>三条规则的顺序不影响结果（用 <code>or</code> 连着，成立一条就够），只是 ① 最常见、③ 最后兜底。</p>
+</div>
+
+<div class="card qa">
+<h3>Q10：是不是有两个硬时限（Celery 25 分钟、RabbitMQ 1 小时）？1 小时真能触发吗？Celery 和 RabbitMQ 不是一起的吗？</h3>
+<p><b>真正的硬时限只有一个：Celery 的 25 分钟。</b></p>
+<table>
+<tr><th></th><th>Celery 硬时限 25 分钟</th><th>RabbitMQ 确认期限 1 小时</th></tr>
+<tr><td>谁在计时</td><td>worker 主进程</td><td>RabbitMQ 服务器</td></tr>
+<tr><td>从什么时候算</td><td>子进程开始跑这个任务</td><td>消息推给主进程</td></tr>
+<tr><td>到点做什么</td><td>杀掉子进程，然后 ack</td><td>4.3 之前：关掉这个主进程的通道，通道上所有没确认的消息放回队列。4.3 起：quorum 队列只放回超时的那条，经典队列不检查（Q19）</td></tr>
+<tr><td>我们为什么要它</td><td>防止子进程卡死永远占着</td><td><b>不是我们要的</b>，是 RabbitMQ 自带的规则（默认 30 分钟）</td></tr>
+</table>
+<p><b>1 小时在我们这里基本触发不了：</b></p>
+<ul>
+  <li>主进程活着 → 25 分钟时它会杀掉子进程并 ack，等不到 1 小时；</li>
+  <li>主进程死了或卡死 → 连接断开或心跳超时，RabbitMQ 早就把消息放回队列了。</li>
+</ul>
+<p><b>那 M1.5 为什么要改成 1 小时？</b>本意是让它<b>别误伤正常任务</b>：默认的 30 分钟离 25 分钟太近，万一它先到点，RabbitMQ 会关掉整个通道，这个 worker 正在跑的 4 道题的消息全部放回队列，而这 4 道题其实都还在正常执行。第一版把它叫作“最后一道保险”，说法不对，已改。</p>
+<div class="note">
+<p><b>查官方文档后的新发现：这个 1 小时配置在我们这里实际不生效。</b></p>
+<ul>
+  <li>RabbitMQ 官方文档：“Starting with RabbitMQ 4.3, delivery acknowledgement timeouts are only supported by quorum queues.”（从 4.3 起，确认期限只在 quorum 队列上执行。）4.3 的发布说明也写了：经典队列不再因超时关闭消费者。</li>
+  <li>我们的 RabbitMQ 是 4.3.6；<code>celery</code> 队列是 Celery 默认建的<b>经典队列</b>（代码里没有设置队列类型）。</li>
+  <li>M1.5-2 当时验证的 <code>rabbitmq-diagnostics environment</code> 只说明“配置读进去了”，没有验证“经典队列上会执行”。</li>
+</ul>
+<p>影响：没有坏处，反而说明误伤的风险不存在。但 PLAN §5.7、DECISIONS D19、<code>deploy/rabbitmq/margin.conf</code> 的注释和 M1.5 导读都写着“超时会关闭通道”，和 4.3 的实际行为不符，要改说法（见第七节）。</p>
+</div>
+<p><b>Celery 和 RabbitMQ 不是一起的。</b>它们是两个程序，跑在两个容器里（1.1）。“RabbitMQ 活着、worker 死了”恰恰是最常见的故障。故障演练 kill 的就是 worker 容器，RabbitMQ 一直在跑，所以消息能放回队列。</p>
+<div class="src">deploy/rabbitmq/margin.conf</div>
+<pre><code><span class="c"># 超时分层：模型调用 180 秒 &lt; Celery 硬时限 25 分钟 &lt; 确认期限 1 小时（RabbitMQ 4 默认 30 分钟）。</span>
+<span class="hl">consumer_timeout = 3600000</span></code></pre>
+</div>
+
+<!-- ============================================================ -->
+<h3 id="qa3">第三轮</h3>
+
+<div class="card qa">
+<h3>Q11：RabbitMQ 一定不会给 worker 超出额度的消息吗？会不会主进程收到消息、子进程却都在忙？RabbitMQ 会一直保管到 ack 吗？多个 worker 容器怎么分？</h3>
+<p><b>① 不会超出额度。</b>主进程开工时用 <code>basic.qos</code> 告诉 RabbitMQ“未确认最多 4 条”，RabbitMQ 按这个数严格执行：手上已有 4 条没确认，就不再推。管理界面里看到的 worker 通道预取数就是 4（M1.5-3 实测）。</p>
+<p class="src" style="margin:0">celery/worker/consumer/tasks.py:35-37（Celery 库代码，主进程开工时执行）</p>
+<pre><code>c.connection.default_channel.<span class="hl">basic_qos(0, c.initial_prefetch_count, qos_global)</span>   <span class="c"># 额度 = 1 × 4 个子进程 = 4</span></code></pre>
+<p style="font-size:13px;color:var(--muted)">小注：Celery 对 RabbitMQ 发的是“按通道限额”（global=true）。RabbitMQ 4.3 开始默认不支持这种限额，有资料说会改成“按消费者限额”，也有资料说会拒绝。我们实测 worker 运行正常，预取数是 4；这条通道上只有一个消费者，两种算法结果一样。</p>
+
+<p><b>② 正常情况下不会出现“收到消息但子进程全忙”。</b>额度 4 = 子进程 4 个，再加上“执行完才确认”：4 个子进程都在忙时，手上正好 4 条没确认，额度用完。某个子进程做完，主进程 ack，额度空出一个，RabbitMQ 才推下一条，这时正好有一个空闲的子进程。Celery 默认的分配方式也只把任务交给空闲的子进程。</p>
+<p>例外只有一瞬间：子进程死了、主进程正在补新的子进程时，新推来的消息要等它起来（几百毫秒到几秒）。</p>
+
+<p><b>③ 会一直保管。</b>消息推出去以后，在 RabbitMQ 里的状态是“未确认”，一直留着，直到下面三件事之一发生：</p>
+<table>
+<tr><th>发生了什么</th><th>RabbitMQ 怎么处理</th></tr>
+<tr><td>收到 ack</td><td>删掉</td></tr>
+<tr><td>收到 reject（requeue=True）</td><td>放回队列</td></tr>
+<tr><td>这条通道或连接断了</td><td>放回队列</td></tr>
+</table>
+<p>所以主进程只要活着、不发 ack，这条消息就一直挂在它名下（我们用的经典队列在 4.3 下没有超时，见 Q10）。我们的主进程最晚 25 分钟会 ack（硬时限），所以不会挂太久。</p>
+
+<p><b>④ 多个 worker 容器：轮流分，不是随机。</b>RabbitMQ 给每个队列记着一张消费者名单，按顺序轮流推；轮到的消费者额度满了就跳过它。例子：worker A、B 两个容器，各 4 个子进程，连续来了 9 条消息。</p>
+<div class="tablewrap">
+<table>
+<tr><th>消息</th><th>推之前 A 手上未确认</th><th>推之前 B 手上未确认</th><th>推给</th></tr>
+<tr><td>1～8</td><td>0 → 4</td><td>0 → 4</td><td>A、B、A、B……轮流</td></tr>
+<tr><td>9</td><td>4（满）</td><td>4（满）</td><td>谁都不推，留在队列（就绪 1）</td></tr>
+<tr><td>（A 做完一道，ack）</td><td>3</td><td>4</td><td>—</td></tr>
+<tr><td>9</td><td>3</td><td>4（满，跳过）</td><td><b>A</b></td></tr>
+</table>
+</div>
+<p>这也是水位线能成立的原因：同一个队列先进先出，再加上轮流分，后来的消息不会越过前面的消息先推出去。</p>
+</div>
+
+<div class="card qa">
+<h3>Q12：“续租线程（和 PG 的心跳）”里的“PG 的心跳”是什么？</h3>
+<p><b>这是我用的比喻，不是 PG 的功能。</b>说的就是续租：续租线程每 15 秒执行一次 UPDATE，把 attempts 表里 <code>lease_until</code>（租约到期时间）改成“现在 + 90 秒”。这一列不断往后推，就等于在 PG 里不断写“我还活着”。子进程死了，续租跟着停，这一列就停在最后一次的值，dispatcher 巡检发现它过期了，就判失败。</p>
+<svg class="fig" viewBox="0 0 760 210" role="img" aria-label="续租让 lease_until 不断后移，子进程死后停住，巡检判过期">
+  <line class="axis" x1="60" y1="150" x2="730" y2="150"/>
+  <g class="muted" font-size="11">
+    <text x="60" y="166" text-anchor="middle">10:00:00</text><text x="192" y="166" text-anchor="middle">:30</text>
+    <text x="324" y="166" text-anchor="middle">10:01:00</text><text x="456" y="166" text-anchor="middle">:30</text>
+    <text x="588" y="166" text-anchor="middle">10:02:00</text>
+  </g>
+  <rect class="bar-run" x="60" y="40" width="220" height="24" rx="4"/>
+  <text x="170" y="57" text-anchor="middle" font-size="12">子进程 1 执行中</text>
+  <text x="290" y="57" font-size="16" class="t-warn">✕ 10:00:50 死了</text>
+  <g font-size="11">
+    <circle cx="60" cy="100" r="5" class="mark-ok"/><text x="60" y="88" text-anchor="middle">claim → 1:30</text>
+    <circle cx="126" cy="100" r="5" class="mark-ok"/><text x="126" y="122" text-anchor="middle">续 → 1:45</text>
+    <circle cx="192" cy="100" r="5" class="mark-ok"/><text x="192" y="88" text-anchor="middle">续 → 2:00</text>
+    <circle cx="258" cy="100" r="5" class="mark-ok"/><text x="258" y="122" text-anchor="middle">续 → 2:15</text>
+  </g>
+  <text x="10" y="104" font-size="12">续租</text>
+  <line class="line-grace" x1="654" y1="30" x2="654" y2="150"/>
+  <text x="648" y="44" font-size="11" text-anchor="end" class="t-warn">lease_until 停在 10:02:15</text>
+  <circle cx="676" cy="150" r="6" class="mark-bad"/>
+  <text x="730" y="186" font-size="11" text-anchor="end" class="t-warn">10:02:20 dispatcher 巡检：已过期 → lease_expired</text>
+  <text x="60" y="204" font-size="11" class="muted">图里“1:30”是 10:01:30 的简写，即 lease_until 被改成的值。</text>
+</svg>
+<p>和它容易混淆的是另一种心跳：<b>主进程和 RabbitMQ 之间的心跳</b>。那是 AMQP 协议自带的，实际约 60 秒（Q19），两边定时互发一个小数据帧，用来发现“连接其实已经断了”。两者互不相关：</p>
+<table>
+<tr><th></th><th>续租（我们写的）</th><th>AMQP 心跳（Celery / RabbitMQ 自带）</th></tr>
+<tr><td>谁和谁</td><td>子进程的续租线程 → PG</td><td>worker 主进程 ↔ RabbitMQ</td></tr>
+<tr><td>证明什么</td><td>这个 attempt 还有人在执行</td><td>这条网络连接还活着</td></tr>
+<tr><td>断了的后果</td><td>dispatcher 巡检判 lease_expired</td><td>RabbitMQ 关连接，未确认的消息放回队列</td></tr>
+</table>
+</div>
+
+<div class="card qa">
+<h3>Q13：RabbitMQ 是独立的，它怎么知道推给谁？dispatcher 发消息是直连吗？用什么函数？</h3>
+<p><b>RabbitMQ 不会主动找 worker，是 worker 主进程先连上来“订阅”。</b>之后 RabbitMQ 就往这条连接上推。dispatcher 也是直接用 TCP 连 RabbitMQ 发消息，中间没有任何“Celery 程序”：Celery 只是 dispatcher 进程里 import 的一个库，负责把消息打包好再发出去（打包是什么见 Q22）。</p>
+<div class="cols2">
+<div>
+<h4>worker 主进程开工时（订阅）</h4>
+<div class="chain">
+  <div class="step"><b>建 TCP 连接</b> 连到 rabbitmq:5672，开一条通道</div>
+  <div class="step"><b>声明</b> 交换机 <code>celery</code>（direct 类型）、队列 <code>celery</code>（持久），再把队列<b>绑定</b>到交换机，路由键 <code>celery</code></div>
+  <div class="step"><b>basic.qos</b> 未确认最多 4 条</div>
+  <div class="step ok"><b>basic.consume("celery")</b> RabbitMQ 记下：队列 celery 的消费者里多了“这条通道”</div>
+</div>
+</div>
+<div>
+<h4>dispatcher 发一条消息（投递）</h4>
+<div class="chain">
+  <div class="step"><b>publish(12)</b> 我们的函数（dispatcher.py:121-123）</div>
+  <div class="step"><b>app.send_task("margin.execute_attempt", args=[12])</b> Celery 库：打包消息（任务名、参数、任务 id）</div>
+  <div class="step"><b>kombu Producer.publish</b> 消息库：选交换机和路由键、序列化</div>
+  <div class="step ok"><b>py-amqp channel.basic_publish(exchange="celery", routing_key="celery")</b> 写一个 AMQP 数据帧到 TCP 连接，然后等“存好了”</div>
+</div>
+</div>
+</div>
+<p>RabbitMQ 收到消息以后，先把它放进 <code>celery</code> 队列（中间经过“交换机”分拣一下，我们只有一个队列，分拣结果总是它，见 Q21），再从这个队列的消费者名单里挑一个还有额度的，用 <code>basic.deliver</code> 推过去。AMQP 里的“绑定（bind）”是分拣规则“这种消息放进哪个队列”，不是“RabbitMQ → worker”的连接。</p>
+<p class="src" style="margin:0">本机核对（Celery 5.6.3 默认配置）：<code>app.amqp.queues["celery"]</code> → 交换机 'celery'、direct、路由键 celery、持久 True</p>
+<pre><code><span class="c"># dispatcher.py:121-123　我们这一侧只写了这一行</span>
+app.<span class="hl">send_task("margin.execute_attempt", args=[attempt_id], confirm_timeout=CONFIRM_TIMEOUT_SECONDS)</span>
+<span class="c"># 发出去的消息（简化）：</span>
+<span class="c">#   headers: {"task": "margin.execute_attempt", "id": "3f2c…"}</span>
+<span class="c">#   body:    [[12], {}, {...}]        ← 位置参数 [12]、关键字参数 {}、其他</span></code></pre>
+<p>worker 主进程收到后按 headers 里的任务名找到 <code>execute_attempt</code> 函数，交给子进程调用 <code>execute_attempt(12)</code>。dispatcher 不需要 import worker 的代码，任务名对得上就行（1.1）。</p>
+</div>
+
+<div class="card qa">
+<h3>Q14：做完任务后 ack 是谁发、用什么函数？意外情况是不是主进程发？ack 到期是不是主进程的所有任务都回收？task_reject_on_worker_lost 怎么放回？是发 nack 吗？</h3>
+<p><b>ack 一律由主进程发，子进程从不发</b>（子进程没有连 RabbitMQ）。正常和意外两条路：</p>
+<div class="cols2">
+<div>
+<h4>正常结束</h4>
+<div class="chain">
+  <div class="step"><b>子进程</b> <code>execute_attempt(12)</code> 返回</div>
+  <div class="step"><b>管道</b> 把“做完了”送回主进程</div>
+  <div class="step"><b>主进程</b> <code>Request.on_success</code> → 开了 acks_late → <code>Request.acknowledge()</code></div>
+  <div class="step"><b>kombu</b> <code>Message.ack()</code></div>
+  <div class="step ok"><b>py-amqp</b> <code>channel.basic_ack(delivery_tag)</code> → RabbitMQ 删掉消息</div>
+</div>
+</div>
+<div>
+<h4>子进程死了</h4>
+<div class="chain">
+  <div class="step bad"><b>子进程</b> 被系统杀掉</div>
+  <div class="step"><b>主进程</b> 发现子进程没了 → <code>Request.on_failure(WorkerLostError)</code></div>
+  <div class="step"><b>默认</b>（reject_on_worker_lost 关）→ <code>acknowledge()</code> → <code>basic_ack</code>：<b>删掉</b></div>
+  <div class="step ok"><b>打开后</b> → <code>Request.reject(requeue=True)</code> → <code>Message.reject</code> → <code>channel.basic_reject(delivery_tag, requeue=True)</code>：<b>放回队列</b></div>
+</div>
+</div>
+</div>
+<p><b>delivery_tag 是什么</b>：RabbitMQ 每推一条消息，就在这条通道上给它编一个号（1、2、3……）。ack 和 reject 都要报这个号，RabbitMQ 才知道说的是哪条。</p>
+<p><b>放回队列用的是 reject，不是 nack。</b>两者效果一样：reject 是 AMQP 标准命令，一次处理一条；nack 是 RabbitMQ 加的扩展，可以一次处理多条。Celery 用 reject。放回去的消息会带一个“重投（redelivered）”标记。</p>
+<p class="src" style="margin:0">kombu/message.py（本机核对）</p>
+<pre><code>def ack(self, multiple=False):
+<span class="hl">    self.channel.basic_ack(self.delivery_tag, multiple=multiple)</span>
+def reject(self, requeue=False):
+<span class="hl">    self.channel.basic_reject(self.delivery_tag, requeue=requeue)</span></code></pre>
+<p><b>ack 到期</b>：RabbitMQ 4.3 之前，到期后关掉这个消费者所在的<b>整条通道</b>，通道上所有没确认的消息都放回队列。Celery 主进程只用一条通道收任务，所以是<b>这个主进程手上的 4 条全部</b>放回。4.3 起只有 quorum 队列检查确认期限，而且改成<b>只放回超时的那条</b>（第四轮 Q19 更正）。我们用经典队列，两种都不会发生（Q10）。</p>
+</div>
+
+<div class="card qa">
+<h3>Q15：“就绪 0、消费者 1”是什么意思？对账改回 pending 再 NOTIFY，是不是绕圈子，为什么不直接重发？</h3>
+<p><b>三个数</b>（动画里 RabbitMQ 框下面那行）：</p>
+<table>
+<tr><th>数</th><th>意思</th><th>谁会读它</th></tr>
+<tr><td>就绪</td><td>在队列里排队、还没推给任何人的消息数</td><td>对账规则 ②</td></tr>
+<tr><td>未确认</td><td>推出去了、还没收到 ack 的消息数</td><td>（只在动画里显示）</td></tr>
+<tr><td>消费者</td><td>订阅了这个队列的通道数，我们是“一个 worker 容器 = 1 个”</td><td>对账第 1 步：0 就整个跳过</td></tr>
+</table>
+<p>场景“子进程 claim 前死了”里，“就绪 0、消费者 1”的意思是：有一个 worker 在线，队列里却一条排队的都没有，而 attempt 20 还是 pending。它的消息既不在排队、也没人在执行，说明真的没了，规则 ② 成立。</p>
+
+<p><b>关于“绕圈子”，你的感觉一半对：</b></p>
+<div class="cols2">
+<div>
+<h4>现在的做法：改回 pending，交给投递</h4>
+<div class="chain">
+  <div class="step"><b>巡检事务</b> outbox sent → pending、redeliveries + 1、NOTIFY，提交</div>
+  <div class="step"><b>同一个循环往下走</b> 睡前算 seconds_until_due：刚改的那行已经到期 → 0 秒 → 不睡</div>
+  <div class="step ok"><b>dispatch_once</b> 发出去，等“存好了”，标 sent</div>
+</div>
+</div>
+<div>
+<h4>你的想法：巡检里直接发</h4>
+<div class="chain">
+  <div class="step"><b>巡检里</b> 调 publish 发出去</div>
+  <div class="step ok"><b>成功</b> 写 sent_at、redeliveries + 1</div>
+  <div class="step bad"><b>失败呢？</b> 要自己写退避；或者改回 pending 交给投递……又回到左边</div>
+</div>
+</div>
+</div>
+<table>
+<tr><th>比较</th><th>改回 pending（现在）</th><th>巡检里直接发</th></tr>
+<tr><td>多慢</td><td>只多走半圈循环，毫秒级</td><td>—</td></tr>
+<tr><td>RabbitMQ 这时连不上</td><td>投递原有的退避自动接手（tries、next_attempt_at）</td><td>要再写一套失败处理</td></tr>
+<tr><td>dispatcher 刚判完就崩溃</td><td>“要补发”已经写进库，重启后照发</td><td>先发后记：发了但 redeliveries 没加，补发次数不准；先记后发：记了 sent_at 却没发，要再等 2 分钟才能发现</td></tr>
+<tr><td>发消息的代码</td><td>只有 dispatch_once 一处：发送确认、超时、退避、防重复发（SKIP LOCKED）都在这里</td><td>两处，要保持一致</td></tr>
+</table>
+<p><b>你说对的那一半：NOTIFY 这一步确实多余。</b>补发和投递在同一个进程、同一个循环里。补发完，<code>seconds_until_due</code> 发现刚改的那行已经到期，返回 0，dispatcher 根本不睡，直接进下一圈去发，用不上通知。这个 NOTIFY 只在“以后开多个 dispatcher”时才有用（叫醒别的 dispatcher）。现在它只会让循环多空转一圈，没有坏处，但读代码时确实让人觉得在绕。</p>
+<p class="src" style="margin:0">src/margin/dispatcher.py:216, 220-221, 280-282</p>
+<pre><code>.values(status="pending", <span class="hl">next_attempt_at=func.now()</span>, ...)   <span class="c"># 补发：立刻到期</span>
+if requeued:
+<span class="hl">    notify_outbox(session)             # 单个 dispatcher 时用不上</span>
+...
+<span class="c"># seconds_until_due：最早一条已经到期 → 返回 0，主循环不睡</span>
+return max(0.0, min(float(due), MAX_WAIT_SECONDS))</code></pre>
+<p>建议：保留“改回 pending”这条路；NOTIFY 建议直接删掉（第四轮 Q25 重新分析过，“给多个 dispatcher 用”的理由很弱）。已记进第七节，等你决定。</p>
+</div>
+
+<!-- ============================================================ -->
+<h3 id="qa4">第四轮</h3>
+
+<div class="card qa">
+<h3>Q16：生成过程中、或者生成完以后，用户点“重新生成”会发生什么？</h3>
+<p><b>看点的时候这道题还有没有没结束的执行。</b>API 只认 PG 里的状态，不看前端显示的是什么：</p>
+<table>
+<tr><th>什么时候点</th><th>PG 里这道题</th><th>API 返回</th><th>之后</th></tr>
+<tr><td>生成中（包括还在排队）</td><td>有 pending 或 running 的 attempt</td><td><b>409</b>“这道题还在执行中”</td><td>什么都不写，原来的执行照常跑完。现在没有“停止生成”</td></tr>
+<tr><td>生成完（成功或失败）</td><td>所有 attempt 都结束了</td><td><b>202</b></td><td>新建一个 attempt（第 N+1 次执行），走一遍完整流程；旧的执行和步骤原样保留</td></tr>
+<tr><td>连点两下 / 两个标签页同时点</td><td>两个请求同时到</td><td>先到的 202，后到的 409</td><td><code>FOR UPDATE</code> 让两个请求排队：后一个等前一个提交后再数，数到刚建的 pending</td></tr>
+</table>
+<p>动画加了两个场景（1.5 节最后两个标签）：</p>
+<ul>
+  <li><b>“重新生成：执行中点 / 结束后点”</b>：先演示执行中点得到 409，再演示结束后点，新的 attempt 13 怎么走到子进程 2。</li>
+  <li><b>“重新生成：旧执行失联后又回来”</b>：这是有分支的情况。旧的 attempt 12 判了 lease_expired，但执行它的子进程其实没死。用户重新生成以后，<b>两个子进程同时在跑这道题</b>，看 epoch 怎么挡住旧的：它写库被拒绝，它发的实时片段前端也不显示。</li>
+</ul>
+<div class="src">src/margin/runs.py:116-133</div>
+<pre><code>run = session.execute(select(Run).where(...)<span class="hl">.with_for_update()</span>).scalar_one_or_none()
+active = session.scalar(select(func.count()).select_from(Attempt)
+    .where(Attempt.run_id == run_id, <span class="hl">Attempt.status.in_(["pending", "running"])</span>))
+if active:
+<span class="hl">    raise RunBusy                                  # → 409</span>
+attempt_no = ... + 1
+<span class="hl">_enqueue_attempt(session, run_id, attempt_no, trigger="regenerate", model=run.model)</span></code></pre>
+<p>“旧执行失联又回来”时，有两道关挡住旧执行：</p>
+<table>
+<tr><th>旧执行想做的事</th><th>谁挡</th><th>怎么挡</th></tr>
+<tr><td>往库里写步骤、写结果</td><td>PG（<code>_fence</code>）</td><td>UPDATE 带 <code>epoch = 1</code> 条件，库里已是 2 → 0 行 → LeaseLost，事务回滚</td></tr>
+<tr><td>往页面推逐字片段</td><td>前端（<code>timeline.ts</code> 规则 2）</td><td>片段带 (12, 1)，前端当前认的是 attempt_started 里的 (13, 1) → 丢掉</td></tr>
+</table>
+</div>
+
+<div class="card qa">
+<h3>Q17：子进程 claim 前死了，但队列一直不为空，这条消息是不是就丢了？“就绪 0、消费者 1”有什么用？还有别的规则吗？</h3>
+<p><b>不会丢，这时由规则 ①（水位线）发现。</b>队列不为空，说明后面还有消息在排队。死掉的子进程马上会补上，它会去领后面的消息。只要后面有一条消息 claim 了，水位线就越过了我，规则 ① 就成立。</p>
+<p>例子：attempt 20 的消息 10:00:00 推给子进程 1，子进程 1 加载语料时死了。队列里还有 21、22 排着。</p>
+<table>
+<tr><th>时间</th><th>谁</th><th>发生了什么</th><th>水位线</th></tr>
+<tr><td>10:00:03</td><td>主进程</td><td>子进程 1 死了，照样 ack 消息 20，补一个新子进程</td><td>—</td></tr>
+<tr><td>10:00:04</td><td>RabbitMQ → 新子进程</td><td>额度空出 1 个，推来消息 21（10:00:05 发出）</td><td>—</td></tr>
+<tr><td>10:00:07</td><td>新子进程</td><td>加载完，claim 21，写下 started_at</td><td>10:00:05</td></tr>
+<tr><td>10:02:00</td><td>dispatcher 巡检</td><td>20 满 2 分钟，成为候选。10:00:00 早于水位线 10:00:05 → <b>① 成立</b>，补发。这时队列空不空都无所谓</td><td>10:00:05</td></tr>
+</table>
+<p><b>三条规则各管一种情况</b>，所以缺一不可：</p>
+<table>
+<tr><th>情况</th><th>哪条规则发现</th><th>多久发现</th></tr>
+<tr><td>一直有新题进来（队列不空，后面的消息有人领）</td><td>① 水位线</td><td>2 分钟</td></tr>
+<tr><td>只有这一道题，后面没有新消息（水位线不会动）</td><td>② 队列空了：<b>就绪 0</b></td><td>2 分钟</td></tr>
+<tr><td>读不到 RabbitMQ 的状态，又没有新题</td><td>③ 30 分钟</td><td>30 分钟</td></tr>
+<tr><td>没有 worker 在线：<b>消费者 0</b></td><td>整个跳过，不补发</td><td>等 worker 回来</td></tr>
+</table>
+<p>所以“就绪 0、消费者 1”就是规则 ② 的条件：有 worker 在线（消费者不是 0），队列却空了，而我还没人领，说明我不在队列里。只有一道题的时候，只能靠它。</p>
+<p><b>对账的全部规则</b>（按执行顺序，前面 Q9 讲过前 5 条）：</p>
+<ol class="flowlist">
+  <li>消费者 0 → 整个跳过。</li>
+  <li>候选 = outbox sent + attempt pending + 发出超过 2 分钟。</li>
+  <li>① 早于水位线、② 就绪 0、③ 发出超过 30 分钟，成立一条就算丢了。</li>
+  <li>补发次数已到 3 → 判 delivery_lost；没到 → 改回 pending、redeliveries + 1。</li>
+  <li>两个防“同时改”的条件：改回 pending 时带 <code>WHERE status = 'sent'</code>，判失败时带 <code>WHERE status = 'pending'</code>。巡检的同时 worker 正好 claim 了，或者 dispatcher 正好在发，都只会更新 0 行，不会互相覆盖。</li>
+</ol>
+</div>
+
+<div class="card qa">
+<h3>Q18：“最多 10 秒扫一次”和“每 15 秒巡检”能不能合并，都改成 10 秒？</h3>
+<p><b>能，而且没有坏处。</b>两个数管的事不同，但不冲突：</p>
+<table>
+<tr><th></th><th>10 秒（兜底扫描）</th><th>15 秒（巡检）</th></tr>
+<tr><td>决定什么</td><td>通知丢了时，新题最多晚多久发出</td><td>出了问题（租约过期、消息丢了）最多晚多久发现</td></tr>
+<tr><td>改成 10 秒的影响</td><td>不变</td><td>发现得早 5 秒；每 10 秒开一次 RabbitMQ 连接查队列（原来 15 秒），开销可以忽略</td></tr>
+</table>
+<p>合并以后代码会简单一点，但巡检的计时器还得留着。dispatcher 的循环随时会被通知叫醒，高峰时一秒醒几十次，不能每醒一次就巡检一次。</p>
+<div class="src">src/margin/dispatcher.py:42-43, 294-311　合并的写法（建议，还没改）</div>
+<pre><code><span class="hl">TICK_SECONDS = 10      # 一个数：兜底扫描和巡检都是 10 秒</span>
+...
+while True:
+    dispatch_once(engine, publish)                       <span class="c"># 每次醒来都投递</span>
+<span class="hl">    if time.monotonic() - last_inspect &gt;= TICK_SECONDS:  # 巡检仍然单独计时</span>
+        ...
+    until_inspect = TICK_SECONDS - (time.monotonic() - last_inspect)
+<span class="hl">    wait_for_notify(listener, max(0.0, min(seconds_until_due(engine), until_inspect)))</span>
+    <span class="c"># seconds_until_due 不再需要“最多 10 秒”的上限：巡检本来每 10 秒就会把循环叫醒一次，醒了先投递</span></code></pre>
+<p>其实现在的代码已经暗含这一点：就算没有 10 秒的上限，循环每 15 秒也会为巡检醒一次，醒了第一件事就是投递。所以两个数本来就可以合成一个。要不要改，你定；改的话要同步 PLAN 和测试。</p>
+</div>
+
+<div class="card qa">
+<h3>Q19：1 小时的确认期限在我们这里不生效，那实际生效的是什么？超时是只收回超时的那一条吗？</h3>
+<p><b>经典队列上什么时限都没有：消息推出去以后一直挂着，直到 ack、reject，或者连接断开。</b>真正保护我们的是下面三样，都不是 RabbitMQ 的确认期限：</p>
+<table>
+<tr><th>出了什么事</th><th>谁收场</th><th>多久</th><th>消息怎样</th></tr>
+<tr><td>子进程卡死</td><td>主进程的 Celery 硬时限</td><td>25 分钟</td><td>杀掉子进程后 ack</td></tr>
+<tr><td>主进程卡死、网络断了</td><td>RabbitMQ 的 AMQP 心跳</td><td>约 60 秒</td><td>RabbitMQ 关掉连接，所有未确认的放回</td></tr>
+<tr><td>worker 崩溃、容器被 kill</td><td>操作系统关闭 TCP 连接</td><td>立刻</td><td>所有未确认的放回</td></tr>
+</table>
+<p><b>心跳为什么是 60 秒（更正）：</b>前几版写的是“Celery 默认 120 秒”，这只是 Celery 这一侧提的值。RabbitMQ 服务器默认提 60 秒，py-amqp 取两边较小的那个，所以实际是 60 秒。两边大约每 30 秒发一个心跳帧，连续两次收不到，也就是约 60 秒，就认为连接断了。</p>
+<p class="src" style="margin:0">amqp/connection.py:431-436（本机核对）</p>
+<pre><code><span class="c"># negotiate the heartbeat interval to the smaller of the specified values</span>
+if self.server_heartbeat == 0 or client_heartbeat == 0:
+    self.heartbeat = max(self.server_heartbeat, client_heartbeat)
+else:
+<span class="hl">    self.heartbeat = min(self.server_heartbeat, client_heartbeat)     # min(60, 120) = 60</span></code></pre>
+<p><b>“只收回超时的那条吗？”</b>要看 RabbitMQ 版本和队列类型：</p>
+<div class="tablewrap">
+<table>
+<tr><th></th><th>4.3 之前（所有队列）</th><th>4.3 起，quorum 队列</th><th>4.3 起，经典队列（我们）</th></tr>
+<tr><td>检查确认期限吗</td><td>检查，默认 30 分钟</td><td>检查</td><td><b>不检查</b></td></tr>
+<tr><td>超时以后</td><td>关掉整条通道：这个主进程手上的 4 条全部放回</td><td><b>只放回超时的那几条</b>，并取消这个消费者（客户端声明支持“消费者取消通知”时；py-amqp 声明了），通道不关</td><td>—</td></tr>
+</table>
+</div>
+<p>所以 Q14 里说的“4 条全部放回”是 4.3 之前的行为。4.3 的 quorum 队列改成了只放回超时的那条，这是按发布说明写的，我们没有实测。</p>
+</div>
+
+<div class="card qa">
+<h3>Q20：“子进程死了、主进程正在补新的子进程时，新推来的消息要等它起来”具体是什么情况？RabbitMQ 什么时候会收到 reject？</h3>
+<p><b>例子：4 个子进程都在忙，其中一个死了。</b></p>
+<table>
+<tr><th>时间</th><th>谁</th><th>发生了什么</th><th>主进程手上未确认</th></tr>
+<tr><td>10:00:00</td><td>—</td><td>子进程 1～4 分别在跑 A、B、C、D，额度用完</td><td>4</td></tr>
+<tr><td>10:00:10.000</td><td>操作系统</td><td>内存不够，杀掉子进程 3（正在跑 C）</td><td>4</td></tr>
+<tr><td>10:00:10.050</td><td>主进程</td><td>发现子进程 3 没了 → C 记 WorkerLostError → ack C；同时开始补一个新子进程</td><td>3</td></tr>
+<tr><td>10:00:10.060</td><td>RabbitMQ</td><td>额度空出 1 个，马上推来 E</td><td>4</td></tr>
+<tr><td>10:00:10.060</td><td>主进程</td><td>E 到了，但子进程 1、2、4 在忙，新的子进程 3 还没起来。<b>E 先在主进程里等着</b></td><td>4</td></tr>
+<tr><td>10:00:10.500</td><td>主进程</td><td>新子进程 3 起来了（从主进程复制出来，几百毫秒），把 E 交给它</td><td>4</td></tr>
+</table>
+<p>就是中间这几百毫秒。<b>ack 和补进程几乎同时发生，先后不固定。</b>如果 ack 先到 RabbitMQ，E 就会比新子进程先到。硬时限杀子进程也是同一个过程。这点等待对我们没有影响：E 后面的步骤照常走，离 2 分钟宽限期很远。</p>
+
+<p><b>RabbitMQ 什么时候收到 reject：</b>都是 worker 主进程发的。按 Celery 库代码，我们这里可能碰到的有这些：</p>
+<div class="tablewrap">
+<table>
+<tr><th>情况</th><th>Celery 代码（本机 5.6.3）</th><th>放回队列吗</th><th>结果</th></tr>
+<tr><td><b>worker 不认识这个任务名</b>。例如先升级了 dispatcher，任务名改了，worker 还是旧版本</td><td>consumer.py:596-616 <code>on_unknown_task</code></td><td>不放回（requeue=False）</td><td>RabbitMQ 直接丢掉，我们没配“死信队列”。attempt 停在 pending，对账补发，补 3 次还是不认识 → delivery_lost</td></tr>
+<tr><td>消息解不开（内容损坏、格式不认识）</td><td>consumer.py:591-594, 630-633</td><td>不放回</td><td>同上</td></tr>
+<tr><td>子进程死了，并且开了 <code>task_reject_on_worker_lost</code></td><td>request.py:614-621</td><td>放回</td><td>我们没开（1.4）</td></tr>
+<tr><td>任务代码里主动 <code>raise Reject(...)</code></td><td>request.py:604</td><td>看参数</td><td>我们没用</td></tr>
+</table>
+</div>
+<p>第一行是升级时真可能碰到的。好在对账会兜住，3 次后判 delivery_lost，页面上能看到失败，不会一直卡在“排队中”。</p>
+</div>
+
+<div class="card qa">
+<h3>Q21：“交换机 celery 按路由键 celery 找到绑定的队列 celery”这句话看不懂</h3>
+<p>确实写得太绕，三个名字又都叫 celery。换个说法：</p>
+<p>RabbitMQ 里收消息分两步，像邮局：</p>
+<table>
+<tr><th>RabbitMQ 里的东西</th><th>像邮局里的</th><th>我们这里叫</th></tr>
+<tr><td>交换机（exchange）</td><td>分拣台：只分拣，不存信</td><td>celery</td></tr>
+<tr><td>路由键（routing key）</td><td>信封上的邮编</td><td>celery</td></tr>
+<tr><td>绑定（binding）</td><td>分拣台上贴的规则：“邮编 celery → 放进 celery 信箱”</td><td>worker 开工时登记的</td></tr>
+<tr><td>队列（queue）</td><td>信箱：真正存信的地方</td><td>celery</td></tr>
+</table>
+<p>dispatcher 发消息时写的是：“交给分拣台 celery，邮编 celery”。分拣台查规则，放进 celery 信箱。<b>我们只有一个分拣台、一条规则、一个信箱，所以这一步的效果就是“放进 celery 队列”。</b></p>
+<p>为什么要多一层分拣台：发消息的一方只需要知道“交给哪个分拣台、写什么邮编”，不需要知道有哪些信箱。以后加一个“快题队列”，只要加一条规则、发快题时换个邮编，dispatcher 不用知道信箱在哪。Q13 的原句已经改成这个说法。</p>
+</div>
+
+<div class="card qa">
+<h3>Q22：“Celery 负责把消息打包好再发出去”，打包具体是什么？</h3>
+<p><b>打包 = 把一次函数调用 <code>execute_attempt(12)</code> 变成一条 RabbitMQ 能存、能转发的消息（一串字节）。</b>RabbitMQ 不懂 Python，它只存字节。下面是本机用 Celery 5.6.3 生成的真实内容（只是生成，没有发出去）：</p>
+<div class="src">消息的三部分（任务 id 是举例）</div>
+<pre><code><span class="c"># ① headers：给 worker 看的“这是什么任务”</span>
+<span class="hl">task:       "margin.execute_attempt"        # worker 按这个名字找函数</span>
+<span class="hl">id:         "3f2c9a1e-…-000000000012"        # Celery 给每条消息编的 id（和 attempt_id 无关）</span>
+retries:    0
+timelimit:  [null, null]                     <span class="c"># 这条消息没有单独的时限，用 worker 的 25 分钟</span>
+argsrepr:   "[12]"                           <span class="c"># 参数的可读版，日志和管理界面里显示</span>
+origin:     "gen108848@DESKTOP-…"            <span class="c"># 谁发的：进程号@主机名</span>
+
+<span class="c"># ② properties：给 RabbitMQ 看的</span>
+content_type:     "application/json"         <span class="c"># 正文用 JSON 编码</span>
+content_encoding: "utf-8"
+<span class="hl">delivery_mode:    2                          # 持久：RabbitMQ 写到磁盘，重启不丢（M1.5）</span>
+correlation_id:   "3f2c9a1e-…"               <span class="c"># 同上面的 id</span>
+
+<span class="c"># ③ body：参数本身，JSON</span>
+<span class="hl">[[12], {}, {"callbacks": null, "errbacks": null, "chain": null, "chord": null}]</span>
+<span class="c">#  位置参数  关键字参数  任务链设置（我们不用，都是 null）</span></code></pre>
+<p>另外还会定好“交给哪个交换机、路由键是什么”（Q21），然后由 py-amqp 把这三部分按 AMQP 协议的格式写成数据帧，发到 TCP 连接上。</p>
+<p><b>worker 那边反过来“拆包”：</b>主进程读 headers 里的 <code>task</code>，在已注册的任务里找到 <code>execute_attempt</code>；把 body 的 JSON 解出来得到参数 <code>[12]</code>；交给子进程调用 <code>execute_attempt(12)</code>。找不到这个任务名，就是 Q20 里的 reject。</p>
+</div>
+
+<div class="card qa">
+<h3>Q23：机制一览表是不是漏了 30 分钟？能不能去掉另外两条规则，只用超时判断？</h3>
+<p><b>表里确实没写清楚</b>，只写了“满足三条规则之一”。已把第四节 #10 改成三条规则逐条列出，30 分钟写在里面。</p>
+<p><b>只用超时不行，因为一个数没法同时满足“快”和“不误判”。</b>超时 T 要大于正常排队最久的时间，不然排队的题会被当成丢了；可 T 一大，真丢了的消息就要等 T 才发现。例子：4 个子进程，每题约 2 分钟，一次来了 20 道题：</p>
+<table>
+<tr><th>只用超时</th><th>排在后面的题（正常排队约 10 分钟）</th><th>真丢了一条消息</th></tr>
+<tr><td>T = 2 分钟</td><td>排队超过 2 分钟的都被误判、反复补发；排得最靠后的那几道等不到轮到自己，约 8 分钟（补 3 次后）就被判 delivery_lost</td><td>2 分钟发现</td></tr>
+<tr><td>T = 30 分钟</td><td>不误判</td><td><b>用户干等 30 分钟</b>，页面一直“排队中”</td></tr>
+<tr><td><b>现在：① ② + 30 分钟</b></td><td>不误判：后面的消息没被领、队列也不空，① ② 都不成立</td><td><b>2 分钟</b>发现（① 或 ②）</td></tr>
+</table>
+<p>① ② 是“有证据”的判断：比我晚的都领走了，或者队列空了，这时才说我丢了，所以能在 2 分钟就下结论。③ 是没有证据时的最后一招，只能等得久一点。三条一起用，才能“丢了快发现、排队不误判”。</p>
+</div>
+
+<div class="card qa">
+<h3>Q24：如果某个任务每次都要加载 3 分钟，不管哪个子进程领都会被误判丢失，不能只靠延长判定时间吧？看了 5.3，感觉系统根本扛不住多用户，以后能改吗？</h3>
+<p><b>你说的情况对：会误判，而且光加长宽限期治标不治本。</b>具体会怎样：</p>
+<ul>
+  <li>2 分钟时，这道题还在加载、没 claim。只要有别的题先 claim 了（①），或者队列空了（②），就判它丢了，补发一次。</li>
+  <li>结果不是失败，而是重复：3 分钟时原来那条加载完、claim 成功，补发的那条到了以后 claim 更新 0 行，跳过。每道题多一条消息，redeliveries 记 1。</li>
+  <li>我们现在的代码里，加载只在<b>每个子进程第一次</b>执行时发生（有缓存），平时约 2 秒，最坏约 100 秒（BM25 缓存丢失时），所以还在 2 分钟以内。但“每题都慢”的情况以后完全可能出现。</li>
+</ul>
+<p><b>根本办法：先 claim，再加载。</b>误判的根源是“收到消息”和“claim”之间隔了一段加载时间，这段时间 PG 看不到任何迹象。把 claim 挪到最前面，收到消息几毫秒内就写下 started_at，加载放在租约保护下进行（续租线程已经在跑，加载多久都不怕），宽限期只需要吸收毫秒级的抖动。</p>
+<div class="src">src/margin/worker.py:212-217 与 execute 的开头　建议的顺序（还没改）</div>
+<pre><code>def execute_attempt(attempt_id):
+<span class="hl">    held = lease.claim(engine, attempt_id, worker)     # ① 先占住：started_at 马上有值</span>
+    if held is None:
+        return
+<span class="hl">    with lease.LeaseKeeper(engine, held):              # ② 续租线程开始跑</span>
+<span class="hl">        corpus, retriever = _components()              # ③ 再加载，3 分钟也有租约保着</span>
+        ...</code></pre>
+<p><b>代价：</b>claim 之后、加载之中死了，attempt 已经是 running，不再由对账自动补发，而是 90 秒后判 lease_expired，要用户点重新生成（M4 做了接管以后就能自动接上）。加载出错也会变成一次看得见的失败，而不是悄悄补发。我觉得这个代价可以接受：失败看得见，比悄悄重复好查。</p>
+
+<p><b>关于多用户：</b>5.3 的边界和“几个用户”无关，只和<b>排队多久</b>有关。多个用户的题进的是同一个先进先出的队列，水位线照样成立。会出问题的只是规则 ③：一道题排队超过 30 分钟。</p>
+<ul>
+  <li>算一下：4 个子进程，每题约 2 分钟，每分钟能做约 2 道。排队超过 30 分钟，意味着积压超过约 60 道。10 个用户各提交 3 道是 30 道，最后一道约排 15 分钟，没问题。</li>
+  <li>扛更多人，靠加 worker 容器：队列还是一个，额度还是等于子进程数，水位线的前提不变（5.3 边界 2）。</li>
+</ul>
+<p><b>可以改进的地方（建议放进 M3 一起做）：</b></p>
+<table>
+<tr><th>改什么</th><th>解决什么</th></tr>
+<tr><td>先 claim 再加载（上面）</td><td>加载慢导致的误判</td></tr>
+<tr><td>规则 ③ 只在“读不到队列状态”时用</td><td>排队超过 30 分钟时的误补发和误判失败。读得到队列状态时，① ② 已经够用</td></tr>
+<tr><td>配额和积压上限：每个用户同时最多 N 道；总积压超过上限，提交时直接返回“繁忙，请稍后”</td><td>排队时间有上限，用户也不会干等</td></tr>
+<tr><td>按负载加 worker 容器</td><td>吞吐量</td></tr>
+</table>
+</div>
+
+<div class="card qa">
+<h3>Q25：经典队列上，确认期限不生效，那生效的是什么？对账补发后的 NOTIFY，为什么说可以给以后多个 dispatcher 用？</h3>
+<p><b>第一问见 Q19：</b>经典队列对未确认的消息没有任何时限。生效的是 Celery 的 25 分钟硬时限、AMQP 心跳（约 60 秒）和连接断开。经典队列上照常生效的其他规则：额度（预取 4）、持久化（消息写盘）、连接断开时放回。</p>
+<p><b>第二问：我上一轮的说法不准确，“给多个 dispatcher 用”的理由其实很弱。</b>假设开了两个 dispatcher，D1 和 D2，都在 LISTEN：</p>
+<table>
+<tr><th>时间</th><th>D1</th><th>D2</th></tr>
+<tr><td>10:02:00.000</td><td>巡检：attempt 20 改回 pending，提交，发出 NOTIFY</td><td>睡着</td></tr>
+<tr><td>10:02:00.001</td><td>接着往下走：seconds_until_due = 0，不睡，自己就去投递了</td><td>被 NOTIFY 叫醒，去扫 outbox。20 正在被 D1 发（行被锁住，SKIP LOCKED 跳过）或者已经发完，扫到 0 行</td></tr>
+</table>
+<p>可见就算有两个 dispatcher，补发的那条也是 D1 自己发。NOTIFY 唯一有用的情况是：<b>D1 刚提交完补发就崩溃了</b>，这时 D2 被叫醒，马上接手；不叫醒的话，D2 最多 10 秒后的兜底扫描也会发出去。也就是说，这个 NOTIFY 最多省 10 秒，而且只在“刚好崩溃”时省。</p>
+<p><b>修正建议：直接删掉</b>，不要留一个需要解释半天的注释。第七节已经改了。</p>
+</div>
+
+<!-- ============================================================ -->
+<h3 id="qa5">第五轮</h3>
+
+<div class="card qa">
+<h3>Q26：一个更简单的办法：巡检时发现 attempt 还是 pending、outbox 是 sent，超过“重发时间”就直接再发一份到 RabbitMQ（outbox 状态不动），带退避和重发上限。这样行不行？</h3>
+<p>先把方案写具体，后面按这组数推演：发出 2 分钟还没 claim 就重发；之后的间隔翻倍（4、8 分钟）；最多重发 3 次；第 3 次重发后再过 16 分钟还没 claim，判失败。也就是说，从第一次发出算起，<b>30 分钟</b>还没人领就判失败。</p>
+<div class="src">你的方案（巡检里，示意）</div>
+<pre><code>stuck = select(Outbox).join(Attempt, ...).where(
+    Outbox.status == "sent", Attempt.status == "pending",
+<span class="hl">    Outbox.resend_at &lt;= func.now())                     # 到了该重发的时间</span>
+for row in session.scalars(stuck):
+    if row.redeliveries &gt;= 3:
+<span class="hl">        判失败（delivery_lost）; continue                     # 上限</span>
+<span class="hl">    publish(row.attempt_id)                              # 直接再发一份，status 还是 sent</span>
+    row.redeliveries += 1
+<span class="hl">    row.resend_at = now() + 2 分钟 × 2 ** row.redeliveries  # 退避：再过 4、8、16 分钟</span></code></pre>
+<p>注意：退避和上限要记“重发了几次、下次什么时候重发”，所以 outbox 还是要写，只是 status 不改。现在的 <code>redeliveries</code> 就能用，再加一列下次重发时间（或者复用 <code>next_attempt_at</code>）。</p>
+
+<p><b>和现在的设计比，只差一件事：</b>现在判“丢了”要有证据（规则 ① 水位线、② 队列空），没证据时才用 30 分钟兜底；你的方案<b>只看时间</b>，用退避代替证据。逐个场景推演：</p>
+<div class="tablewrap">
+<table>
+<tr><th>场景</th><th>你的方案</th><th>现在的设计</th></tr>
+<tr><td>子进程 claim 前死了；队列被清空</td><td>2 分钟时重发，恢复 ✓</td><td>2 分钟时补发，恢复 ✓</td></tr>
+<tr><td>加载慢，超过 2 分钟才 claim</td><td>多一份副本，无害 ✓</td><td>可能多一份副本，无害 ✓</td></tr>
+<tr><td>RabbitMQ 正好连不上</td><td>publish 失败，下一次巡检再试 ✓</td><td>交给投递的退避 ✓</td></tr>
+<tr><td>dispatcher 发完副本还没记账就崩溃</td><td>重启后再发一份，多一条副本，无害 ✓</td><td>改回 pending 已提交，重启后照发 ✓</td></tr>
+<tr><td><b>正常排队不到 30 分钟</b>（20 道题，最后一道排 8 分钟）</td><td>排队超过 2 分钟的题各被重发 1～2 次，共约 16～20 条副本，无害 ✓</td><td>不重发 ✓</td></tr>
+<tr><td><b>正常排队超过 30 分钟</b>（100 道题，最后一道排约 50 分钟）</td><td><b>排得最靠后的约 40 道被误判失败</b>，其实它们只是在等 ✗</td><td>30 分钟时误补发，约 2 小时才误判失败（5.3 边界 1）</td></tr>
+<tr><td>某道题每次加载都把子进程撑爆</td><td>重发 3 次，30 分钟判失败 ✓（慢一些）</td><td>每次 ② 都很快成立，约 8 分钟判失败 ✓</td></tr>
+<tr><td>worker 不认识任务名（Q20）</td><td>30 分钟判失败 ✓（慢一些）</td><td>约 8 分钟判失败 ✓</td></tr>
+<tr><td><b>worker 全部下线 30 分钟</b>（例如在升级）</td><td>如果不查消费者数：这段时间提交的题<b>全部判失败</b> ✗；所以仍然要问 RabbitMQ“有没有消费者”</td><td>消费者为 0 时整个跳过 ✓</td></tr>
+</table>
+</div>
+<p><b>结论：带上退避和上限以后，你的方案能用，而且代码比现在简单</b>（不用水位线、不用规则 ②）。它多出的风险只有一个，也是整个方案的关键：<b>判失败的总时长（这里 30 分钟）必须比最长的正常排队时间还长</b>，否则排队的题会被误判失败。</p>
+<ul>
+  <li>把总时长拉长（例如退避到 1 小时、总共 2 小时）可以缓解，代价是撑爆子进程、不认识任务名这种“永远送不到”的题，要等 2 小时才判失败，用户一直看到“排队中”。现在的设计靠证据，约 8 分钟就能判。</li>
+  <li>所以“只看时间”本身没有错，错在 RabbitMQ 里可能有很长的正常排队。下面的办法把排队挪出 RabbitMQ。</li>
+</ul>
+
+<p><b>让“只看时间”真正可靠：有空位才发，让 RabbitMQ 里不积压。</b>dispatcher 只在 worker 有空位时发消息，积压留在 PG 的 outbox 里（pending），RabbitMQ 队列几乎总是空的。这时“发出 1 分钟还没 claim”只可能是丢了，总时长也可以很短：</p>
+<div class="cols2">
+<div>
+<h4>现在：消息发出去就排在 RabbitMQ 里</h4>
+<div class="chain">
+  <div class="step">20 道题全发给 RabbitMQ，16 道在 RabbitMQ 里排队</div>
+  <div class="step bad">“发出很久没人领”可能是排队，也可能是丢了</div>
+  <div class="step">要么找证据（现在），要么把总时长设得比排队还长（你的方案）</div>
+</div>
+</div>
+<div>
+<h4>改成：有空位才发</h4>
+<div class="chain">
+  <div class="step">空位 = 消费者数 × 4 − 已发出还没结束的执行数</div>
+  <div class="step">只发 4 道，另外 16 道留在 outbox（pending）</div>
+  <div class="step ok">发出去的马上就有子进程领。1 分钟还没 claim → 一定是丢了 → 按你的方案重发（退避、上限），几分钟内就能判失败</div>
+</div>
+</div>
+</div>
+<div class="src">设想（还没写，M3 再评估）</div>
+<pre><code><span class="c"># dispatch_once：只发得下这么多</span>
+in_flight = 已发出、attempt 还是 pending 或 running 的条数
+<span class="hl">free = queue.consumers * 4 - in_flight</span>
+rows = select(Outbox).where(Outbox.status == "pending", ...).limit(min(BATCH, free))
+<span class="c"># 巡检：只剩你的规则</span>
+<span class="hl">发出超过 1 分钟、attempt 还是 pending → 重发（退避，3 次后 delivery_lost）</span></code></pre>
+<p>好处：水位线、规则 ②、规则 ③ 和 5.3 的两个边界都不用了；排队留在 PG 里，M3 要做的“每个用户最多同时 N 道”“按用户轮流”只是改一条 SQL 的排序。代价：</p>
+<ul>
+  <li>子进程做完一道题时要通知 dispatcher “空出一个位子”（finish 里加一个 NOTIFY），不然最多要等 10 秒的兜底扫描才发下一道。</li>
+  <li>dispatcher 要知道每个 worker 有几个子进程。现在都是 4，写成配置即可；各个 worker 不一样时要另想办法。</li>
+  <li>最好配合 Q24 的“先 claim 再加载”，让“发出到 claim”只有几毫秒，1 分钟的重发时间才干净。</li>
+</ul>
+<p><b>建议：</b>M1.5 先不动（现在的设计在单用户下没有问题）。到 M3 做配额时，在两条路里选一条：① 你的方案 + 积压上限（保证排队不超过判失败的总时长）；② 你的方案 + 有空位才发。我倾向 ②，它把“排队”和“丢了”从根上分开了。</p>
+</div>
+
+<h2 id="table">四、全部机制一览表</h2>
+<div class="tablewrap">
+<table>
+<tr><th>#</th><th>机制</th><th>谁做</th><th>多久一次</th><th>发现什么</th><th>怎么处理</th><th>阶段</th></tr>
+<tr><td>1</td><td>Outbox（同事务写）</td><td><span class="tag t-api">API</span></td><td>每次提交</td><td>“写了库却没发消息”这种中间状态</td><td>不会出现：要么全写，要么全没写</td><td>M1</td></tr>
+<tr><td>2</td><td>投递 + 退避</td><td><span class="tag t-disp">dispatcher</span></td><td>收到通知；最多隔 10 秒</td><td>publish 抛异常（连不上、拒收、不确认）</td><td>outbox 保持 pending，next_attempt_at 往后写</td><td>M1，M1.5 加发送确认</td></tr>
+<tr><td>3</td><td>LISTEN / NOTIFY</td><td><span class="tag t-disp">dispatcher</span></td><td>有新任务就醒</td><td>（不是监督）新任务来了</td><td>立刻投递，8～43 毫秒</td><td><span class="tag t-new">M1.5</span></td></tr>
+<tr><td>4</td><td>持久队列 + 数据卷 + 固定主机名</td><td><span class="tag t-mq">RabbitMQ</span></td><td>—</td><td>RabbitMQ 重启</td><td>消息还在</td><td><span class="tag t-new">M1.5</span></td></tr>
+<tr><td>5</td><td>执行完才确认（acks_late）+ AMQP 心跳</td><td><span class="tag t-worker">主进程</span> + <span class="tag t-mq">RabbitMQ</span></td><td>连接断开时；心跳约 60 秒收不到也算断开</td><td><b>整个 worker</b> 死了、主进程卡死、网络断了</td><td>没确认的消息回到队列（只死子进程不算，见 1.4）</td><td>M1，M1.5 起不用等可见性超时</td></tr>
+<tr><td>6</td><td>claim</td><td><span class="tag t-worker">子进程</span></td><td>每次收到消息</td><td>重复消息、已结束的 attempt</td><td>跳过，消息确认掉</td><td>M1</td></tr>
+<tr><td>7</td><td>续租线程</td><td><span class="tag t-worker">子进程</span></td><td>15 秒</td><td>（证明自己还活着）</td><td>lease_until = 现在 + 90 秒</td><td>M1</td></tr>
+<tr><td>8</td><td>epoch 检查（_fence）</td><td><span class="tag t-worker">子进程</span></td><td>每次写库</td><td>执行权已经换代</td><td>抛 LeaseLost，事务回滚，停止执行</td><td>M1</td></tr>
+<tr><td>9</td><td>租约巡检 expire_leases</td><td><span class="tag t-disp">dispatcher</span></td><td>15 秒</td><td>running 且 90 秒没续租</td><td>判失败 lease_expired，epoch + 1</td><td>M1</td></tr>
+<tr><td>10</td><td>对账 requeue_lost</td><td><span class="tag t-disp">dispatcher</span></td><td>15 秒</td><td>pending + sent 超过 2 分钟，且满足任一条：<br>① 比我晚发的已有人领（水位线）<br>② 队列就绪 0<br>③ <b>发出超过 30 分钟</b>（兜底）<br>消费者 0 时整个跳过</td><td>outbox 改回 pending 补发；第 4 次判 delivery_lost</td><td><span class="tag t-new">M1.5</span></td></tr>
+<tr><td>11</td><td>硬时限</td><td><span class="tag t-worker">主进程</span></td><td>单个任务 25 分钟</td><td>子进程卡死</td><td>杀掉子进程并 ack → 不再续租 → 交给 #9</td><td>M1</td></tr>
+<tr><td>12</td><td>确认期限调大</td><td><span class="tag t-mq">RabbitMQ</span></td><td>—</td><td>（不是监督）</td><td>默认 30 分钟调到 1 小时，避免误伤正常任务。RabbitMQ 4.3 起经典队列不执行，实际不生效：未确认的消息没有时限，靠 #11 和 #5 收场（Q10、Q19）</td><td><span class="tag t-new">M1.5</span></td></tr>
+<tr><td>13</td><td>compose 自动重启</td><td>Docker</td><td>进程退出时</td><td>dispatcher 连不上 PG 后退出</td><td>重新拉起，重新 LISTEN</td><td>M1</td></tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="order">五、乱序和水位线</h2>
+
+<h3>5.1 “多消费者时顺序不一致”从哪来</h3>
+<p>RabbitMQ 从一个队列往外推，按先进先出。顺序乱，是推出去以后的事。一般有三个来源：</p>
+<table>
+<tr><th>来源</th><th>例子</th><th>我们的系统里有没有</th></tr>
+<tr><td>① 各子进程速度不同</td><td>主进程把 A 交给子进程 1，把 B 交给子进程 2；子进程 1 先要加载语料，B 先 claim</td><td><b>有</b>，差几秒；BM25 缓存丢失时约 100 秒</td></tr>
+<tr><td>② 预取：一个 worker 手里压着好几条</td><td>额度设成 10 时，子进程都忙，主进程手里还压着 A；另一个空闲的 worker 拿到 B 马上执行，A 要等前面的题做完</td><td><b>没有</b>，额度等于子进程数（1.3）</td></tr>
+<tr><td>③ 消息放回队列再推</td><td>A 推出去后整个 worker 死了，A 回到队列重推，这时 B、C 早就处理完了</td><td>有，只发生在 worker 死掉的时候</td></tr>
+</table>
+
+<p>来源 ① 的样子（BM25 缓存丢失，子进程 1 加载 100 秒）：</p>
+<svg class="fig" viewBox="0 0 760 250" role="img" aria-label="子进程加载语料导致 claim 顺序和发出顺序相反">
+  <line class="axis" x1="120" y1="200" x2="730" y2="200"/>
+  <g class="muted" font-size="12">
+    <text x="120" y="218" text-anchor="middle">0 秒</text><text x="320" y="218" text-anchor="middle">50</text>
+    <text x="520" y="218" text-anchor="middle">100</text><text x="600" y="218" text-anchor="middle">120</text>
+    <text x="720" y="218" text-anchor="middle">150</text>
+  </g>
+  <text x="10" y="64" font-size="13">子进程 1</text><text x="10" y="124" font-size="13">子进程 2</text>
+  <text x="10" y="180" font-size="13">巡检</text>
+  <rect class="bar-load" x="120" y="48" width="400" height="26" rx="4"/>
+  <text x="320" y="66" text-anchor="middle" font-size="12">收到 A，先加载语料（约 100 秒）</text>
+  <circle class="mark-ok" cx="520" cy="61" r="6"/>
+  <text x="530" y="45" font-size="12" class="t-ok">claim A（写下 started_at）</text>
+  <rect class="bar-run" x="526" y="48" width="194" height="26" rx="4"/>
+  <circle class="mark-ok" cx="124" cy="121" r="6"/>
+  <text x="134" y="106" font-size="12" class="t-ok">收到 B，立刻 claim</text>
+  <rect class="bar-run" x="130" y="108" width="590" height="26" rx="4"/>
+  <text x="420" y="126" text-anchor="middle" font-size="12">执行 B</text>
+  <line class="line-grace" x1="600" y1="30" x2="600" y2="200"/>
+  <text x="604" y="190" font-size="12" class="t-warn">A 发出满 2 分钟</text>
+  <text x="594" y="172" font-size="12" text-anchor="end">dispatcher 巡检这时看：A 已是 running → 不是候选 ✓</text>
+  <text x="120" y="242" font-size="12" class="muted">claim 的顺序是 B、A，和发出顺序 A、B 相反。A 在 2 分钟内 claim 了，水位线没机会判错。</text>
+</svg>
+
+<h3>5.2 水位线判错了会怎样</h3>
+<p>把加载拉长到 150 秒（比宽限期还久），看一次误判的全过程：</p>
+<svg class="fig" viewBox="0 0 760 290" role="img" aria-label="水位线误判一次后，重复消息由 claim 挡掉">
+  <line class="axis" x1="120" y1="240" x2="730" y2="240"/>
+  <g class="muted" font-size="12">
+    <text x="120" y="258" text-anchor="middle">0 秒</text><text x="320" y="258" text-anchor="middle">50</text>
+    <text x="520" y="258" text-anchor="middle">100</text><text x="600" y="258" text-anchor="middle">120</text>
+    <text x="720" y="258" text-anchor="middle">150</text>
+  </g>
+  <text x="10" y="64" font-size="13">子进程 1</text><text x="10" y="124" font-size="13">子进程 2</text>
+  <text x="10" y="184" font-size="13">子进程 3</text><text x="10" y="226" font-size="13">巡检</text>
+  <rect class="bar-load" x="120" y="48" width="600" height="26" rx="4"/>
+  <text x="380" y="66" text-anchor="middle" font-size="12">收到 A，加载语料（150 秒）</text>
+  <circle class="mark-bad" cx="720" cy="61" r="6"/>
+  <text x="716" y="43" font-size="12" text-anchor="end" class="t-warn">claim A → 0 行，跳过</text>
+  <circle class="mark-ok" cx="124" cy="121" r="6"/>
+  <rect class="bar-run" x="130" y="108" width="590" height="26" rx="4"/>
+  <text x="420" y="126" text-anchor="middle" font-size="12">执行 B（水位线 = B 的发出时间）</text>
+  <line class="line-grace" x1="600" y1="30" x2="600" y2="240"/>
+  <text x="596" y="226" font-size="12" text-anchor="end" class="t-warn">dispatcher：A 满 2 分钟、早于水位线 → 误判丢失，补发 A′</text>
+  <circle class="mark-ok" cx="606" cy="181" r="6"/>
+  <text x="602" y="166" font-size="12" text-anchor="end" class="t-ok">收到 A′，claim 成功</text>
+  <rect class="bar-run" x="612" y="168" width="108" height="26" rx="4"/>
+  <text x="666" y="186" text-anchor="middle" font-size="12">执行 A</text>
+  <text x="120" y="282" font-size="12" class="muted">结果：A 照样执行了一次，只是换了个子进程，还提前了 30 秒。代价是一条多余的消息、redeliveries 记了 1。</text>
+</svg>
+<p><b>误判一次，代价就是多一条重复消息。</b>原来那条和补发那条，谁先 claim 谁执行，另一条跳过。</p>
+<p><b>规则 ① 很难连续误判。</b>补发的 A′ 排在队尾，sent_at 是新的。要再判 A′ 丢失，必须有比 A′ 更晚发出的消息先 claim。先进先出的队列里，A′ 前面没有这样的消息，除非又碰上几秒的抖动。要连续误判 4 次、走到 delivery_lost，基本就是消息真的送不到。</p>
+
+<h3>5.3 需要你知道的两个边界</h3>
+<div class="note">
+<p><b>边界 1：排队超过 30 分钟，规则 ③ 会误补发；排队约 2 小时，会误判失败。</b></p>
+<p>规则 ③ 不看队列状态，只看“发出超过 30 分钟”。例子：一次提交 100 道题，4 个子进程，每题约 2 分钟，排完要 50 分钟。</p>
+<ul>
+  <li>第 30 分钟：还在排队的题全部补发一次（每题多一条消息、redeliveries = 1），sent_at 重新计时；</li>
+  <li>每过 30 分钟再补一次，第 4 次（约 2 小时）判 delivery_lost。</li>
+</ul>
+<p>原来那条消息还在队列里原来的位置，轮到它时照常执行，所以 2 小时内排到就没事。改进办法见 Q24。测试 <code>test_normal_backlog_is_not_requeued</code> 只覆盖了“排队 10 分钟不补发”。现在单用户用不到这么长的队列；M3 做配额和并发上限时要回来看：要么规则 ③ 只在“读不到队列状态”时才用，要么把 30 分钟调大。</p>
+</div>
+<div class="note">
+<p><b>边界 2：水位线的前提是“一个队列 + 先进先出 + 额度等于子进程数”。</b>下面任何一项改了，水位线和规则 ② 都要重新设计：</p>
+<ul>
+  <li>调大 <code>worker_prefetch_multiplier</code>（会出现 5.1 的来源 ②）；</li>
+  <li>加第二个队列，比如“快题队列”。这时“别的队列里后发的先 claim 了”不能说明我丢了，“这个队列空了”也不能说明别的队列的题丢了；</li>
+  <li>用优先级队列、延时任务。</li>
+</ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="time">六、时间参数为什么这样排</h2>
+<svg class="fig" viewBox="0 0 760 150" role="img" aria-label="时间参数数轴（对数刻度）">
+  <line class="axis" x1="60" y1="75" x2="720" y2="75"/>
+  <g font-size="12">
+    <circle cx="60" cy="75" r="4" class="mark-ok"/><text x="60" y="55" text-anchor="middle">10 秒</text><text x="60" y="40" text-anchor="middle" class="muted">投递兜底扫描</text>
+    <circle cx="105" cy="75" r="4" class="mark-ok"/><text x="105" y="100" text-anchor="middle">15 秒</text><text x="105" y="115" text-anchor="middle" class="muted">续租 / 巡检</text>
+    <circle cx="306" cy="75" r="4" class="mark-ok"/><text x="306" y="55" text-anchor="middle">90 秒</text><text x="306" y="40" text-anchor="middle" class="muted">租约</text>
+    <circle cx="339" cy="75" r="4" class="mark-bad"/><text x="350" y="100" text-anchor="middle">2 分钟</text><text x="350" y="115" text-anchor="middle" class="muted">对账宽限期</text>
+    <circle cx="622" cy="75" r="4" class="mark-ok"/><text x="600" y="55" text-anchor="middle">25 分钟</text><text x="600" y="40" text-anchor="middle" class="muted">硬时限</text>
+    <circle cx="642" cy="75" r="4" class="mark-bad"/><text x="655" y="100" text-anchor="middle">30 分钟</text><text x="655" y="115" text-anchor="middle" class="muted">规则 ③</text>
+    <circle cx="720" cy="75" r="4" class="muted"/><text x="720" y="55" text-anchor="middle">1 小时</text><text x="715" y="40" text-anchor="middle" class="muted">确认期限</text>
+  </g>
+  <text x="60" y="142" font-size="12" class="muted">对数刻度。绿点：执行中用的；红点：对账用的；灰点：RabbitMQ 自带规则，调大到碰不到。</text>
+</svg>
+<table>
+<tr><th>关系</th><th>为什么</th></tr>
+<tr><td>续租 15 秒 &lt; 租约 90 秒</td><td>90 秒内有 6 次续租机会，PG 偶尔一两次连不上不会丢租约</td></tr>
+<tr><td>巡检 15 秒</td><td>决定“过期后多久发现”：最多晚 15 秒</td></tr>
+<tr><td>宽限期 2 分钟 &gt; claim 抖动</td><td>吸收 5.1 的来源 ①：几秒的抖动，加上子进程第一次加载语料</td></tr>
+<tr><td>模型调用 180 秒 &lt; 硬时限 25 分钟 &lt; 确认期限 1 小时</td><td>前两个是我们的超时，里层先触发。确认期限按设计要比硬时限长，免得误伤正在执行的题；不过 RabbitMQ 4.3 起经典队列不执行它（Q10）</td></tr>
+<tr><td>投递兜底 10 秒</td><td>通知丢了（dispatcher 重启期间没人在听）也最多晚 10 秒发出。可以和巡检合成一个数（Q18）</td></tr>
+<tr><td>AMQP 心跳约 60 秒</td><td>主进程卡死或网络断了，约 60 秒后 RabbitMQ 关连接、放回消息（Q19）</td></tr>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="gaps">七、还管不到的地方、review 发现</h2>
+<table>
+<tr><th>情况</th><th>现在会怎样</th><th>计划</th></tr>
+<tr><td>执行中的 worker 死了</td><td>判 lease_expired，用户手动重新生成，从头跑</td><td>M4：别的 worker 接管，从断点继续</td></tr>
+<tr><td>主线程卡住，续租线程还活着</td><td>租约一直有效，只能等 25 分钟硬时限</td><td>M4：续租线程顺带检查主线程有没有进展</td></tr>
+<tr><td>worker 全部下线</td><td>对账不补发，题一直排队；没有告警</td><td>M6：监控告警</td></tr>
+<tr><td>dispatcher 自己挂了</td><td>不投递、不巡检，直到 compose 把它拉起</td><td>M6：监控告警</td></tr>
+<tr><td>排队超过 30 分钟</td><td>规则 ③ 误补发，约 2 小时误判失败（5.3 边界 1）</td><td>M3 做配额时一起定（Q24）</td></tr>
+<tr><td>执行中想停下重来</td><td>没有“停止生成”，点重新生成返回 409，只能等它结束（Q16）</td><td>还没排进计划</td></tr>
+</table>
+
+<div class="note">
+<p><b>这次梳理发现的代码注释问题（还没改，等你决定）</b></p>
+<p><code>src/margin/worker.py:45</code> 的注释写的是：“worker 的连接一断（进程被杀、容器重启），它没确认的消息立刻回到队列”。其中“进程被杀”只对<b>主进程</b>成立。子进程被杀时，主进程照样 ack，消息不回队列（1.4）。建议改成：</p>
+<pre><code><span class="c"># worker 主进程的连接一断（容器重启、主进程被杀），它没确认的消息立刻回到队列。
+# 只死一个子进程时连接还在，Celery 默认照样确认消息（task_reject_on_worker_lost 没开），
+# 那个 attempt 如果还没 claim，就留在 pending，由 dispatcher 的对账补发。</span></code></pre>
+<p>同一处的导读（M1.5 导读“数据流”最后一行）也写成了“worker 进程死掉”，要一起改。</p>
+</div>
+
+<div class="note">
+<p><b>确认期限的说法要改（查官方文档发现，Q10）</b></p>
+<p>RabbitMQ 4.3 起只有 quorum 队列执行确认期限，我们的 <code>celery</code> 是经典队列，<code>consumer_timeout = 3600000</code> 实际不生效。下面几处的“超时会关闭整个通道”要改成符合 4.3 的说法：</p>
+<ul>
+  <li><code>deploy/rabbitmq/margin.conf</code> 的注释；</li>
+  <li><code>src/margin/worker.py:46</code> 的注释；</li>
+  <li>PLAN §5.1（第 142 行）、§5.7 表格（第 200 行），DECISIONS D19 的“代价”；</li>
+  <li>M1.5 导读 M1.5-2 一节。</li>
+</ul>
+<p>配置本身可以留着（以后换成 quorum 队列时会生效），也可以删掉。要不要换 quorum 队列是另一个问题：它的复制、持久化方式和经典队列不同，现在单节点用不到。</p>
+</div>
+
+<div class="note">
+<p><b>对账补发后的 NOTIFY 多余（Q15、Q25）</b></p>
+<p><code>src/margin/dispatcher.py:220-221</code>：补发完以后 <code>notify_outbox</code>。补发和投递在同一个 dispatcher 循环里，补发的行 <code>next_attempt_at = now()</code>，<code>seconds_until_due</code> 返回 0，循环不睡就直接去投递，用不上这个通知；它只会让循环多空转一圈。开多个 dispatcher 时也一样是自己发，通知最多在“刚好崩溃”时省 10 秒。<b>建议删掉</b>（上一版写的“或加注释”撤回）。</p>
+</div>
+
+<div class="note">
+<p><b>第四轮新增的建议（都还没改，等你决定）</b></p>
+<ul>
+  <li><b>先 claim 再加载语料</b>（Q24）：<code>worker.py</code> 里把 <code>_components()</code> 挪到 claim 和续租线程之后。加载慢不再导致对账误判；代价是加载中死了要等租约过期、用户重新生成，不再自动补发。</li>
+  <li><b>规则 ③ 只在读不到队列状态时用</b>（Q24、5.3）：排队超过 30 分钟不再误补发、2 小时不再误判失败。和 M3 的配额、积压上限一起做。</li>
+  <li><b>兜底扫描和巡检合成一个 10 秒</b>（Q18）：可改可不改，不影响正确性。</li>
+  <li><b>M3 候选：只看时间的重发 + 有空位才发</b>（Q26）：积压留在 PG，RabbitMQ 里不排队，对账只剩“发出 1 分钟还没 claim 就重发（退避、上限）”一条规则。</li>
+</ul>
+</div>
+
+<p style="font-size:13px;color:var(--muted)">查证来源：
+<a href="https://www.rabbitmq.com/docs/consumers">RabbitMQ 文档 · Consumers</a>（推送方式、确认期限、4.3 起只对 quorum 队列生效）；
+<a href="https://www.rabbitmq.com/blog/2026/04/23/rabbitmq-4.3-release">RabbitMQ 4.3 发布说明</a>；
+<a href="https://aws.amazon.com/about-aws/whats-new/2026/09/amazon-mq-rabbitmq-43/">Amazon MQ 支持 RabbitMQ 4.3 的公告</a>（经典队列不适用确认期限）；
+<a href="https://docs.celeryq.dev/en/stable/userguide/configuration.html">Celery 配置文档</a>（task_reject_on_worker_lost 默认关、task_acks_on_failure_or_timeout 默认开、broker_heartbeat 默认 120 秒、预取数 = 倍数 × 子进程数）；
+<a href="https://www.rabbitmq.com/docs/heartbeats">RabbitMQ 文档 · Heartbeats</a>（服务器默认 60 秒、两次收不到算断开）；本机 py-amqp 源码 <code>amqp/connection.py</code>（心跳取两边较小值）；本机 Celery 源码 <code>celery/worker/consumer/consumer.py</code>（不认识的任务 reject）；
+本机 Celery 5.6.3 源码 <code>celery/worker/request.py</code>。</p>
+
+<div class="card good">
+<p><b>一句话总结：</b>RabbitMQ 主动把消息推给 worker 主进程，主进程分给子进程，做完后由主进程确认。M1.5 只加了一项监督，就是 dispatcher 巡检里的对账，专门管“outbox 是 sent、attempt 是 pending、消息却没了”这一格。最常见的来路是子进程在 claim 前死掉。执行中出事仍然是 M1 的租约那一套：判失败，用户重新生成。</p>
+</div>
+
+</main>
+
+<script>
+(function () {
+  // ---------- 位置（SVG 坐标） ----------
+  const POS = {
+    api: [195, 55], pg: [95, 262], disp: [300, 248],
+    q0: [482, 222], q1: [548, 222], main: [792, 102],
+    c1: [720, 212], c2: [865, 212], c3: [720, 330], c4: [865, 330]
+  };
+  // ---------- 每一步对应的代码 ----------
+  const CODE = {
+    enqueue: ['src/margin/runs.py:72-76　_enqueue_attempt（API 进程里执行）',
+`session.add(attempt)
+session.flush()            # 先拿到 attempt.id（事务还没提交）
+>>session.add(Outbox(attempt_id=attempt.id))
+>>notify_outbox(session)     # NOTIFY outbox：事务提交时才真正发出`],
+    wait: ['src/margin/dispatcher.py:264-266　wait_for_notify',
+`>>for _ in listener.notifies(timeout=timeout, stop_after=1):
+    return True     # 收到通知：立刻返回，去扫 outbox
+return False        # 等到超时也没通知：照样扫一次（兜底）`],
+    dispatch: ['src/margin/dispatcher.py:66-75　dispatch_once',
+`rows = session.execute(
+    select(Outbox)
+>>    .where(Outbox.status == "pending", Outbox.next_attempt_at <= func.now())
+    .order_by(Outbox.id).limit(BATCH)
+    .with_for_update(skip_locked=True)
+).scalars().all()
+for row in rows:
+    try:
+>>        publish(row.attempt_id)   # 发出去，等 RabbitMQ 回“存好了”`],
+    confirm: ['src/margin/dispatcher.py:111-123, 84-85',
+`app = Celery("margin", broker=broker_url)   # dispatcher 只用 Celery 发消息
+app.conf.update(broker_transport_options={
+>>    "confirm_publish": True,       # 等 RabbitMQ 回“存好了”
+    "read_timeout": 10, "write_timeout": 10}, task_publish_retry=False)
+...
+>>row.status = "sent"                 # publish 正常返回 = 收到了确认
+row.sent_at = func.clock_timestamp()`],
+    prefetch: ['src/margin/worker.py:47-50　主进程向 RabbitMQ 要的额度',
+`>>task_acks_late=True,            # 执行完才确认：正在执行的那条也占额度
+>>worker_prefetch_multiplier=1,   # 每个子进程 1 条 × 4 个子进程 = 额度 4`],
+    components: ['src/margin/worker.py:213-217　任务入口（在子进程里跑）',
+`def execute_attempt(attempt_id: int) -> None:
+>>    corpus, retriever = _components()     # 第一次执行先加载语料，这时还没 claim
+    execute(get_engine(), corpus, retriever, ...)   # execute 的第一行才是 claim`],
+    claim: ['src/margin/lease.py:67-74　claim（子进程里执行）',
+`row = session.execute(
+>>    update(Attempt).where(Attempt.id == attempt_id, Attempt.status == "pending")
+    .values(status="running", lease_epoch=Attempt.lease_epoch + 1,
+            lease_until=func.now() + LEASE, started_at=func.now())
+    .returning(Attempt.run_id, Attempt.lease_epoch, Attempt.model)
+).one_or_none()
+if row is None:
+    return None        # 不是 pending：不归我`],
+    renew: ['src/margin/lease.py:218-220, 172-178　续租线程',
+`while not self._stop.wait(RENEW_EVERY_SECONDS):     # 每 15 秒
+    if not renew(self.engine, self.lease): return
+# renew 里：
+>>update(Attempt).where(Attempt.id == lease.attempt_id, Attempt.lease_epoch == lease.epoch,
+>>                      Attempt.status == "running")
+.values(lease_until=func.now() + LEASE)            # 现在 + 90 秒`],
+    ack: ['src/margin/worker.py:43-47',
+`# 任务执行完才确认（ack）消息
+>>task_acks_late=True,
+# 子进程的任务函数返回后，由主进程向 RabbitMQ 发 ack（子进程不连 RabbitMQ）`],
+    skip: ['src/margin/worker.py:161-164',
+`held = lease.claim(engine, attempt_id, worker)
+>>if held is None:
+    log.info("attempt %s 已被领取或已结束，跳过（重复投递）", attempt_id)
+>>    return      # 正常返回 → 主进程照常 ack，这条消息就没了`],
+    expire: ['src/margin/lease.py:188-193　expire_leases（dispatcher 巡检调用）',
+`update(Attempt).where(Attempt.status == "running",
+>>                      Attempt.lease_until < func.now())
+.values(status="failed", error="lease_expired",
+        lease_epoch=Attempt.lease_epoch + 1, finished_at=func.now())`],
+    lost: ['celery/worker/request.py:612-624（Celery 库代码，主进程里执行）',
+`is_worker_lost = isinstance(exc, WorkerLostError)   # 子进程死了
+if self.task.acks_late:
+    reject = (
+>>        (self.task.reject_on_worker_lost and is_worker_lost)   # 默认没开
+        or ...)
+    ack = self.task.acks_on_failure_or_timeout           # 默认 True
+    if reject:
+        self.reject(requeue=True)       # 放回队列
+>>    elif ack:
+>>        self.acknowledge()              # 默认走这里：照样确认，消息删掉`],
+    requeue: ['src/margin/dispatcher.py:182-219　requeue_lost（dispatcher 巡检调用）',
+`candidates = ...  # outbox sent + attempt pending + 发出超过 2 分钟
+watermark = ...   # 已有人领（started_at 有值）的消息里，最晚的 sent_at
+for outbox_id, attempt_id, sent_at, redeliveries in candidates:
+>>    lost = ((watermark is not None and sent_at < watermark)   # ①
+>>            or (queue is not None and queue.ready == 0)       # ②
+>>            or sent_at < now - FALLBACK)                      # ③
+    if not lost: continue
+    if redeliveries >= MAX_REDELIVERIES: _fail_undelivered(...); continue
+    update(Outbox).where(Outbox.id == outbox_id, Outbox.status == "sent")
+        .values(status="pending", next_attempt_at=func.now(),
+                redeliveries=Outbox.redeliveries + 1)`],
+    backoff: ['src/margin/dispatcher.py:76-83　dispatch_once 的失败分支',
+`>>except OperationalError:          # publish 抛异常 = 发送失败
+    row.tries += 1
+    delay = timedelta(seconds=min(2 ** row.tries, MAX_BACKOFF_SECONDS))
+>>    row.next_attempt_at = func.clock_timestamp() + delay   # 写进 outbox
+    break`],
+    due: ['src/margin/dispatcher.py:276-282, 310-311',
+`# seconds_until_due：最早一条 pending 还有几秒到期（最多 10 秒）
+>>select(func.min(Outbox.next_attempt_at) - func.now()).where(Outbox.status == "pending")
+...
+# 循环末尾：睡到“有通知 / 最早到期 / 该巡检”三者中最早的那个
+wait_for_notify(listener, max(0.0, min(seconds_until_due(engine), until_inspect)))`],
+    timelimit: ['src/margin/worker.py:53',
+`>>task_time_limit=25 * 60,   # 主进程计时：超过 25 分钟杀掉子进程（随后照样 ack）`],
+    regenBusy: ['src/margin/runs.py:116-129　regenerate（API 进程里执行）',
+`run = session.execute(select(Run).where(Run.id == run_id, ...)
+>>                      .with_for_update()).scalar_one_or_none()   # 锁住这道题
+active = session.scalar(select(func.count()).select_from(Attempt)
+    .where(Attempt.run_id == run_id,
+>>         Attempt.status.in_(["pending", "running"])))      # 还没结束的执行有几个
+if active:
+>>    raise RunBusy        # api.py:156-158 → HTTP 409“这道题还在执行中”，事务回滚`],
+    regenOk: ['src/margin/runs.py:128-133　regenerate（API 进程里执行）',
+`if active:
+    raise RunBusy
+attempt_no = session.scalar(select(func.max(Attempt.attempt_no))
+                            .where(Attempt.run_id == run_id)) + 1          # 第 2 次执行
+>>_enqueue_attempt(session, run_id, attempt_no, trigger="regenerate", model=run.model)
+# _enqueue_attempt：新 attempt + 新 outbox + NOTIFY + run 改 queued + 事件 attempt_queued
+# 旧 attempt 和它的步骤一行都不动`],
+    reopen: ['web/app/src/pages/RunPage.tsx:99-110　前端点“重新生成”',
+`async function onRegenerate() {
+  try {
+>>    await regenerate(run.id)        // POST /runs/{id}/regenerate
+  } catch (e) {
+    setActionError(e.message)       // 409：标题栏显示“这道题还在执行中”
+    return
+  }
+>>  reopen()   // 上一次执行结束时事件流已经关了：新开一个，从收到的最后一个 seq 之后接着收
+}`],
+    renewfail: ['src/margin/lease.py:218-226　续租线程',
+`while not self._stop.wait(RENEW_EVERY_SECONDS):     # 每 15 秒
+    try:
+        if not renew(self.engine, self.lease):
+            return                                   # 执行权已被取代：停止续租
+>>    except OperationalError:
+>>        log.exception("续租失败，稍后重试")        # PG 连不上：下一轮再试`],
+    fence: ['src/margin/lease.py:87-99　_fence（每次写库先做这一步）',
+`result = session.execute(
+    update(Attempt)
+>>    .where(Attempt.id == lease.attempt_id, Attempt.lease_epoch == lease.epoch,
+>>           Attempt.status == "running")
+    .values(**values))
+if result.rowcount == 0:
+>>    raise LeaseLost     # 整个事务回滚：这一步的步骤、事件都不会写进库`],
+    leaselost: ['src/margin/worker.py:199-202',
+`>>except lease.LeaseLost:
+    # 执行权已被取代：什么都不再写，直接退出
+    log.warning("attempt %s 执行权已被取代，停止执行", attempt_id)
+>>    return     # 正常返回 → 主进程照常 ack 消息 12`],
+    dropdelta: ['web/app/src/timeline.ts:102-103　前端收到实时片段时',
+`// current = 最近一次 attempt_started 事件里的 (attempt_id, epoch)，现在是 (13, 1)
+>>if (current?.attemptId !== delta.attempt_id || current.epoch !== delta.epoch) {
+>>  return timeline     // 旧执行 (12, 1) 的片段：丢掉，不显示
+}`]
+  };
+
+  // ---------- 场景 ----------
+  // 每一步：t 时间、who 主语、cls 主语颜色、cap 说明、tok 这一步显示的小标签、
+  // db / child / mq / dead 是相对上一步的变化（dead 写了就整体替换）
+  const A = (o) => Object.assign({ status: 'pending', started_at: '—', lease_until: '—', epoch: 0, error: '—' }, o);
+  const O = (o) => Object.assign({ status: 'pending', sent_at: '—', tries: 0, next_attempt_at: '—', redeliveries: 0 }, o);
+  const IDLE = { 1: '空闲', 2: '空闲', 3: '空闲', 4: '空闲' };
+
+  const SCENES = [
+    { name: '正常流程', init: {},
+      steps: [
+        { t: '10:00:00.000', who: 'API', cls: 't-api', hl: ['api', 'pg'],
+          cap: '用户提交题目。API 在<b>同一个事务</b>里写 run、attempt 12、outbox 12，并执行 NOTIFY。事务提交时，PG 才真正发出通知。',
+          db: { a12: A({}), o12: O({ next_attempt_at: '10:00:00' }) },
+          tok: { n: { at: 'pg', from: 'api', label: 'NOTIFY', k: 'notify' } }, code: 'enqueue' },
+        { t: '10:00:00.005', who: 'PG → dispatcher', cls: 't-pg', hl: ['pg', 'disp'],
+          cap: 'PG 把通知送到 dispatcher 专门 LISTEN 的那条连接上。dispatcher 原本停在 wait_for_notify 里睡着，立刻醒来。',
+          tok: { n: { at: 'disp', label: 'NOTIFY', k: 'notify' } }, code: 'wait' },
+        { t: '10:00:00.010', who: 'dispatcher · 投递', cls: 't-disp', hl: ['disp', 'mq'],
+          cap: 'dispatcher 执行 dispatch_once：取出到期的 pending 行，调用 publish 把“执行 attempt 12”发给 RabbitMQ。',
+          mq: { ready: 1 }, tok: { m: { at: 'q0', from: 'disp', label: '消息12', k: 'msg' } }, code: 'dispatch' },
+        { t: '10:00:00.040', who: 'RabbitMQ → dispatcher', cls: 't-mq', hl: ['mq', 'disp'],
+          cap: 'RabbitMQ 把消息写进磁盘，回一句“存好了”（发送确认）。publish 这才返回，dispatcher 把 outbox 标成 sent，记下 sent_at。',
+          db: { o12: { status: 'sent', sent_at: '10:00:00' } },
+          tok: { m: { at: 'q0', label: '消息12', k: 'msg' }, c: { at: 'disp', from: 'q0', label: '存好了', k: 'ack' } }, code: 'confirm' },
+        { t: '10:00:00.050', who: 'RabbitMQ', cls: 't-mq', hl: ['mq', 'main'],
+          cap: 'RabbitMQ <b>主动</b>把消息推给 worker 主进程（主进程开工时登记过：最多同时给我 4 条）。这条消息从“就绪”变成“已推送、未确认”。',
+          mq: { ready: 0, unacked: 1 }, tok: { m: { at: 'main', label: '消息12', k: 'msg' } }, code: 'prefetch' },
+        { t: '10:00:00.060', who: 'worker 主进程', cls: 't-worker', hl: ['main', 'c1'],
+          cap: '主进程通过管道把任务交给空闲的子进程 1。子进程 1 第一次执行，先加载语料（约 2 秒）。这时 attempt 12 还是 pending。',
+          child: { 1: '加载语料…' }, tok: { m: { at: 'c1', label: '消息12', k: 'msg' } }, code: 'components' },
+        { t: '10:00:02', who: '子进程 1', cls: 't-worker', hl: ['c1', 'pg'],
+          cap: '子进程 1 执行 claim：一条 UPDATE … WHERE status = \'pending\'。改成功了，attempt 12 归它，epoch 变成 1，租约到 10:01:32。',
+          child: { 1: '执行中' }, db: { a12: { status: 'running', started_at: '10:00:02', lease_until: '10:01:32', epoch: 1 } },
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, k: { at: 'pg', from: 'c1', label: 'claim', k: 'claim' } }, code: 'claim' },
+        { t: '10:00:17', who: '子进程 1 · 续租线程', cls: 't-worker', hl: ['c1', 'pg'],
+          cap: '执行期间：主线程跑 Harness，每完成一步写库（带 epoch 检查）；续租线程每 15 秒把租约推到“现在 + 90 秒”。',
+          db: { a12: { lease_until: '10:01:47' } },
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, r: { at: 'pg', from: 'c1', label: '续租', k: 'claim' } }, code: 'renew' },
+        { t: '10:01:40', who: '子进程 1 → 主进程 → RabbitMQ', cls: 't-worker', hl: ['c1', 'main', 'mq'],
+          cap: '做完了：finish 把 attempt 改成 completed。子进程告诉主进程“做完了”，主进程<b>替它</b>向 RabbitMQ 发 ack，RabbitMQ 删掉这条消息。outbox 一直停在 sent。',
+          child: { 1: '空闲' }, mq: { unacked: 0 }, db: { a12: { status: 'completed', lease_until: '—' } },
+          tok: { a: { at: 'q0', from: 'main', label: 'ack', k: 'ack' } }, code: 'ack' }
+      ] },
+
+    { name: 'worker 容器被 kill（执行中）',
+      init: { db: { a12: A({ status: 'running', started_at: '10:00:02', lease_until: '10:02:00', epoch: 1 }), o12: O({ status: 'sent', sent_at: '10:00:00', next_attempt_at: '10:00:00' }) },
+              child: { 1: '执行中 · 第 3 步' }, mq: { unacked: 1 } },
+      steps: [
+        { t: '10:00:30', who: '子进程 1', cls: 't-worker', hl: ['c1'],
+          cap: '子进程 1 正在执行 attempt 12 的第 3 步。最后一次续租在 10:00:30，租约到 10:02:00。',
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' } }, code: 'renew' },
+        { t: '10:00:40', who: '你：docker compose kill worker', cls: 't-user', hl: [],
+          cap: '整个 worker 容器没了：主进程和 4 个子进程一起死掉，主进程和 RabbitMQ 之间的 TCP 连接断开。',
+          dead: ['main', 'c1', 'c2', 'c3', 'c4'], child: { 1: '已死', 2: '已死', 3: '已死', 4: '已死' },
+          tok: { m: { at: 'c1', label: '消息12', k: 'err' } } },
+        { t: '10:00:40', who: 'RabbitMQ', cls: 't-mq', hl: ['mq'],
+          cap: 'RabbitMQ 发现连接断了，把这条连接上没确认的消息<b>放回队列</b>。PG 里 attempt 12 还是 running，没人能改它了。',
+          mq: { ready: 1, unacked: 0, consumers: 0 }, tok: { m: { at: 'q0', label: '消息12', k: 'msg' } } },
+        { t: '10:00:50', who: '新的 worker（重启后）', cls: 't-worker', hl: ['main', 'c1', 'pg'],
+          cap: 'worker 重启，主进程重新登记；RabbitMQ 把消息推过来，交给子进程 1。子进程 claim：WHERE status = \'pending\' 不成立，更新 0 行，返回 None，打一行“跳过”。',
+          dead: [], child: { 1: '跳过', 2: '空闲', 3: '空闲', 4: '空闲' }, mq: { ready: 0, unacked: 1, consumers: 1 },
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, k: { at: 'pg', from: 'c1', label: 'claim → 0 行', k: 'err' } }, code: 'skip' },
+        { t: '10:00:50', who: 'worker 主进程', cls: 't-worker', hl: ['main', 'mq'],
+          cap: '任务函数正常返回，主进程照常 ack，消息删掉。现在：队列里没有它，attempt 12 还是 running，也没人续租。',
+          child: { 1: '空闲' }, mq: { unacked: 0 }, tok: { a: { at: 'q0', from: 'main', label: 'ack', k: 'ack' } }, code: 'ack' },
+        { t: '10:02:05', who: 'dispatcher · 巡检', cls: 't-disp', hl: ['disp', 'pg'],
+          cap: 'dispatcher 每 15 秒巡检一次。这次发现 lease_until 10:02:00 早于现在，判为失败 lease_expired，epoch 加 1。页面显示“执行中断”，已完成的 3 步保留。',
+          db: { a12: { status: 'failed', error: 'lease_expired', epoch: 2 } },
+          tok: { x: { at: 'pg', from: 'disp', label: 'expire_leases', k: 'claim' } }, code: 'expire' },
+        { t: '10:03:00', who: '用户 → API', cls: 't-api', hl: ['api', 'pg'],
+          cap: '用户点“重新生成”：新建 attempt 13 和它的 outbox（pending），回到正常流程。M4 之前不会自动接着跑。',
+          db: { a13: A({}), o13: O({ next_attempt_at: '10:03:00' }) },
+          tok: { n: { at: 'pg', from: 'api', label: 'NOTIFY', k: 'notify' } }, code: 'enqueue' }
+      ] },
+
+    { name: '子进程 claim 前死了（对账）',
+      init: { db: { a20: A({}), o20: O({ status: 'sent', sent_at: '10:00:00', next_attempt_at: '10:00:00' }) }, mq: { unacked: 1 } },
+      steps: [
+        { t: '10:00:00', who: 'worker 主进程', cls: 't-worker', hl: ['main', 'c1'],
+          cap: '主进程把消息 20 交给子进程 1。子进程 1 先加载语料，还没 claim，attempt 20 还是 pending。',
+          child: { 1: '加载语料…' }, tok: { m: { at: 'c1', from: 'main', label: '消息20', k: 'msg' } }, code: 'components' },
+        { t: '10:00:03', who: '操作系统', cls: 't-user', hl: [],
+          cap: '加载时内存不够，系统杀掉了子进程 1。注意：只死了这一个子进程，<b>主进程还活着，和 RabbitMQ 的连接也还在</b>。',
+          dead: ['c1'], child: { 1: '已死' }, tok: { m: { at: 'c1', label: '消息20', k: 'err' } } },
+        { t: '10:00:03', who: 'worker 主进程', cls: 't-worker', hl: ['main', 'mq'],
+          cap: '主进程发现子进程没了（WorkerLostError）。Celery 默认的做法是<b>照样 ack</b>，消息删掉，再补一个新子进程。结果：attempt 20 还是 pending，消息却没了。这就是 M1 的漏洞。',
+          dead: [], child: { 1: '新子进程 · 空闲' }, mq: { unacked: 0 },
+          tok: { a: { at: 'q0', from: 'main', label: 'ack', k: 'ack' } }, code: 'lost' },
+        { t: '10:00:15 … 10:01:45', who: 'dispatcher · 巡检', cls: 't-disp', hl: ['disp'],
+          cap: '这几次巡检，attempt 20 发出还不到 2 分钟，不是候选，什么都不做。',
+          tok: {} },
+        { t: '10:02:00', who: 'dispatcher · 巡检（对账）', cls: 't-disp', hl: ['disp', 'mq', 'pg'],
+          cap: '巡检：attempt 20 是 pending、outbox 是 sent、发出满 2 分钟 → 候选。问 RabbitMQ：就绪 0、消费者 1 → <b>规则 ② 成立</b>。把 outbox 改回 pending，redeliveries 加 1，发 NOTIFY。',
+          db: { o20: { status: 'pending', redeliveries: 1, next_attempt_at: '10:02:00' } },
+          tok: { q: { at: 'q0', from: 'disp', label: '查队列', k: 'claim' }, x: { at: 'pg', from: 'disp', label: '改回 pending', k: 'claim' } }, code: 'requeue' },
+        { t: '10:02:01', who: 'dispatcher → RabbitMQ → 子进程 2', cls: 't-disp', hl: ['disp', 'mq', 'main', 'c2'],
+          cap: 'dispatcher 收到通知，重新投递，outbox 又是 sent（sent_at 更新）。消息推给主进程，交给子进程 2，claim 成功，正常执行。',
+          db: { o20: { status: 'sent', sent_at: '10:02:01' }, a20: { status: 'running', started_at: '10:02:02', lease_until: '10:03:32', epoch: 1 } },
+          child: { 2: '执行中' }, mq: { unacked: 1 },
+          tok: { m: { at: 'c2', from: 'disp', label: '消息20', k: 'msg' } }, code: 'claim' }
+      ] },
+
+    { name: '队列里的消息没了（水位线）',
+      init: { db: { a1: A({}), o1: O({ status: 'sent', sent_at: '10:00:00', next_attempt_at: '10:00:00' }) },
+              child: { 1: '执行别的题', 2: '执行别的题', 3: '执行别的题', 4: '执行别的题' }, mq: { ready: 1, unacked: 4 } },
+      steps: [
+        { t: '10:00:00', who: 'RabbitMQ', cls: 't-mq', hl: ['mq'],
+          cap: '4 个子进程都在忙别的题，额度用完，attempt 1 的消息在队列里排队。',
+          tok: { m1: { at: 'q0', label: '消息1', k: 'msg' } } },
+        { t: '10:00:30', who: '有人：管理界面', cls: 't-user', hl: ['mq'],
+          cap: '有人在管理界面清空了队列，消息 1 没了。PG 不知道：attempt 1 还是 pending，outbox 还是 sent。',
+          mq: { ready: 0 }, tok: { m1: { at: 'q0', label: '清空', k: 'err' } } },
+        { t: '10:01:00', who: 'dispatcher · 投递', cls: 't-disp', hl: ['disp', 'mq'],
+          cap: 'attempt 2、3 先后提交，dispatcher 发出，两条消息进队列排队。',
+          db: { a2: A({}), o2: O({ status: 'sent', sent_at: '10:01:00', next_attempt_at: '10:01:00' }), a3: A({}), o3: O({ status: 'sent', sent_at: '10:01:05', next_attempt_at: '10:01:05' }) },
+          mq: { ready: 2 }, tok: { m2: { at: 'q0', from: 'disp', label: '消息2', k: 'msg' }, m3: { at: 'q1', from: 'disp', label: '消息3', k: 'msg' } }, code: 'dispatch' },
+        { t: '10:01:10', who: '子进程 3', cls: 't-worker', hl: ['main', 'c3', 'pg'],
+          cap: '子进程 3 做完手上的题，主进程 ack 那道题，额度空出一个；RabbitMQ 推来消息 2，交给子进程 3，claim 成功，attempt 2 有了 started_at。消息 3 往前挪。',
+          child: { 3: '执行 attempt 2' }, mq: { ready: 1 },
+          db: { a2: { status: 'running', started_at: '10:01:10', lease_until: '10:02:40', epoch: 1 } },
+          tok: { m2: { at: 'c3', label: '消息2', k: 'msg' }, m3: { at: 'q0', label: '消息3', k: 'msg' }, k: { at: 'pg', from: 'c3', label: 'claim', k: 'claim' } }, code: 'claim' },
+        { t: '10:01:45', who: 'dispatcher · 巡检', cls: 't-disp', hl: ['disp'],
+          cap: '巡检：attempt 1 发出才 1 分 45 秒，不到 2 分钟，不是候选。',
+          tok: { m2: { at: 'c3', label: '消息2', k: 'msg' }, m3: { at: 'q0', label: '消息3', k: 'msg' } } },
+        { t: '10:02:00', who: 'dispatcher · 巡检（对账）', cls: 't-disp', hl: ['disp', 'pg'],
+          cap: 'attempt 1 满 2 分钟，成为候选。<b>水位线</b> = 已经有人领的消息里最晚的 sent_at = attempt 2 的 10:01:00。attempt 1 发出于 10:00:00，早于水位线 → <b>规则 ① 成立</b>：比我晚发的都有人领了，我还没人领。（队列里还有消息 3，规则 ② 不成立。）补发。',
+          db: { o1: { status: 'pending', redeliveries: 1, next_attempt_at: '10:02:00' } },
+          tok: { m2: { at: 'c3', label: '消息2', k: 'msg' }, m3: { at: 'q0', label: '消息3', k: 'msg' }, x: { at: 'pg', from: 'disp', label: '改回 pending', k: 'claim' } }, code: 'requeue' },
+        { t: '10:02:01', who: 'dispatcher · 投递', cls: 't-disp', hl: ['disp', 'mq'],
+          cap: '重新投递，新的消息 1 排在消息 3 后面（sent_at 10:02:01）。轮到它时正常执行。',
+          db: { o1: { status: 'sent', sent_at: '10:02:01' } }, mq: { ready: 2 },
+          tok: { m2: { at: 'c3', label: '消息2', k: 'msg' }, m3: { at: 'q0', label: '消息3', k: 'msg' }, m1b: { at: 'q1', from: 'disp', label: '消息1', k: 'msg' } }, code: 'dispatch' }
+      ] },
+
+    { name: 'RabbitMQ 连不上（退避）',
+      init: { dead: ['mq'], mq: { consumers: 0 } },
+      steps: [
+        { t: '10:00:00', who: 'API → PG → dispatcher', cls: 't-api', hl: ['api', 'pg', 'disp'],
+          cap: '用户提交 attempt 30，API 写库并 NOTIFY，dispatcher 醒来。此时 RabbitMQ 停着。',
+          db: { a30: A({}), o30: O({ next_attempt_at: '10:00:00' }) },
+          tok: { n: { at: 'disp', from: 'pg', label: 'NOTIFY', k: 'notify' } }, code: 'wait' },
+        { t: '10:00:00', who: 'dispatcher · 投递', cls: 't-disp', hl: ['disp'],
+          cap: 'dispatcher 调 publish，连不上 RabbitMQ，抛出 OperationalError。<b>这个异常就是“发送失败”的标志。</b>dispatcher 把 tries 加 1，next_attempt_at 写成“现在 + 2 秒”。outbox 还是 pending。',
+          db: { o30: { tries: 1, next_attempt_at: '10:00:02' } },
+          tok: { e: { at: 'q0', from: 'disp', label: '连不上', k: 'err' } }, code: 'backoff' },
+        { t: '10:00:02', who: 'dispatcher · 投递', cls: 't-disp', hl: ['disp'],
+          cap: '没人会发通知。dispatcher 睡前用 seconds_until_due 算出“最早一条 2 秒后到期”，就只睡 2 秒。醒来再发，还是失败：tries 2，下次 10:00:06（4 秒后）。',
+          db: { o30: { tries: 2, next_attempt_at: '10:00:06' } },
+          tok: { e: { at: 'q0', from: 'disp', label: '连不上', k: 'err' } }, code: 'due' },
+        { t: '10:00:06', who: 'dispatcher · 投递', cls: 't-disp', hl: ['disp'],
+          cap: '第 3 次失败：tries 3，下次 10:00:14（8 秒后）。退避时间 2、4、8、16……最多 60 秒。',
+          db: { o30: { tries: 3, next_attempt_at: '10:00:14' } },
+          tok: { e: { at: 'q0', from: 'disp', label: '连不上', k: 'err' } }, code: 'backoff' },
+        { t: '10:00:14', who: 'dispatcher → RabbitMQ', cls: 't-disp', hl: ['disp', 'mq'],
+          cap: 'RabbitMQ 恢复了。这次 publish 收到“存好了”，outbox 标 sent，接下来和正常流程一样。',
+          dead: [], mq: { ready: 1, consumers: 1 }, db: { o30: { status: 'sent', sent_at: '10:00:14' } },
+          tok: { m: { at: 'q0', from: 'disp', label: '消息30', k: 'msg' }, c: { at: 'disp', from: 'q0', label: '存好了', k: 'ack' } }, code: 'confirm' }
+      ] },
+
+    { name: '执行超过 25 分钟（硬时限）',
+      init: { db: { a40: A({ status: 'running', started_at: '10:00:02', lease_until: '10:26:20', epoch: 1 }), o40: O({ status: 'sent', sent_at: '10:00:00', next_attempt_at: '10:00:00' }) },
+              child: { 1: '卡住了' }, mq: { unacked: 1 } },
+      steps: [
+        { t: '10:24:50', who: '子进程 1', cls: 't-worker', hl: ['c1'],
+          cap: '子进程 1 的主线程卡在某处（例如死锁），但续租线程还活着，租约一直续着。巡检看租约是有效的，发现不了。',
+          tok: { m: { at: 'c1', label: '消息40', k: 'msg' } }, code: 'renew' },
+        { t: '10:25:02', who: 'worker 主进程', cls: 't-worker', hl: ['main', 'c1'],
+          cap: '这个任务跑满 25 分钟，主进程的计时器到点，强制杀掉子进程 1。续租线程跟着子进程一起没了。',
+          dead: ['c1'], child: { 1: '已杀掉' }, tok: { m: { at: 'c1', label: '消息40', k: 'err' } }, code: 'timelimit' },
+        { t: '10:25:02', who: 'worker 主进程', cls: 't-worker', hl: ['main', 'mq'],
+          cap: '主进程照样 ack（Celery 默认：超时也确认），再补一个新子进程。RabbitMQ 的 1 小时确认期限没机会触发。attempt 40 还是 running。',
+          dead: [], child: { 1: '新子进程 · 空闲' }, mq: { unacked: 0 },
+          tok: { a: { at: 'q0', from: 'main', label: 'ack', k: 'ack' } }, code: 'ack' },
+        { t: '10:26:30', who: 'dispatcher · 巡检', cls: 't-disp', hl: ['disp', 'pg'],
+          cap: '最后一次续租的租约到 10:26:20，之后的第一次巡检判 lease_expired。',
+          db: { a40: { status: 'failed', error: 'lease_expired', epoch: 2 } },
+          tok: { x: { at: 'pg', from: 'disp', label: 'expire_leases', k: 'claim' } }, code: 'expire' }
+      ] },
+
+    { name: '重新生成：执行中点 / 结束后点',
+      init: { db: { r5: { status: 'running' }, a12: A({ status: 'running', started_at: '10:00:02', lease_until: '10:01:32', epoch: 1 }), o12: O({ status: 'sent', sent_at: '10:00:00', next_attempt_at: '10:00:00' }) },
+              child: { 1: '执行 attempt 12' }, mq: { unacked: 1 } },
+      steps: [
+        { t: '10:00:30', who: '用户 → API', cls: 't-api', hl: ['api', 'pg'],
+          cap: '第 5 道题（run 5）还在生成，用户点了“重新生成”。API 开一个事务：先锁住 run 5 这一行，再数这道题还没结束（pending / running）的执行，有 1 个（attempt 12）→ 返回 <b>409“这道题还在执行中”</b>。事务回滚，库里什么都没写。',
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, q: { at: 'pg', from: 'api', label: '数执行', k: 'claim' }, e: { at: 'api', from: 'pg', label: '409', k: 'err' } }, code: 'regenBusy' },
+        { t: '10:00:30', who: '浏览器（前端）', cls: 't-user', hl: ['api'],
+          cap: '前端在标题栏显示“这道题还在执行中”。attempt 12 不受影响，子进程 1 照常往下跑。<b>现在没有“停止生成”</b>：执行中想重来，只能等它结束。',
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' } }, code: 'reopen' },
+        { t: '10:01:40', who: '子进程 1 → 主进程 → RabbitMQ', cls: 't-worker', hl: ['c1', 'main', 'mq', 'pg'],
+          cap: 'attempt 12 做完：finish 写 completed，run 5 跟着改 completed，写事件 attempt_finished。主进程 ack，消息删掉。前端收到结束事件，清掉刚才的 409 提示，事件流关闭。',
+          child: { 1: '空闲' }, mq: { unacked: 0 }, db: { r5: { status: 'completed' }, a12: { status: 'completed', lease_until: '—' } },
+          tok: { a: { at: 'q0', from: 'main', label: 'ack', k: 'ack' } }, code: 'ack' },
+        { t: '10:02:00', who: '用户 → API', cls: 't-api', hl: ['api', 'pg'],
+          cap: '用户再点一次。这次没结束的执行是 0 个。同一个事务里：新建 <b>attempt 13</b>（第 2 次执行，trigger = regenerate）和 outbox 13，run 5 改回 queued，写事件 attempt_queued，NOTIFY。返回 202。<b>attempt 12 和它的步骤一行都不动。</b>',
+          db: { r5: { status: 'queued' }, a13: A({}), o13: O({ next_attempt_at: '10:02:00' }) },
+          tok: { n: { at: 'pg', from: 'api', label: 'NOTIFY', k: 'notify' } }, code: 'regenOk' },
+        { t: '10:02:00.010', who: '浏览器（前端）', cls: 't-user', hl: ['api'],
+          cap: '前端调用 reopen()，重新打开事件流，从已经收到的最后一个 seq 之后接着收，所以先收到 attempt_queued。页面上第 1 次执行的过程和结论都还在，下面多出一块“第 2 次执行（重新生成）”。',
+          tok: { n: { at: 'disp', from: 'pg', label: 'NOTIFY', k: 'notify' } }, code: 'reopen' },
+        { t: '10:02:00.050', who: 'dispatcher → RabbitMQ → 主进程', cls: 't-disp', hl: ['disp', 'mq', 'main', 'c2'],
+          cap: '后面和正常流程完全一样：dispatcher 投递、等“存好了”、标 sent；RabbitMQ 推给主进程，主进程交给空闲的子进程 2。',
+          db: { o13: { status: 'sent', sent_at: '10:02:00' } }, mq: { unacked: 1 },
+          tok: { m: { at: 'c2', from: 'disp', label: '消息13', k: 'msg' } }, code: 'dispatch' },
+        { t: '10:02:00.100', who: '子进程 2', cls: 't-worker', hl: ['c2', 'pg'],
+          cap: '子进程 2 claim attempt 13：epoch 变成 1（每个 attempt 的 epoch 各算各的），run 5 改 running，写事件 attempt_started(13, 1)。标题已经有了，这次不再理解题目。前端从此只显示 attempt 13 的实时片段。',
+          child: { 2: '执行 attempt 13' }, db: { r5: { status: 'running' }, a13: { status: 'running', started_at: '10:02:00', lease_until: '10:03:30', epoch: 1 } },
+          tok: { m: { at: 'c2', label: '消息13', k: 'msg' }, k: { at: 'pg', from: 'c2', label: 'claim', k: 'claim' } }, code: 'claim' }
+      ] },
+
+    { name: '重新生成：旧执行失联后又回来',
+      init: { db: { r5: { status: 'running' }, a12: A({ status: 'running', started_at: '10:00:00', lease_until: '10:01:45', epoch: 1 }), o12: O({ status: 'sent', sent_at: '10:00:00', next_attempt_at: '10:00:00' }) },
+              child: { 1: '执行 attempt 12' }, mq: { unacked: 1 } },
+      steps: [
+        { t: '10:00:20', who: '网络故障', cls: 't-user', hl: ['c1', 'pg'],
+          cap: 'worker 容器到 PG 的网络断了（到 RabbitMQ、Redis 的还通）。子进程 1 的主线程正在等模型回答，一次最长 180 秒。续租线程每 15 秒 UPDATE 一次，都连不上，只记日志，下一轮再试。lease_until 停在 10:01:45（10:00:15 那次续租写的）。',
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, r: { at: 'pg', from: 'c1', label: '续租失败', k: 'err' } }, code: 'renewfail' },
+        { t: '10:01:50', who: 'dispatcher · 巡检', cls: 't-disp', hl: ['disp', 'pg'],
+          cap: 'dispatcher 到 PG 是通的。巡检发现 lease_until 10:01:45 已过 → attempt 12 判 lease_expired，<b>epoch 1 → 2</b>，run 5 改 failed，写事件 attempt_failed。页面显示“执行中断”。子进程 1 不知道这件事，还在等模型。',
+          db: { r5: { status: 'failed' }, a12: { status: 'failed', error: 'lease_expired', epoch: 2 } },
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, x: { at: 'pg', from: 'disp', label: 'expire_leases', k: 'claim' } }, code: 'expire' },
+        { t: '10:02:00', who: '用户 → API', cls: 't-api', hl: ['api', 'pg'],
+          cap: '网络在 10:01:55 恢复了。用户点“重新生成”：attempt 12 已是 failed，没结束的执行是 0 个 → 新建 attempt 13 和 outbox 13，NOTIFY。',
+          db: { r5: { status: 'queued' }, a13: A({}), o13: O({ next_attempt_at: '10:02:00' }) },
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, n: { at: 'pg', from: 'api', label: 'NOTIFY', k: 'notify' } }, code: 'regenOk' },
+        { t: '10:02:00.100', who: 'dispatcher → RabbitMQ → 子进程 2', cls: 't-disp', hl: ['disp', 'mq', 'main', 'c2', 'pg'],
+          cap: '投递 attempt 13，子进程 2 claim 成功（epoch 1）。现在<b>两个子进程都在跑这道题</b>：子进程 1 跑旧的 12，子进程 2 跑新的 13。主进程手上 2 条未确认。',
+          child: { 2: '执行 attempt 13' }, mq: { unacked: 2 },
+          db: { r5: { status: 'running' }, o13: { status: 'sent', sent_at: '10:02:00' }, a13: { status: 'running', started_at: '10:02:00', lease_until: '10:03:30', epoch: 1 } },
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, m13: { at: 'c2', from: 'disp', label: '消息13', k: 'msg' } }, code: 'claim' },
+        { t: '10:02:05', who: '浏览器（前端）', cls: 't-user', hl: ['c1'],
+          cap: '子进程 1 的模型还在逐字输出，这些片段照样发到 Redis，带着 (attempt 12, epoch 1)。前端最近一次收到的 attempt_started 是 (13, 1)，对不上，<b>直接丢掉</b>，页面上不会混进旧执行的字。',
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, m13: { at: 'c2', label: '消息13', k: 'msg' }, d: { at: 'api', from: 'c1', label: '片段(12,1)', k: 'err' } }, code: 'dropdelta' },
+        { t: '10:02:10', who: '子进程 1（旧执行）', cls: 't-worker', hl: ['c1', 'pg'],
+          cap: '子进程 1 等的模型回答回来了，要写第 4 步。commit_step 先做 epoch 检查：WHERE id = 12 AND epoch = 1 AND status = \'running\'，库里是 epoch 2、failed → <b>更新 0 行 → LeaseLost</b>，整个事务回滚，第 4 步没写进库。',
+          tok: { m: { at: 'c1', label: '消息12', k: 'msg' }, m13: { at: 'c2', label: '消息13', k: 'msg' }, k: { at: 'pg', from: 'c1', label: 'epoch 1≠2', k: 'err' } }, code: 'fence' },
+        { t: '10:02:10', who: '子进程 1 → 主进程 → RabbitMQ', cls: 't-worker', hl: ['c1', 'main', 'mq'],
+          cap: '子进程 1 捕获 LeaseLost，打一行“执行权已被取代”，任务函数正常返回。主进程 ack 消息 12。旧执行彻底停下，库里只有 attempt 13 在跑。',
+          child: { 1: '空闲' }, mq: { unacked: 1 },
+          tok: { m13: { at: 'c2', label: '消息13', k: 'msg' }, a: { at: 'q0', from: 'main', label: 'ack', k: 'ack' } }, code: 'leaselost' }
+      ] }
+  ];
+
+  // ---------- 把“变化”累加成每一步的完整状态 ----------
+  function clone(x) { return JSON.parse(JSON.stringify(x)); }
+  function build(sc) {
+    let st = { db: {}, child: clone(IDLE), mq: { ready: 0, unacked: 0, consumers: 1 }, dead: [] };
+    const i = sc.init;
+    if (i.db) st.db = clone(i.db);
+    if (i.child) Object.assign(st.child, i.child);
+    if (i.mq) Object.assign(st.mq, i.mq);
+    if (i.dead) st.dead = i.dead.slice();
+    const first = clone(st);
+    const out = [];
+    for (const s of sc.steps) {
+      st = clone(st);
+      if (s.db) for (const k in s.db) st.db[k] = Object.assign(st.db[k] || {}, s.db[k]);
+      if (s.child) Object.assign(st.child, s.child);
+      if (s.mq) Object.assign(st.mq, s.mq);
+      if (s.dead) st.dead = s.dead.slice();
+      Object.assign(st, { t: s.t, who: s.who, cls: s.cls, cap: s.cap, tok: s.tok || {}, hl: s.hl || [], code: s.code });
+      out.push(st);
+    }
+    return { before: first, steps: out };
+  }
+
+  // ---------- 渲染 ----------
+  const NS = 'http://www.w3.org/2000/svg';
+  const layer = document.getElementById('tokens');
+  const toks = {};
+  function textWidth(s) { let w = 0; for (const ch of s) w += ch.charCodeAt(0) > 255 ? 12 : 7; return w + 18; }
+  function place(g, p) { g.style.transform = 'translate(' + POS[p][0] + 'px,' + POS[p][1] + 'px)'; }
+  function tokenEl(id) {
+    if (toks[id]) return toks[id];
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'tok');
+    g.style.opacity = 0;
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('height', 22); r.setAttribute('y', -11); r.setAttribute('rx', 11);
+    const t = document.createElementNS(NS, 'text');
+    t.setAttribute('text-anchor', 'middle'); t.setAttribute('y', 4);
+    g.append(r, t); layer.append(g);
+    return (toks[id] = g);
+  }
+  function drawTokens(cur, prev) {
+    for (const id in toks) if (!cur.tok[id]) toks[id].style.opacity = 0;
+    for (const id in cur.tok) {
+      const d = cur.tok[id], g = tokenEl(id);
+      const wasShown = prev && prev.tok && prev.tok[id];
+      g.setAttribute('class', 'tok k-' + d.k);
+      const w = textWidth(d.label);
+      g.querySelector('rect').setAttribute('width', w);
+      g.querySelector('rect').setAttribute('x', -w / 2);
+      g.querySelector('text').textContent = d.label;
+      if (!wasShown && d.from) {
+        g.style.transition = 'none'; place(g, d.from); g.style.opacity = 1;
+        g.getBoundingClientRect();
+        g.style.transition = '';
+      } else if (!wasShown) {
+        g.style.transition = 'none'; place(g, d.at); g.getBoundingClientRect(); g.style.transition = '';
+      }
+      requestAnimationFrame(() => { place(g, d.at); g.style.opacity = 1; });
+    }
+  }
+  function drawComps(cur) {
+    for (const c of ['api', 'pg', 'disp', 'mq', 'main', 'c1', 'c2', 'c3', 'c4']) {
+      const el = document.getElementById('comp-' + c);
+      el.classList.toggle('hl', cur.hl.includes(c));
+      el.classList.toggle('dead', cur.dead.includes(c));
+    }
+    for (let i = 1; i <= 4; i++) document.getElementById('cs' + i).textContent = cur.child[i];
+    const m = cur.mq;
+    document.getElementById('mq-stat').textContent = cur.dead.includes('mq') ? '停机中'
+      : '就绪 ' + m.ready + ' · 未确认 ' + m.unacked + ' · 消费者 ' + m.consumers;
+  }
+  const OCOLS = [['attempt', null], ['status', 'status'], ['sent_at', 'sent_at'], ['tries', 'tries'], ['next_attempt_at', 'next_attempt_at'], ['redeliveries', 'redeliveries']];
+  const ACOLS = [['id', null], ['status', 'status'], ['started_at', 'started_at'], ['lease_until', 'lease_until'], ['epoch', 'epoch'], ['error', 'error']];
+  function table(cur, prev, prefix, cols) {
+    const keys = Object.keys(cur.db).filter(k => k[0] === prefix).sort((a, b) => +a.slice(1) - +b.slice(1));
+    if (!keys.length) return '<div class="empty">（还没有行）</div>';
+    let h = '<table><tr>' + cols.map(c => '<th>' + c[0] + '</th>').join('') + '</tr>';
+    for (const k of keys) {
+      const row = cur.db[k], old = prev.db[k];
+      h += '<tr>' + cols.map(([, f]) => {
+        if (!f) return '<td>' + k.slice(1) + '</td>';
+        const chg = !old || old[f] !== row[f];
+        return '<td' + (chg ? ' class="chg"' : '') + '>' + row[f] + '</td>';
+      }).join('') + '</tr>';
+    }
+    return h + '</table>';
+  }
+  const RCOLS = [['run', null], ['status', 'status']];
+  function drawDb(cur, prev) {
+    // runs 表只在“重新生成”场景里有行，其他场景不显示
+    const runs = Object.keys(cur.db).some(k => k[0] === 'r') ? '<h5>PG · runs</h5>' + table(cur, prev, 'r', RCOLS) : '';
+    document.getElementById('db').innerHTML = runs +
+      '<h5>PG · outbox</h5>' + table(cur, prev, 'o', OCOLS) +
+      '<h5>PG · attempts</h5>' + table(cur, prev, 'a', ACOLS);
+  }
+  function drawCode(cur) {
+    const box = document.getElementById('code');
+    box.innerHTML = '';
+    if (!cur.code) { box.innerHTML = '<h5>对应代码</h5><div class="empty">（这一步不是我们的代码在做事）</div>'; return; }
+    const [file, src] = CODE[cur.code];
+    const h = document.createElement('h5'); h.textContent = '对应代码 · ' + file;
+    const pre = document.createElement('pre');
+    for (const line of src.split('\n')) {
+      const span = document.createElement('span');
+      if (line.startsWith('>>')) { span.className = 'hl'; span.textContent = line.slice(2); }
+      else span.textContent = line;
+      pre.append(span, '\n');
+    }
+    box.append(h, pre);
+  }
+
+  // ---------- 控制 ----------
+  let sceneIdx = 0, stepIdx = 0, built = build(SCENES[0]), timer = null;
+  const tabs = document.getElementById('tabs');
+  SCENES.forEach((s, i) => {
+    const b = document.createElement('button');
+    b.textContent = s.name;
+    b.onclick = () => { stop(); sceneIdx = i; built = build(s); stepIdx = 0; for (const id in toks) { toks[id].remove(); delete toks[id]; } render(); };
+    tabs.append(b);
+  });
+  function render() {
+    [...tabs.children].forEach((b, i) => b.classList.toggle('on', i === sceneIdx));
+    const cur = built.steps[stepIdx];
+    const prev = stepIdx ? built.steps[stepIdx - 1] : built.before;
+    drawComps(cur); drawTokens(cur, stepIdx ? prev : null); drawDb(cur, prev); drawCode(cur);
+    document.getElementById('cap').innerHTML =
+      '<span class="tag ' + cur.cls + '">' + cur.who + '</span><span class="time">' + cur.t + '</span>' + cur.cap;
+    document.getElementById('count').textContent = (stepIdx + 1) + ' / ' + built.steps.length;
+  }
+  function go(d) { const n = stepIdx + d; if (n < 0 || n >= built.steps.length) return false; stepIdx = n; render(); return true; }
+  function stop() { clearInterval(timer); timer = null; document.getElementById('play').textContent = '自动播放'; }
+  document.getElementById('prev').onclick = () => { stop(); go(-1); };
+  document.getElementById('next').onclick = () => { stop(); go(1); };
+  document.getElementById('play').onclick = () => {
+    if (timer) return stop();
+    if (stepIdx === built.steps.length - 1) { stepIdx = -1; }
+    document.getElementById('play').textContent = '暂停';
+    go(1);
+    timer = setInterval(() => { if (!go(1)) stop(); }, 3200);
+  };
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight') { stop(); go(1); }
+    if (e.key === 'ArrowLeft') { stop(); go(-1); }
+  });
+  render();
+})();
+</script>
+</body>
+</html>
