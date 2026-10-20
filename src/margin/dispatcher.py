@@ -45,11 +45,10 @@ BATCH = 50  # 一轮最多投递多少条
 MAX_BACKOFF_SECONDS = 60
 CONFIRM_TIMEOUT_SECONDS = 5  # 发出一条消息后最多等 RabbitMQ 的“收到了”（发送确认）多久
 SOCKET_TIMEOUT_SECONDS = 10  # 和 RabbitMQ 之间单次网络读 / 写最多等多久
-# ---- 对账（requeue_lost）----
-GRACE = timedelta(minutes=2)  # 投递后至少等这么久才可能判“丢了”
-WATERMARK_WINDOW = timedelta(hours=1)  # 水位线只看最近 1 小时投递的记录，不扫全表
-FALLBACK = timedelta(minutes=30)  # 前两条规则都判断不了时，投递超过 30 分钟就算丢了
-MAX_REDELIVERIES = 3  # 最多补发 3 次，之后把 attempt 判为失败
+# ---- 重发（resend_lost）----
+RESEND_AFTER = timedelta(minutes=1)  # 发出 1 分钟还没 claim 就重发；之后每次间隔翻倍
+MAX_REDELIVERIES = 3  # 最多重发 3 次，之后再等一个间隔还没 claim 就把 attempt 判为失败
+BACKLOG_WARN_SECONDS = 120  # RabbitMQ 里就绪数连续 2 分钟不为 0：记 warning（M6 接告警）
 TASK_QUEUE = "celery"  # Celery 默认的任务队列名；worker 和 dispatcher 都没改过它
 
 
@@ -82,8 +81,8 @@ def dispatch_once(engine: Engine, publish: Callable[[int], None], capacity: int)
 
     时间用 clock_timestamp() 而不是 now()：PG 的 now() 是“事务开始的时间”，整个事务里都不变。
     这一轮的事务从取记录开始，中间要等发送（失败时最多等 5 秒确认），用 now() 的话：
-    退避“2 秒后再试”写进去时已经过期，等于没退避；同一批发出的记录 sent_at 也都一样，
-    对账的水位线就分不出谁先谁后。clock_timestamp() 是语句真正执行时的时间。
+    退避“2 秒后再试”写进去时已经过期，等于没退避；sent_at 也会早于真正发出的时刻
+    （重发按它算“发出多久了”）。clock_timestamp() 是语句真正执行时的时间。
     """
     with Session(engine) as session, session.begin():
         free = free_slots(session, capacity)
@@ -171,81 +170,72 @@ def read_queue_state(broker_url: str) -> QueueState | None:
                         transport_options={"max_retries": 0}) as conn:
             _, ready, consumers = conn.default_channel.queue_declare(TASK_QUEUE, passive=True)
     except OperationalError:
-        log.warning("读不到 RabbitMQ 队列状态，本轮对账跳过“队列为空”规则")
+        log.warning("读不到 RabbitMQ 队列状态：这一轮不投递、不判重发")
         return None
     except NotFound:
         # 队列不存在：worker 启动时、dispatcher 发消息时都会建它，不存在只能是 RabbitMQ 的数据没了
-        # 而且 worker 也没在线。等同于“没有消费者”，本轮不补发
+        # 而且 worker 也没在线。等同于“没有消费者”：不投递、不重发
         return QueueState(ready=0, consumers=0)
     return QueueState(ready, consumers)
 
 
-def requeue_lost(engine: Engine, queue: QueueState | None) -> tuple[list[int], list[int]]:
-    """对账：找出“消息已投递、却一直没人领取”的 attempt，把它的 outbox 改回 pending 重新投递。
+def resend_lost(engine: Engine, queue: QueueState | None) -> tuple[list[int], list[int]]:
+    """重发：消息发出去 1 分钟还没被 claim，就当它丢了，把 outbox 改回 pending 重新投递。
 
-    queue 是 RabbitMQ 队列此刻的状态；读不到（RabbitMQ 连不上）时传 None，跳过“队列为空”这条规则。
-    返回 (补发了的 attempt id, 补发次数用完、判为失败的 attempt id)。
+    queue 是 RabbitMQ 队列此刻的状态，读不到（RabbitMQ 连不上）时是 None。
+    返回 (重发了的 attempt id, 重发次数用完、判为失败的 attempt id)。
 
     为什么需要：outbox 标成 sent 之后，消息还可能在 RabbitMQ 里丢掉（队列被清空、磁盘损坏），
     attempt 就会永远停在 pending——没有 worker 收到消息，重新生成也因为“还有执行没结束”被拒绝。
     PG 是唯一的裁判：判断错了的代价只是多一条消息，worker 领取时（lease.claim）会把重复的挡掉。
 
-    候选：attempt 是 pending、outbox 是 sent、投递已超过宽限期 2 分钟。宽限期吸收两件事：
-    几个 worker 子进程同时取消息时领取顺序的毫秒级抖动；子进程第一次执行任务前要加载语料（约 2 秒，
-    缓存丢失时更久）。候选满足下面任一条就判定丢了：
-        ① 水位线：有比我晚投递的消息已经被领取了。队列先进先出，后面的都被取走了我还在，说明我丢了；
-        ② 队列为空：RabbitMQ 里没有就绪消息，我却还没被领取（正在执行的消息是“已推送未确认”，
-           不算就绪；它们对应的 attempt 已经是 running，不会是候选）；
-        ③ 兜底：投递超过 30 分钟（前两条都判断不了时，例如读不到队列状态、又没有新流量）。
-    消费者数为 0 时什么都不做：没有 worker 在线，补发了也没人收——这是“worker 全挂了”，交给告警。
+    为什么只看时间就够（M1.6，D28）：worker 收到消息先 claim（worker.execute），
+    dispatcher 只在有空位时才发（dispatch_once），所以正常情况下“发出 → claim”只有几毫秒，
+    RabbitMQ 里也没有排队的消息。
+    发出 1 分钟还没 claim，只可能是丢了。
 
-    补发上限 3 次：第 4 次判定丢失时不再补发，把 attempt 判为失败（delivery_lost），
-    用户可以点“重新生成”。一直补不进去，说明问题不是偶发丢消息，继续补只会掩盖问题。
+    判定：attempt 是 pending、outbox 是 sent、sent_at 早于 now − 1 分钟 × 2^重发次数。
+    即第一次发出 1 分钟后重发，之后间隔 2、4 分钟（每次重发由投递更新 sent_at）；
+    第 3 次重发后再过 8 分钟还没 claim，判 delivery_lost（从第一次发出算约 15 分钟）。
+    一直送不到说明问题不是偶发丢消息（例如 worker 不认识这个任务名），继续发只会掩盖问题。
+
+    前提（不满足就这一轮不判，10 秒后再看）：
+        读得到队列状态      读不到时不知道 worker 在不在；
+        消费者数不为 0      没有 worker 在线，发了也没人收——这是“worker 全挂了”，交给告警；
+        就绪数为 0          有了“有空位才发”，正常时几乎总是 0。不为 0 说明出了别的问题
+                            （子进程数配错、RabbitMQ 刚重启、worker 卡住），消息其实还在队列里排着，
+                            这时按时间判会把排队的当成丢了。
     """
-    if queue is not None and queue.consumers == 0:
+    if queue is None or queue.consumers == 0 or queue.ready > 0:
         return [], []
     with Session(engine) as session, session.begin():
+        # 候选：发出去了还没被 claim 的（正常时只有刚发出的几条）。到没到时间在下面逐条算，好读
         candidates = session.execute(
             select(Outbox.id, Outbox.attempt_id, Outbox.sent_at, Outbox.redeliveries)
             .join(Attempt, Attempt.id == Outbox.attempt_id)
-            .where(Outbox.status == "sent", Attempt.status == "pending",
-                   Outbox.sent_at < func.now() - GRACE)
+            .where(Outbox.status == "sent", Attempt.status == "pending")
         ).all()
-        if not candidates:
-            return [], []
-        # 水位线 = 已被领取的消息里最晚的投递时间。“已被领取”看 started_at（lease.claim 时写入），
-        # 不看 status：判为 delivery_lost 的 attempt 状态也不是 pending，但它从来没被领取过
-        watermark = session.scalar(
-            select(func.max(Outbox.sent_at))
-            .join(Attempt, Attempt.id == Outbox.attempt_id)
-            .where(Outbox.status == "sent", Attempt.started_at.is_not(None),
-                   Outbox.sent_at > func.now() - WATERMARK_WINDOW)
-        )
         now = session.scalar(select(func.now()))
-        requeued, failed = [], []
+        resent, failed = [], []
         for outbox_id, attempt_id, sent_at, redeliveries in candidates:
-            lost = ((watermark is not None and sent_at < watermark)
-                    or (queue is not None and queue.ready == 0)
-                    or sent_at < now - FALLBACK)
-            if not lost:
-                continue
+            if sent_at > now - RESEND_AFTER * 2 ** redeliveries:
+                continue  # 还没到时间（刚发出，或者上次重发后还在等）
             if redeliveries >= MAX_REDELIVERIES:
                 if _fail_undelivered(session, attempt_id):
                     failed.append(attempt_id)
                 continue
-            # 复用同一行 outbox：改回 pending，下一轮 dispatch_once 就会投递
-            # （sent_at 随之更新，重新排到队尾）。不新插一行：outbox 上
-            # “同一个 attempt 最多一条 pending”的部分唯一索引仍然成立。
-            # 带 status='sent' 条件：和 dispatcher 自己的投递不会互相覆盖
+            # 复用同一行 outbox：改回 pending，由 dispatch_once 去发（发送失败照样按 tries 退避，
+            # 不算进重发次数；RabbitMQ 告警时一条要约 27 秒才报错，也不会卡住巡检）。
+            # 不新插一行：“同一个 attempt 最多一条 pending”的部分唯一索引仍然成立。
+            # 带 status='sent' 条件：和 dispatcher 自己的投递不会互相覆盖。
+            # 不用 NOTIFY：改回的行立刻到期，main 接下来就会投递（seconds_until_due 返回 0）
             session.execute(
                 update(Outbox).where(Outbox.id == outbox_id, Outbox.status == "sent")
                 .values(status="pending", next_attempt_at=func.now(),
                         redeliveries=Outbox.redeliveries + 1)
             )
-            requeued.append(attempt_id)
-        if requeued:
-            notify_outbox(session)  # 改回 pending 也是“有新的待投递”，叫醒投递循环
-        return requeued, failed
+            resent.append(attempt_id)
+        return resent, failed
 
 
 def _fail_undelivered(session: Session, attempt_id: int) -> bool:
@@ -324,6 +314,8 @@ def main() -> None:
     listener = listen(settings.database_url)
     last_inspect = 0.0
     queue: QueueState | None = None  # 最近一次巡检读到的队列状态；读不到时是 None
+    backlog_since: float | None = None  # RabbitMQ 里的就绪数从什么时候起一直不为 0
+    backlog_warned = False  # 这一段积压记过 warning 了没有
     log.info("dispatcher 启动")
     while True:
         # 巡检按自己的计时器：通知随时会叫醒循环（每提交一道题就醒一次），不能醒一次就巡检一次。
@@ -333,12 +325,23 @@ def main() -> None:
             expired = lease.expire_leases(engine)
             if expired:
                 log.warning("租约过期，判为失败：attempt %s", expired)
-            requeued, failed = requeue_lost(engine, queue)
-            if requeued:
-                # M6 接监控：补发次数 > 0 就告警，说明消息中转站出了问题
-                log.warning("消息疑似丢失，补发：attempt %s", requeued)
+            resent, failed = resend_lost(engine, queue)
+            if resent:
+                # M6 接监控：重发次数 > 0 就告警，说明消息中转站出了问题
+                log.warning("发出 1 分钟以上仍没有 worker 领取，重发：attempt %s", resent)
             if failed:
-                log.error("补发 %s 次仍未送达，判为失败：attempt %s", MAX_REDELIVERIES, failed)
+                log.error("重发 %s 次仍未送达，判为失败：attempt %s", MAX_REDELIVERIES, failed)
+            # 有空位才发以后，就绪数正常时几乎总是 0；一直不为 0 时重发也暂停了，要让人知道。
+            # 每段积压只在满 2 分钟时记一条，不每 10 秒刷一次
+            if queue is not None and queue.ready > 0:
+                if backlog_since is None:
+                    backlog_since = time.monotonic()
+                if not backlog_warned and time.monotonic() - backlog_since >= BACKLOG_WARN_SECONDS:
+                    log.warning("RabbitMQ 里有 %s 条消息排队超过 2 分钟（子进程数配错？"
+                                "worker 卡住？），这期间不判重发", queue.ready)
+                    backlog_warned = True
+            else:
+                backlog_since, backlog_warned = None, False
             last_inspect = time.monotonic()
         # 总位子数用最近一次巡检的消费者数（最多 10 秒前），不在每次投递时都连一次 RabbitMQ
         capacity = queue.consumers * settings.worker_concurrency if queue else 0

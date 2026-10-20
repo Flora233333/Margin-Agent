@@ -143,7 +143,8 @@ class Outbox(Base):
         # 以后巡检给“消息丢了”的 attempt 补投递时，重复补也只会有一条生效
         Index("ux_outbox_pending_attempt", "attempt_id", unique=True,
               postgresql_where=text("status = 'pending'")),
-        # 对账的水位线查询按 sent_at 找最近投递的记录；只索引已发送的行（迁移 0002）
+        # 只索引已发送的行（迁移 0002）。原来给对账的水位线查询用；M1.6 删掉了水位线，
+        # 索引暂时保留（删它要多一个迁移），以后清理
         Index("ix_outbox_sent_at", "sent_at", postgresql_where=text("status = 'sent'")),
     )
 

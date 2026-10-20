@@ -3,7 +3,7 @@
  *   llm_http_502 等   worker 调模型网关时收到的 HTTP 错误（worker._describe）
  *   ReadTimeout 等    worker 调模型时的其他异常，记的是异常类名（不记 str(exc)，里面有网关地址）
  *   lease_expired     worker 没有按时续租（崩溃或卡死），dispatcher 巡检判为失败（lease.expire_leases）
- *   delivery_lost     多次重新投递后仍没有 worker 领取（dispatcher.requeue_lost，M1.5）
+ *   delivery_lost     重发 3 次后仍没有 worker 领取（dispatcher.resend_lost，M1.6）
  */
 
 import { Icon } from './Icons'
