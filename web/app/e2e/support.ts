@@ -55,7 +55,9 @@ export interface Frame {
 }
 
 /**
- * 在页面里每 20 毫秒记一次状态（有变化才记），测试结束后取出来看先后顺序。
+ * 在页面里每一帧记一次状态（有变化才记），测试结束后取出来看先后顺序。
+ * 用 requestAnimationFrame 而不是每 20 毫秒的定时器：浏览器每画一帧之前调用一次，
+ * 只闪一帧的状态（例如过程区展开了一帧又收起）也能记到；定时器和画帧不同步，会漏掉（M1.6-6）。
  * 用 addInitScript：页面一加载就开始记，包括刷新之后。
  */
 export async function recordFrames(page: Page): Promise<void> {
@@ -64,7 +66,8 @@ export async function recordFrames(page: Page): Promise<void> {
     ;(window as any).__frames = frames
     let last = ''
     const start = performance.now()
-    setInterval(() => {
+    const sample = () => {
+      requestAnimationFrame(sample)
       const attempt = document.querySelector('.attempt:last-child')
       if (!attempt) {
         return
@@ -85,7 +88,8 @@ export async function recordFrames(page: Page): Promise<void> {
         last = key
         frames.push({ t: Math.round(performance.now() - start), ...frame })
       }
-    }, 20)
+    }
+    requestAnimationFrame(sample)
   })
 }
 

@@ -351,6 +351,8 @@ interface Props {
   citations: Citation[]
   others: SearchedDoc[]
   live: boolean // 最近一次执行还没结束
+  // 还没有可显示的执行（刚打开，或者已结束的题补发还没到齐，见 RunPage）：不说“没有引用原文”，还不知道
+  waiting: boolean
   caughtUp: boolean // 事件流已补发完历史（useRunStream）
   thread: RefObject<HTMLElement | null>
   linked: number | null
@@ -358,7 +360,7 @@ interface Props {
   onHover: (no: number | null) => void
 }
 
-export function Sources({ citations, others, live, caughtUp, thread, linked, flash, onHover }: Props) {
+export function Sources({ citations, others, live, waiting, caughtUp, thread, linked, flash, onHover }: Props) {
   const track = useRef<HTMLDivElement>(null)
   const line = useRef<SVGPathElement>(null)
   const [closed, setClosed] = useState(false)
@@ -390,7 +392,7 @@ export function Sources({ citations, others, live, caughtUp, thread, linked, fla
             </button>
           </div>
           {/* 放在轨道外面：轨道里的卡片绝对定位、从顶部排起，放在里面会和“其他文档”叠在一起 */}
-          {citations.length === 0 && (
+          {citations.length === 0 && !waiting && (
             <p className="sources-empty">{live ? '模型引用原文后，来源会出现在这里。' : '这次执行没有引用原文。'}</p>
           )}
           <div className="margin-track-mark" />

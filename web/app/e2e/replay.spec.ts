@@ -4,7 +4,7 @@
  */
 
 import { expect, test } from '@playwright/test'
-import { collectErrors, firstAt, frames, itemCount, recordFrames, replayId } from './support'
+import { collectErrors, firstAt, frames, itemCount, MOCK_API, recordFrames, replayId } from './support'
 
 for (const name of ['num_short', 'pct', 'text_long', 'escalated', 'compose_failed']) {
   test(`打开已结束的题（${name}）：过程区收着，结论、正文、账目行直接显示`, async ({ page }) => {
@@ -25,6 +25,26 @@ for (const name of ['num_short', 'pct', 'text_long', 'escalated', 'compose_faile
     expect(errors).toEqual([])
   })
 }
+
+test('打开已结束的题、补发的历史分几批慢慢到达：过程区从头到尾不展开，正文整段出现（M1.6-6）', async ({ page }) => {
+  // 慢网络下补发被拆成几批：中间那几批到达时，这次执行还处在“执行中”（结束事件在最后一批）。
+  // 以前过程区不展开只是因为补发几乎同时到达，来不及画出中间状态；这里让中间状态停留 300 毫秒
+  const errors = collectErrors(page)
+  const { id } = await (await page.request.post(`${MOCK_API}/__slow?name=text_long&batches=6&gap_ms=300`)).json()
+  await recordFrames(page)
+  await page.goto(`/runs/${id}`)
+  await expect(page.locator('.answer-foot')).toBeVisible()
+  await page.waitForTimeout(1500)
+  const list = await frames(page)
+
+  expect(list.length).toBeGreaterThan(0)
+  expect(list.some((f) => f.open)).toBe(false)
+  expect(list.every((f) => f.label === '' || f.label.startsWith('思考与检索'))).toBe(true)
+  const textAt = firstAt(list, (f) => f.textLen > 0)
+  expect(list.find((f) => f.t === textAt)!.textLen).toBe(list.at(-1)!.textLen)
+  await expect(page.locator('.steps > .step')).toHaveCount(itemCount('text_long'))
+  expect(errors).toEqual([])
+})
 
 test('打开重新生成过的题：两次执行都在，更早的一次只留结论', async ({ page }) => {
   const errors = collectErrors(page)

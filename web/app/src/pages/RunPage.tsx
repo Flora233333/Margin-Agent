@@ -109,22 +109,33 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
     reopen()
   }
 
+  // 打开页面时已经结束的执行（按 attempt_no 记）：打开时就结束的，回答直接显示；
+  // 其余的是看着它结束的，过程区停一下再收起、回答按“结论 → 正文”出场（Work.tsx、Answer.tsx）。
+  // 不能用“渲染时见过它在执行”判断：打开一道已结束的题，补发的历史事件也会经过“执行中”。
+  //   题目已结束（completed / failed，M1.6-6）：GET /runs/{id} 返回的就是全部执行，一开始就定下来；
+  //   还在执行的题：等补发完（caught_up）那一刻，已经结束的就是打开时就结束的
+  const [settledEarly, setSettledEarly] = useState<Set<number> | null>(() =>
+    run.status === 'completed' || run.status === 'failed' ? new Set(run.attempts.map((a) => a.attempt_no)) : null,
+  )
+  if (caughtUp && settledEarly === null) {
+    const done = timeline.attempts.filter((a) => a.status === 'completed' || a.status === 'failed')
+    setSettledEarly(new Set(done.map((a) => a.no)))
+  }
+  const watched = (attempt: Attempt) => settledEarly !== null && !settledEarly.has(attempt.no)
+  // 打开时就已结束、补发还没到它的结束事件的执行，先不显示：这时它处在“执行中”，显示出来过程区会展开、
+  // 标题会转圈、页面会跟着往下滚。以前看不出来，只是因为补发几乎同时到达、浏览器来不及画；
+  // 网络慢、补发分几批到达时会闪一下（M2 review Q11）。等它的结束事件到了再整个显示，一开始就是收着的
+  const attempts = useMemo(
+    () => timeline.attempts.filter((a) => !(settledEarly?.has(a.no) && (a.status === 'queued' || a.status === 'running'))),
+    [timeline.attempts, settledEarly],
+  )
+
   // 来源只显示最近一次执行的引用；更早的执行只保留过程和结论，不再标引用编号
-  const latest = timeline.attempts.at(-1)
+  const latest = attempts.at(-1)
   const citations = useMemo(() => citationsOf(latest?.steps ?? []), [latest?.steps])
   const others = useMemo(() => searchedDocsOf(latest?.steps ?? [], citations), [latest?.steps, citations])
   const citeNos = useMemo(() => new Map(citations.map((c) => [c.stepNo, c.no])), [citations])
   useFollowBottom(latest?.status === 'running', thread)
-
-  // 追上实时（caughtUp）的那一刻已经结束的执行：打开页面时就结束了，回答直接显示；
-  // 其余的是看着它结束的，过程区停一下再收起、回答按“结论 → 正文”出场（Work.tsx、Answer.tsx）。
-  // 不能用“渲染时见过它在执行”判断：打开一道已结束的题，补发的历史事件也会经过“执行中”
-  const [settledEarly, setSettledEarly] = useState<Set<number> | null>(null)
-  if (caughtUp && settledEarly === null) {
-    const done = timeline.attempts.filter((a) => a.status === 'completed' || a.status === 'failed')
-    setSettledEarly(new Set(done.map((a) => a.id)))
-  }
-  const watched = (attempt: Attempt) => settledEarly !== null && !settledEarly.has(attempt.id)
 
   const understood = understoodOf(timeline)
   const title = understood?.title ?? run.title ?? run.question
@@ -157,11 +168,11 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
             <span className="ask-meta">提问 · {formatTime(run.created_at)}</span>
             <h1 className="bubble">{run.question}</h1>
           </div>
-          {timeline.attempts.map((attempt) => {
+          {attempts.map((attempt) => {
             const isLatest = attempt === latest
             return (
               <div className="attempt" key={attempt.id}>
-                {timeline.attempts.length > 1 && (
+                {attempts.length > 1 && (
                   <div className="attempt-head">
                     第 {attempt.no} 次执行{attempt.trigger === 'regenerate' && '（重新生成）'}
                   </div>
@@ -206,6 +217,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
         citations={citations}
         others={others}
         live={latest?.status === 'running' || latest?.status === 'queued'}
+        waiting={latest === undefined}
         caughtUp={caughtUp}
         thread={thread}
         linked={linked}

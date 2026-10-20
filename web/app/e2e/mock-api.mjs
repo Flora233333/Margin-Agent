@@ -15,6 +15,9 @@
  *   POST /__stall/{id}?down_ms=N
  *                        这道题现有的连接从此一个字都不发、也不关（模拟“半死”的连接）；
  *                        之后 N 毫秒内新连接都返回 502（模拟 API 进程重启中，Vite 代理就是这样回的），再之后照常
+ *   POST /__slow?name=X&batches=N&gap_ms=M
+ *                        新建一道已结束的题（固定数据 X），打开时补发的历史分成 N 批、每批之间隔 M 毫秒（模拟慢网络），
+ *                        返回 { id }。不出现在 /__ids 里，不影响按名字打开的其他测试
  *
  * 用法：node e2e/mock-api.mjs（端口 MOCK_PORT，默认 8100）。由 playwright.config.ts 自动启动。
  */
@@ -163,6 +166,18 @@ function readBody(request) {
   })
 }
 
+/** 慢网络：已结束的题，补发的历史分几批写出，批与批之间停一会儿，写完关闭 */
+async function writeInBatches(response, events, write, { batches, gap }) {
+  const size = Math.ceil(events.length / batches)
+  for (let i = 0; i < events.length; i += size) {
+    if (i > 0) {
+      await sleep(gap)
+    }
+    events.slice(i, i + size).forEach(write)
+  }
+  response.end()
+}
+
 function stream(request, response, run, after) {
   response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' })
   const write = (event) => {
@@ -172,7 +187,12 @@ function stream(request, response, run, after) {
       response.write(`id: ${event.seq}\nevent: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`)
     }
   }
-  for (const event of run.published.filter((e) => e.seq > after)) {
+  const backlog = run.published.filter((e) => e.seq > after)
+  if (run.slow) {
+    void writeInBatches(response, backlog, write, run.slow)
+    return
+  }
+  for (const event of backlog) {
     write(event)
   }
   // 和真 API 一样：执行已经结束就补发完关闭（不发 caught_up），前端据此判断“已结束、不用重连”
@@ -209,7 +229,7 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && path === '/__ids') {
     const ids = {}
     for (const run of runs.values()) {
-      if (!run.live) {
+      if (!run.live && !run.slow) {
         ids[run.name] = run.id
       }
     }
@@ -222,6 +242,11 @@ const server = createServer(async (request, response) => {
     }
     run.downUntil = Date.now() + Number(url.searchParams.get('down_ms') ?? 0)
     return sendJson(response, 200, { ok: true })
+  }
+  if (request.method === 'POST' && path === '/__slow') {
+    const run = newRun(nextLiveId++, url.searchParams.get('name'), false)
+    run.slow = { batches: Number(url.searchParams.get('batches')), gap: Number(url.searchParams.get('gap_ms')) }
+    return sendJson(response, 200, { id: run.id })
   }
   if (request.method === 'GET' && path === '/runs') {
     const list = [...runs.values()].sort((a, b) => b.id - a.id).map((run) => {
