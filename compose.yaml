@@ -22,6 +22,8 @@ x-app: &app
     MARGIN_MANIFEST_PATH: /data/canonical/h1.1.0-rc/manifest.json
     MARGIN_ALIAS_PATH: /data/canonical/h1.1.0-rc/entity_alias_catalog.jsonl
     MARGIN_CACHE_DIR: /app/.cache
+    # worker 的子进程数：worker 的 --concurrency 和 dispatcher 算空位用同一个值，要改只改 .env 这一处
+    MARGIN_WORKER_CONCURRENCY: ${MARGIN_WORKER_CONCURRENCY:-4}
 
 services:
   postgres:
@@ -133,8 +135,9 @@ services:
 
   worker:
     <<: *app
-    # 4 个子进程 = 最多同时执行 4 道题；扩容就多开几个 worker 容器
-    command: celery -A margin.worker worker --concurrency 4 --loglevel INFO
+    # 4 个子进程（默认）= 最多同时执行 4 道题；扩容就多开几个 worker 容器。
+    # 子进程数和上面 x-app 里传给 dispatcher 的是同一个变量（compose 启动时从 .env 读，没有就是 4）
+    command: celery -A margin.worker worker --concurrency ${MARGIN_WORKER_CONCURRENCY:-4} --loglevel INFO
     volumes:
       # 语料只读挂载（不复制进镜像）；BM25 缓存和 Windows 上共用一份，不用在容器里重建
       - ../finetune/data:/data:ro

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     # （RabbitMQ 用虚拟主机隔离不同应用的队列，地址里的 "/" 要写成 %2F 或 //）
     broker_url: str = "amqp://margin:margin_dev@127.0.0.1:5672//"
     redis_url: str = "redis://127.0.0.1:6379/0"
+    # 每个 worker 容器的子进程数（= 最多同时执行几道题）。compose 里 worker 的 --concurrency
+    # 和 dispatcher 读的都是这一个变量：dispatcher 按“消费者数 × 它”算有几个空位（M1.6，有空位才发）
+    worker_concurrency: int = 4
     embedding_base_url: str = ""  # 留空 = 不开向量检索，只用 BM25 + 别名两路
     embedding_model: str = "rc6-local-qwen3emb06b-q8_0-v2"
 

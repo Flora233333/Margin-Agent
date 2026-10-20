@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 from .harness import Step
 from .models import Attempt, Run
 from .models import Step as StepRow
-from .runs import add_event
+from .runs import add_event, notify_outbox
 from .understand import Understanding
 
 log = logging.getLogger(__name__)
@@ -155,6 +155,9 @@ def finish(engine: Engine, lease: Lease, final: dict[str, Any] | None,
                       {"attempt_id": lease.attempt_id, **written})
         add_event(session, lease.run_id, "attempt_finished",
                   {"attempt_id": lease.attempt_id, "final": final, "violation": violation})
+        # 空出一个位子：叫醒 dispatcher 去发排队的下一道（M1.6，有空位才发）。
+        # 不叫的话，积压的题要等 dispatcher 最多 10 秒一次的兜底扫描
+        notify_outbox(session)
 
 
 def fail(engine: Engine, lease: Lease, error: str) -> None:
@@ -164,6 +167,7 @@ def fail(engine: Engine, lease: Lease, error: str) -> None:
         session.execute(update(Run).where(Run.id == lease.run_id).values(status="failed"))
         add_event(session, lease.run_id, "attempt_failed",
                   {"attempt_id": lease.attempt_id, "error": error})
+        notify_outbox(session)  # 同 finish：空出位子
 
 
 def renew(engine: Engine, lease: Lease) -> bool:
@@ -195,6 +199,8 @@ def expire_leases(engine: Engine) -> list[int]:
             session.execute(update(Run).where(Run.id == run_id).values(status="failed"))
             add_event(session, run_id, "attempt_failed",
                       {"attempt_id": attempt_id, "error": "lease_expired"})
+        if rows:
+            notify_outbox(session)  # 同 finish：空出位子
         return [attempt_id for attempt_id, _ in rows]
 
 

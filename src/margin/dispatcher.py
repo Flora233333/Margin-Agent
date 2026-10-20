@@ -53,8 +53,29 @@ MAX_REDELIVERIES = 3  # 最多补发 3 次，之后把 attempt 判为失败
 TASK_QUEUE = "celery"  # Celery 默认的任务队列名；worker 和 dispatcher 都没改过它
 
 
-def dispatch_once(engine: Engine, publish: Callable[[int], None]) -> int:
-    """投递一轮：取出到期的 pending 记录逐条发送，返回发送成功的条数。
+def free_slots(session: Session, capacity: int) -> int:
+    """worker 还有几个空位 = 总位子数 − 在途数（可能为负：worker 刚少了一个时）。
+
+    capacity 是总位子数：消费者数 × 每个 worker 的子进程数（main 里按最近一次巡检算）。
+    在途 = 已经交给 worker、还没结束的：attempt 是 running 的，加上已发出（outbox sent）
+    但还没被 claim（attempt 仍是 pending）的。两个数在一条 SQL 里算，看到的是同一时刻的数据。
+    running 那一半走部分索引 ix_attempts_running_lease（只收录 running 的行）。
+    """
+    running = (select(func.count()).select_from(Attempt)
+               .where(Attempt.status == "running").scalar_subquery())
+    unclaimed = (select(func.count()).select_from(Outbox)
+                 .join(Attempt, Attempt.id == Outbox.attempt_id)
+                 .where(Outbox.status == "sent", Attempt.status == "pending").scalar_subquery())
+    return capacity - session.scalar(select(running + unclaimed))
+
+
+def dispatch_once(engine: Engine, publish: Callable[[int], None], capacity: int) -> int:
+    """投递一轮：worker 有几个空位就取几条到期的 pending 记录逐条发送，返回发送成功的条数。
+
+    有空位才发（M1.6，D28）：消息只在 worker 能马上接手时才进 RabbitMQ，积压留在 outbox 里
+    （pending，按 id 先进先出）。这样 RabbitMQ 里几乎没有排队的消息，“发出去很久还没被 claim”
+    就只可能是丢了，对账只看时间就够（resend_lost）。capacity 为 0（还没读到队列状态、
+    读不到、或者没有 worker 在线）时这一轮不发。
 
     FOR UPDATE SKIP LOCKED：锁住取出的行，别的 dispatcher 进程跳过它们去取别的行。
     现在只有一个 dispatcher，但以后多开几个也不会把同一条记录发两次。
@@ -65,10 +86,13 @@ def dispatch_once(engine: Engine, publish: Callable[[int], None]) -> int:
     对账的水位线就分不出谁先谁后。clock_timestamp() 是语句真正执行时的时间。
     """
     with Session(engine) as session, session.begin():
+        free = free_slots(session, capacity)
+        if free <= 0:
+            return 0
         rows = session.execute(
             select(Outbox)
             .where(Outbox.status == "pending", Outbox.next_attempt_at <= func.now())
-            .order_by(Outbox.id).limit(BATCH)
+            .order_by(Outbox.id).limit(min(free, BATCH))
             .with_for_update(skip_locked=True)
         ).scalars().all()
         sent = 0
@@ -241,6 +265,8 @@ def _fail_undelivered(session: Session, attempt_id: int) -> bool:
     session.execute(update(Run).where(Run.id == run_id).values(status="failed"))
     add_event(session, run_id, "attempt_failed",
               {"attempt_id": attempt_id, "error": "delivery_lost"})
+    # 它原来算在“在途”里（已发出、没 claim），判失败后空出一个位子：叫醒投递循环去补位
+    notify_outbox(session)
     return True
 
 
@@ -268,13 +294,18 @@ def wait_for_notify(listener: psycopg.Connection, timeout: float) -> bool:
     return False
 
 
-def seconds_until_due(engine: Engine) -> float:
-    """离最早一条 pending 记录可以投递还有几秒（最多 TICK_SECONDS）。
+def seconds_until_due(engine: Engine, capacity: int) -> float:
+    """离下一条 pending 记录可以投递还有几秒（最多 TICK_SECONDS）。
 
-    通知只负责“有新任务”。投递失败后退避的记录到期时不会有人发通知，所以等待时间不能超过它的到期时间；
-    已经到期的（例如一轮超过 BATCH 条没发完）返回 0，马上再扫一轮。
+    通知只负责“有新任务”“有题结束、空出位子”。投递失败后退避的记录到期时不会有人发通知，
+    所以等待时间不能超过它的到期时间；已经到期的（例如一轮超过 BATCH 条没发完）返回 0，
+    马上再扫一轮。
+    没有空位时到期了也发不出去，返回 TICK_SECONDS：等有题结束的通知，或者下一次巡检
+    （消费者数可能变了）。不这样判断的话，积压时这里一直返回 0，循环会空转、不停地查库。
     """
     with Session(engine) as session:
+        if free_slots(session, capacity) <= 0:
+            return TICK_SECONDS
         due = session.scalar(
             select(func.extract("epoch", func.min(Outbox.next_attempt_at) - func.now()))
             .where(Outbox.status == "pending")
@@ -292,26 +323,31 @@ def main() -> None:
     # 先 LISTEN 再进循环：启动前就已经在 outbox 里的记录由第一轮扫描处理，之后的靠通知
     listener = listen(settings.database_url)
     last_inspect = 0.0
+    queue: QueueState | None = None  # 最近一次巡检读到的队列状态；读不到时是 None
     log.info("dispatcher 启动")
     while True:
-        sent = dispatch_once(engine, publish)
-        if sent:
-            log.info("投递 %s 条", sent)
-        # 巡检按自己的计时器：通知随时会叫醒循环（每提交一道题就醒一次），不能醒一次就巡检一次
+        # 巡检按自己的计时器：通知随时会叫醒循环（每提交一道题就醒一次），不能醒一次就巡检一次。
+        # 放在投递前面：启动后的第一轮要先读到队列状态（有几个 worker），才知道能发几条
         if time.monotonic() - last_inspect >= TICK_SECONDS:
+            queue = read_queue_state(settings.broker_url)
             expired = lease.expire_leases(engine)
             if expired:
                 log.warning("租约过期，判为失败：attempt %s", expired)
-            requeued, failed = requeue_lost(engine, read_queue_state(settings.broker_url))
+            requeued, failed = requeue_lost(engine, queue)
             if requeued:
                 # M6 接监控：补发次数 > 0 就告警，说明消息中转站出了问题
                 log.warning("消息疑似丢失，补发：attempt %s", requeued)
             if failed:
                 log.error("补发 %s 次仍未送达，判为失败：attempt %s", MAX_REDELIVERIES, failed)
             last_inspect = time.monotonic()
+        # 总位子数用最近一次巡检的消费者数（最多 10 秒前），不在每次投递时都连一次 RabbitMQ
+        capacity = queue.consumers * settings.worker_concurrency if queue else 0
+        sent = dispatch_once(engine, publish, capacity)
+        if sent:
+            log.info("投递 %s 条", sent)
         # 等到：有通知、或最早的退避记录到期、或该巡检了（最多 10 秒）——哪个先到算哪个
         until_inspect = TICK_SECONDS - (time.monotonic() - last_inspect)
-        wait_for_notify(listener, max(0.0, min(seconds_until_due(engine), until_inspect)))
+        wait_for_notify(listener, max(0.0, min(seconds_until_due(engine, capacity), until_inspect)))
 
 
 if __name__ == "__main__":

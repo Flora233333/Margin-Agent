@@ -14,7 +14,7 @@ from fakes import FakeLLM, call
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from margin import live, runs
+from margin import lease, live, runs
 from margin.dispatcher import (
     TICK_SECONDS,
     dispatch_once,
@@ -29,6 +29,7 @@ from margin.worker import execute
 pytestmark = pytest.mark.integration
 
 OWNER = 1
+CAPACITY = 4  # 投递时的总位子数：1 个 worker × 4 个子进程
 
 
 def submit(db, key="k1", answer_format="num", require_citation=False):
@@ -304,8 +305,8 @@ def test_dispatcher_publishes_each_pending_attempt_once(db):
     submit(db, "k2")
     published = []
 
-    assert dispatch_once(db, published.append) == 2
-    assert dispatch_once(db, published.append) == 0
+    assert dispatch_once(db, published.append, CAPACITY) == 2
+    assert dispatch_once(db, published.append, CAPACITY) == 0
     assert published == [1, 2]
 
 
@@ -317,12 +318,12 @@ def test_broker_down_keeps_outbox_pending_and_backs_off(db):
     """
     submit(db)
 
-    assert dispatch_once(db, make_publisher("amqp://margin:x@127.0.0.1:1//")) == 0
+    assert dispatch_once(db, make_publisher("amqp://margin:x@127.0.0.1:1//"), CAPACITY) == 0
     with db.connect() as conn:
         row = conn.execute(select(Outbox)).one()
     assert (row.status, row.tries, row.sent_at) == ("pending", 1, None)
     assert row.next_attempt_at > datetime.now(UTC)
-    assert dispatch_once(db, lambda attempt_id: None) == 0  # 还没到重试时间
+    assert dispatch_once(db, lambda attempt_id: None, CAPACITY) == 0  # 还没到重试时间
 
 
 # ---- LISTEN / NOTIFY 唤醒 ----
@@ -343,7 +344,7 @@ def test_new_submission_wakes_dispatcher_within_one_second(db, listener):
     assert wait_for_notify(listener, timeout=TICK_SECONDS)
     assert time.monotonic() - start < 1
     published = []
-    assert dispatch_once(db, published.append) == 1
+    assert dispatch_once(db, published.append, CAPACITY) == 1
 
 
 def test_rolled_back_submission_does_not_wake_dispatcher(db, listener):
@@ -357,7 +358,29 @@ def test_rolled_back_submission_does_not_wake_dispatcher(db, listener):
         raise RuntimeError("写完 outbox 之后出错")
 
     assert not wait_for_notify(listener, timeout=1)
-    assert dispatch_once(db, lambda attempt_id: None) == 0
+    assert dispatch_once(db, lambda attempt_id: None, CAPACITY) == 0
+
+
+def test_backlog_waits_in_outbox_until_a_slot_frees_up(db, listener):
+    """有空位才发（M1.6）：位子满了不发，排队的题留在 outbox（pending），不进 RabbitMQ；
+    一道题结束时同一事务里 NOTIFY，dispatcher 1 秒内被叫醒、发出下一条，不用等 10 秒的兜底扫描。"""
+    submit(db, "k1")
+    submit(db, "k2")
+    published = []
+    assert dispatch_once(db, published.append, capacity=1) == 1
+    assert dispatch_once(db, published.append, capacity=1) == 0  # 1 号已发出、还没 claim，也算在途
+    with db.connect() as conn:
+        assert conn.scalar(select(Outbox.status).where(Outbox.attempt_id == 2)) == "pending"
+    held = lease.claim(db, 1, "worker-a")
+    while wait_for_notify(listener, timeout=0.1):
+        pass  # 清掉前面两次提交发的通知
+    threading.Timer(0.2, lease.finish, args=[db, held, {"submitted": ["120.50"]}, None]).start()
+    start = time.monotonic()
+
+    assert wait_for_notify(listener, timeout=TICK_SECONDS)
+    assert time.monotonic() - start < 1
+    assert dispatch_once(db, published.append, capacity=1) == 1
+    assert published == [1, 2]
 
 
 # ---- 实时片段（Redis pub/sub）----
