@@ -42,8 +42,13 @@ log = logging.getLogger(__name__)
 celery_app = Celery("margin", broker=get_settings().broker_url)
 celery_app.conf.update(
     # 任务执行完才确认（ack）消息。默认是“取到就确认”：worker 进程取到后崩溃，消息就丢了。
-    # RabbitMQ 的确认是原生的：worker 的连接一断（进程被杀、容器重启），它没确认的消息立刻回到队列，
-    # 不用像 Redis 那样等“可见性超时”。确认期限 consumer_timeout 见 deploy/rabbitmq/margin.conf
+    # RabbitMQ 的确认是原生的：worker 主进程的连接一断（主进程被杀、容器重启），
+    # 它没确认的消息立刻回到队列，不用像 Redis 那样等“可见性超时”。
+    # 只对主进程成立：子进程被杀（超过硬时限、内存不够被系统杀掉）时，
+    # 主进程照样替它确认，消息不回队列。这时库里的 attempt 已经是 running
+    # （先 claim 再干活），由租约过期发现（lease.py）。
+    # 推出去还没确认的消息在 RabbitMQ 这边没有时限：确认期限 consumer_timeout
+    # 从 4.3 起只有 quorum 队列检查，我们的 celery 是经典队列，所以不配它
     task_acks_late=True,
     # 每个子进程只预取 1 条：手上只有正在执行的那一条，不会把别的任务压在自己这里排队。
     # 在管理界面里看：4 个子进程，这个 worker 的通道上预取数是 4

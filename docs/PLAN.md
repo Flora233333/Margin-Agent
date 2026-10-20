@@ -139,7 +139,9 @@ flowchart TB
   60 秒无回应判定卡死 → `os._exit` 结束子进程，Celery 补新进程，任务由别人接管；Celery 硬时限 25 分钟只防整个进程冻住。
 - **被取代的 worker**：续租 / 提交 / 主线程检查点任一处发现 epoch 不对就停止，不写任何东西；关闭 HTTP 流、回滚、
   释放模型并发名额（名额自带过期时间）。实时片段带 epoch，前端丢弃旧 epoch。
-- **Celery 配置**：`acks_late=True` + `prefetch_multiplier=1`（每个槽位只拿正在跑的那一条），确认期限 `consumer_timeout` 1 小时（M1.5 起用 RabbitMQ，见 5.7；M1 用 Redis 时是 `visibility_timeout` 2 小时）；
+- **Celery 配置**：`acks_late=True` + `prefetch_multiplier=1`（每个槽位只拿正在跑的那一条）。M1.5 起用 RabbitMQ（见 5.7），推出去还没确认的消息不设时限：
+  确认期限 `consumer_timeout` 从 RabbitMQ 4.3 起只有 quorum 队列检查，我们的经典队列上不生效，M1.6 删掉了这项配置
+  （M1 用 Redis 时是 `visibility_timeout` 2 小时）；
   M1 一个 worker 容器 4 个子进程，扩容加容器。队列只是唤醒信号，谁执行由数据库决定。
 
 ### 5.3 幂等提交
@@ -197,7 +199,7 @@ Session 可以服务端随时吊销。
 | 发送确认 | Celery `broker_transport_options={"confirm_publish": True}` | RabbitMQ 回复“收到了”，dispatcher 才标记 sent；没收到确认就按现有的退避规则重发 |
 | 队列 / 消息持久化 | 队列 durable、消息 persistent（Celery 用 RabbitMQ 时的默认值，保持不改） | RabbitMQ 重启后消息还在 |
 | 数据卷 + 固定主机名 | `rabbitmqdata:/var/lib/rabbitmq`，`hostname: rabbitmq` | RabbitMQ 的数据目录按节点名（取自主机名）区分，主机名变了会“找不到”旧数据 |
-| 确认期限 `consumer_timeout` | 1 小时（配置文件挂进 `/etc/rabbitmq/conf.d/`） | 超时会关闭整个通道、所有待确认消息回队列；必须大于 Celery 硬时限 25 分钟，保证永远不触发。超时分层：模型 180 秒 < 硬时限 25 分钟 < 确认期限 1 小时 |
+| 确认期限 `consumer_timeout` | ~~1 小时~~ 不配（M1.6 删除） | 原以为超时会关闭整个通道、所有待确认消息回队列，所以要大于硬时限 25 分钟。实际 RabbitMQ 4.3 起只有 quorum 队列检查确认期限（而且只放回超时的那条），我们的经典队列上不生效；未确认的消息没有时限，由 Celery 硬时限和租约收场（D28） |
 | 确认时机与预取 | 保留 `task_acks_late=True`、`worker_prefetch_multiplier=1` | 执行完才确认；每个子进程手上只有正在执行的一条 |
 | Redis 专用配置 | 删除 `visibility_timeout` | RabbitMQ 有原生确认，不需要模拟 |
 
@@ -271,7 +273,7 @@ WHERE o.status = 'sent' AND a.started_at IS NOT NULL AND o.sent_at > now() - int
 #### 切换步骤（M1.5）
 
 1. compose：新增 `rabbitmq` 服务（`rabbitmq:4-management-alpine`，5672 + 管理界面 15672 只绑 127.0.0.1，
-   数据卷、固定主机名、健康检查 `rabbitmq-diagnostics -q ping`、`consumer_timeout` 配置文件）；
+   数据卷、固定主机名、健康检查 `rabbitmq-diagnostics -q ping`、`consumer_timeout` 配置文件（M1.6 删除，不生效））；
    worker、dispatcher 依赖它健康后再启动。
 2. 配置：新增 `MARGIN_BROKER_URL`（`amqp://...`），写进 `.env.example`；compose 里覆盖成容器内地址。
 3. `worker.py`：broker 改用新配置；删掉 `visibility_timeout`。发送确认实际开在 dispatcher 自己的 publisher 上（D21）。

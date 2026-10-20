@@ -88,8 +88,6 @@ services:
     volumes:
       # 队列和持久化消息存在这里；容器删了、重启了，消息还在
       - rabbitmqdata:/var/lib/rabbitmq
-      # 确认期限 consumer_timeout 设为 1 小时，原因见文件里的注释
-      - ./deploy/rabbitmq/margin.conf:/etc/rabbitmq/conf.d/20-margin.conf:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
