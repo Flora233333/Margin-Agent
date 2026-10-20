@@ -1,0 +1,1734 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M2 · M2.5 后端梳理</title>
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #1f2328; --muted: #656d76; --card: #ffffff; --border: #d8dee4;
+  --code-bg: #f3f2ee; --hl: #fff1b8;
+  --web: #374151; --web-bg: #eef0f3;
+  --api: #0e7490; --api-bg: #e0f4f8;
+  --pg: #7c3aed; --pg-bg: #f1eafd;
+  --redis: #be185d; --redis-bg: #fce7f3;
+  --mq: #8a8f98; --mq-bg: #f0f1f3;
+  --worker: #15803d; --worker-bg: #e6f4ea;
+  --warn: #b91c1c; --warn-bg: #fdecec;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+    --code-bg: #23272e; --hl: #4a4020;
+    --web: #d1d5db; --web-bg: #2a2e35; --api: #5cc8dc; --api-bg: #173238; --pg: #b79cff; --pg-bg: #2a2140;
+    --redis: #f472b6; --redis-bg: #3a1a2b; --mq: #9aa3ad; --mq-bg: #262a30;
+    --worker: #5fd08a; --worker-bg: #183224; --warn: #ff7b7b; --warn-bg: #3d1e1e;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+  --code-bg: #23272e; --hl: #4a4020;
+  --web: #d1d5db; --web-bg: #2a2e35; --api: #5cc8dc; --api-bg: #173238; --pg: #b79cff; --pg-bg: #2a2140;
+  --redis: #f472b6; --redis-bg: #3a1a2b; --mq: #9aa3ad; --mq-bg: #262a30;
+  --worker: #5fd08a; --worker-bg: #183224; --warn: #ff7b7b; --warn-bg: #3d1e1e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.75 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 21px; margin: 52px 0 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+h3 { font-size: 17px; margin: 28px 0 8px; }
+p, li { margin: 6px 0; }
+.sub { color: var(--muted); margin: 0 0 16px; }
+a { color: var(--api); }
+code { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+  background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; }
+.tablewrap { overflow-x: auto; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 14px 0; }
+.tag { display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 10px; font-weight: 600; white-space: nowrap; line-height: 20px; }
+.t-web { color: var(--web); background: var(--web-bg); }
+.t-api { color: var(--api); background: var(--api-bg); }
+.t-pg { color: var(--pg); background: var(--pg-bg); }
+.t-redis { color: var(--redis); background: var(--redis-bg); }
+.t-mq { color: var(--mq); background: var(--mq-bg); }
+.t-worker { color: var(--worker); background: var(--worker-bg); }
+.t-m2 { color: var(--api); background: var(--api-bg); }
+.t-m25 { color: var(--worker); background: var(--worker-bg); }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 8px 0 12px; font-size: 13px; align-items: center; }
+.legend svg { vertical-align: middle; }
+.toc { font-size: 14px; }
+
+/* 时序图 */
+.seqwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--card); }
+#seq { display: block; min-width: 900px; width: 100%; height: auto; }
+#seq text { fill: var(--fg); font-family: inherit; }
+#seq .item text:not(.badge-t) { paint-order: stroke; stroke: var(--card); stroke-width: 5px; stroke-linejoin: round; }
+#seq .muted { fill: var(--muted); }
+#seq .life { stroke: var(--border); stroke-dasharray: 4 4; }
+#seq .head rect { stroke-width: 2; }
+#seq .band { fill: var(--code-bg); }
+#seq .band-t { font-size: 13px; font-weight: 700; fill: var(--muted); }
+#seq .item { cursor: default; }
+#seq .item line, #seq .item path { stroke-width: 2; fill: none; }
+#seq .item .badge { stroke: none; }
+#seq .item .badge-t { fill: #fff; font-size: 11px; font-weight: 700; }
+#seq .item.dim { opacity: .25; }
+#seq .item.on line, #seq .item.on path { stroke-width: 3.5; }
+#seq .note rect { stroke-width: 1.5; }
+.k-http { stroke: var(--api); fill: var(--api); }
+.k-sse { stroke: var(--api); fill: var(--api); }
+.k-sql { stroke: var(--pg); fill: var(--pg); }
+.k-notify { stroke: var(--pg); fill: var(--pg); }
+.k-redis { stroke: var(--redis); fill: var(--redis); }
+.k-mq { stroke: var(--mq); fill: var(--mq); }
+.k-local { stroke: var(--worker); fill: var(--worker); }
+#seq line.dash, #seq path.dash { stroke-dasharray: 7 5; }
+
+#steps tr { transition: background .15s; }
+#steps tr.on td { background: var(--hl); }
+#steps td:first-child { white-space: nowrap; font-weight: 700; }
+#steps .ref { font-family: "Cascadia Code", Consolas, monospace; font-size: 12px; color: var(--muted); }
+#steps .phase td { background: var(--code-bg); font-weight: 700; }
+
+/* API 内部 */
+svg.fig { width: 100%; height: auto; display: block; }
+svg.fig text { fill: var(--fg); font-family: inherit; }
+svg.fig .muted { fill: var(--muted); }
+.figwrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--card); padding: 8px; }
+.figwrap svg { min-width: 760px; }
+
+/* 问答 */
+.qa h3 { margin-top: 34px; }
+.qa h3 .qn { color: var(--api); margin-right: 6px; }
+.ask { color: var(--muted); border-left: 3px solid var(--border); padding-left: 10px; margin: 4px 0 10px; }
+.short { background: var(--api-bg); border-radius: 8px; padding: 8px 12px; margin: 8px 0; }
+.decide { background: var(--warn-bg); border-left: 4px solid var(--warn); border-radius: 6px; padding: 8px 12px; margin: 10px 0; }
+pre { background: var(--code-bg); border-radius: 8px; padding: 10px 12px; overflow-x: auto;
+  font: 12.5px/1.6 "Cascadia Code", Consolas, monospace; margin: 8px 0; }
+
+/* 动画播放器 */
+.player { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
+.player .ptitle { font-weight: 700; margin-bottom: 6px; }
+.player .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.player .tabs button, .player .ctrl button { font: inherit; font-size: 13px; padding: 3px 12px; border-radius: 14px;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg); cursor: pointer; }
+.player .tabs button.on { background: var(--api); color: #fff; border-color: var(--api); }
+.player .ctrl { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.player .ctrl .cnt { color: var(--muted); font-size: 13px; }
+.player .cap { margin-top: 8px; background: var(--hl); border-radius: 8px; padding: 8px 12px; min-height: 48px; }
+/* 动画①：代码 + 状态 */
+.life2 { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 760px) { .life2 { grid-template-columns: 1fr; } }
+.codebox { background: var(--code-bg); border-radius: 8px; padding: 8px 0; overflow-x: auto;
+  font: 12px/1.7 "Cascadia Code", Consolas, monospace; }
+.codebox div { padding: 0 10px; white-space: pre; border-left: 3px solid transparent; transition: background .25s; }
+.codebox div.on { background: var(--hl); border-left-color: var(--warn); }
+.codebox .ln { color: var(--muted); display: inline-block; width: 2.2em; }
+.statebox { font-size: 13px; }
+.statebox .row { display: flex; gap: 8px; margin: 4px 0; align-items: baseline; }
+.statebox .k { color: var(--muted); white-space: nowrap; min-width: 5.5em; }
+.statebox .v { flex: 1; min-width: 0; }
+.statebox .recv { background: var(--code-bg); border-radius: 6px; padding: 6px 8px; font: 11.5px/1.6 "Cascadia Code", Consolas, monospace;
+  max-height: 170px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+.statebox .recv .new { background: var(--hl); }
+.pill { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 10px; line-height: 20px; font-weight: 600; }
+.p-loop { color: var(--api); background: var(--api-bg); }
+.p-pool { color: var(--pg); background: var(--pg-bg); }
+.p-hub { color: var(--worker); background: var(--worker-bg); }
+.p-wait { color: var(--muted); background: var(--code-bg); }
+.p-done { color: var(--warn); background: var(--warn-bg); }
+/* 动画②：状态板 */
+.board { width: 100%; border-collapse: collapse; font-size: 13px; }
+.board td { border: 1px solid var(--border); padding: 6px 8px; vertical-align: top; transition: background .3s; }
+.board td:first-child { white-space: nowrap; font-weight: 700; width: 8.5em; background: var(--code-bg); }
+.board td.chg { background: var(--hl); }
+.chip { display: inline-block; font-size: 12px; padding: 0 7px; margin: 1px 3px 1px 0; border-radius: 9px; background: var(--api-bg); color: var(--api); font-weight: 600; }
+/* 动画③：唤醒 */
+#wake { width: 100%; height: auto; display: block; }
+#wake text { fill: var(--fg); font-family: inherit; }
+#wake .muted { fill: var(--muted); }
+#wake .region { fill: var(--api-bg); opacity: .55; }
+#wake .region-t { font-size: 12px; font-weight: 700; fill: var(--api); }
+.wcard { height: 100%; box-sizing: border-box; border: 1.5px solid var(--border); border-radius: 12px; background: var(--card);
+  padding: 9px 11px; font-size: 12.5px; line-height: 1.55; color: var(--fg); overflow: hidden;
+  transition: border-color .3s, background .3s, box-shadow .3s; }
+.wcard .who { font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+.wcard .ttl { font-size: 14.5px; font-weight: 700; margin: 1px 0 4px; }
+.wcard .ln { color: var(--muted); overflow-wrap: anywhere; }
+.wcard.on { border: 2.5px solid var(--warn); background: var(--hl); box-shadow: inset 0 0 0 1px rgba(185, 28, 28, .15); }
+.wcard.on .ln { color: var(--fg); }
+#wake .flow { stroke: var(--warn); stroke-width: 2.5; fill: none; stroke-dasharray: 8 6; animation: flow .6s linear infinite; }
+#wake .pill-bg { fill: var(--warn); }
+#wake .pill-t { fill: #fff; font-size: 12.5px; font-weight: 700; }
+#wake .tok { fill: var(--warn); stroke: var(--card); stroke-width: 3; }
+#thr { width: 100%; height: auto; display: block; }
+#thr text { fill: var(--fg); font-family: inherit; }
+#thr .lane-t { font-size: 12.5px; font-weight: 700; }
+#thr .mv rect { fill: var(--api); }
+#thr .mv text { fill: #fff; font-size: 12px; font-weight: 700; }
+#thr .mv { transition: opacity .5s .3s; }
+#thr .mv.done { opacity: 0; }
+.wcard.bad { border: 2.5px solid var(--warn); background: var(--warn-bg); }
+#trip { width: 100%; height: auto; display: block; }
+#trip text { fill: var(--fg); font-family: inherit; }
+#trip .mv rect { fill: var(--warn); }
+#trip .mv text { fill: #fff; font-size: 12px; font-weight: 700; }
+#trip .mv { transition: opacity .5s .3s; }
+#trip .mv.done { opacity: 0; }
+#trip .side-t { font-size: 12.5px; font-weight: 700; }
+.shape { margin-top: 10px; }
+.shape .k { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.shape pre { margin: 0; white-space: pre-wrap; word-break: break-all; min-height: 64px; }
+.wake-legend { font-size: 12.5px; color: var(--muted); margin: 6px 2px 0; }
+@keyframes flow { to { stroke-dashoffset: -14; } }
+.wakewrap { overflow-x: auto; }
+.wakewrap svg { min-width: 820px; }
+@media (prefers-reduced-motion: reduce) { #wake .flow { animation: none; } }
+</style>
+</head>
+<body>
+<main>
+
+<h1>M2 · M2.5 后端梳理</h1>
+<p class="sub">只讲后端，前端只讲它和后端约定的部分。先看一道题从提交到出结果，前端、API、PG、Redis、worker 之间按什么顺序调用了哪些函数。代码位置对应当前仓库（提交 fa76578 之后）。</p>
+
+<div class="card toc">
+<b>第一版</b>（2026-10-13）：总览、全程时序图、API 进程内部、事件约定、后端文件地图。<br>
+<b>第二版</b>（2026-10-14）：加第六节问答第一轮（Q1～Q11，时序图 A、B 段：接口、事件流、补发与回放），记一项决定。<br>
+<b>第三版</b>（2026-10-14）：加第七节问答第二轮（Q12～Q19：API 进程里谁在跑——路由、依赖注入、生成器、线程、await、收件箱、唤醒），三段动画 + 全程时间线。<br>
+<b>第四版</b>（2026-10-20）：第七节补 Q20～Q23：事件循环是谁的代码、三类线程怎么分工处理请求（动画 ④，五个场景）、事件循环线程在代码里怎么体现、每段代码在哪个线程跑。<br>
+<b>第五版</b>（2026-10-20）：加第八节问答第三轮（Q24～Q29：谁能叫醒事件循环、Redis 是独立服务、闹钟怎么算、理解题目和撰写回答怎么实现、前端怎么分拣、一条数据每一站长什么样），动画 ⑤ + 闹钟示意图。
+<ol style="margin:6px 0 0">
+  <li><a href="#overview">M2 和 M2.5 各做了什么</a></li>
+  <li><a href="#seqsec">一道题的全程时序图（26 步）</a></li>
+  <li><a href="#inside">API 进程内部：一个 SSE 连接怎么同时等两种东西</a></li>
+  <li><a href="#events">前后端约定：10 种事件</a></li>
+  <li><a href="#files">后端文件地图和阅读顺序</a></li>
+  <li><a href="#qa1">问答第一轮：接口、事件流、补发与回放</a></li>
+  <li><a href="#qa2">问答第二轮：API 进程里谁在跑（线程、协程、唤醒）</a></li>
+  <li><a href="#qa3">问答第三轮：叫醒、闹钟、理解与撰写、一条数据的旅程</a></li>
+</ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="overview">一、M2 和 M2.5 各做了什么</h2>
+<div class="tablewrap">
+<table>
+<tr><th></th><th>要解决的问题</th><th>后端做了什么</th><th>前端做了什么（跳过）</th></tr>
+<tr><td><span class="tag t-m2">M2</span><br>过程可视化</td>
+<td>用户提交后只能干等，看不到模型在想什么、查了什么</td>
+<td>① 事件写库时同事务发 PG 通知，SSE 被通知叫醒才查库（不再每秒查）<br>
+② 模型逐字输出的思考经 Redis 实时转发，不落库<br>
+③ SSE：断线按 seq 续传、10 秒心跳、补发完发 caught_up</td>
+<td>时间线、思考逐字出现、工具卡片、来源旁注</td></tr>
+<tr><td><span class="tag t-m25">M2.5</span><br>回答形态</td>
+<td>结果只有一个短答案（例如 1204.63），没有说明和出处</td>
+<td>同一个模型多调用两次：<br>
+① Harness 之前<b>理解题目</b>（标题、说明、答案格式），和 Harness 并行<br>
+② Harness 之后<b>撰写回答</b>（带 [1][2] 的段落），流式推送，代码校验 [n] 和数字<br>
+③ 引用编号挪到后端；没引用就交答案时提醒一次</td>
+<td>回答区（大号结论、正文、来源卡片）、各种出场动画</td></tr>
+</table>
+</div>
+<p>数据从后端到页面一共三条路：</p>
+<div class="tablewrap">
+<table>
+<tr><th>通道</th><th>走什么</th><th>丢了怎么办</th><th>例子</th></tr>
+<tr><td><span class="tag t-api">HTTP 请求</span></td><td>前端主动问：提交、查详情、重新生成</td><td>前端报错，用户重试（提交带幂等键）</td><td><code>POST /runs</code>、<code>GET /runs/5</code></td></tr>
+<tr><td><span class="tag t-pg">持久事件</span></td><td>写进 PG 的 events 表，带连续的 seq；PG 通知 → API → SSE 推给页面</td><td>断线后按 seq 补发，一条不丢</td><td>第 3 步做完了、回答写好了</td></tr>
+<tr><td><span class="tag t-redis">实时片段</span></td><td>worker 发到 Redis，API 订阅后经 SSE 推给页面；不落库、没有 seq</td><td>丢了就丢了，这一步结束时持久事件里的完整思考会整体替换</td><td>模型正在吐的“营业收入为…”几个字</td></tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="seqsec">二、一道题的全程时序图</h2>
+<p>例子：用户提交“广晟控股 2022 年营业收入是多少”，得到 run 5、attempt 12。从上往下按时间顺序；箭头上是调用的函数，下面的表写了每一步的文件和行号。<b>鼠标停在箭头或表格某一行上，两边一起高亮。</b></p>
+<div class="legend" id="legend"></div>
+<div class="seqwrap"><svg id="seq" role="img" aria-label="一道题从提交到出结果的时序图"></svg></div>
+
+<h3>每一步对应的代码</h3>
+<div class="tablewrap"><table id="steps"></table></div>
+
+<!-- ============================================================ -->
+<h2 id="inside">三、API 进程内部：一个 SSE 连接怎么同时等两种东西</h2>
+<p>时序图第 11～13、16～17 步发生在 API 进程里。一个 SSE 连接要等两种东西：PG 说“有新事件了”，以及 Redis 转来的片段。做法是两边都往<b>同一个收件箱</b>里放，<code>stream_events</code> 只等这一个收件箱。</p>
+<div class="figwrap">
+<svg class="fig" viewBox="0 0 960 384" role="img" aria-label="API 进程内部：event_hub 线程和 Redis pump 都往收件箱里放，stream_events 循环从收件箱取">
+  <defs>
+    <marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker>
+  </defs>
+  <!-- 进程框 -->
+  <rect x="180" y="18" width="770" height="282" rx="12" fill="none" stroke="var(--api)" stroke-dasharray="6 4"/>
+  <text x="940" y="292" text-anchor="end" font-size="12" class="muted">API 进程（uvicorn）</text>
+  <!-- PG / Redis -->
+  <rect x="16" y="34" width="130" height="60" rx="8" fill="var(--pg-bg)" stroke="var(--pg)" stroke-width="2"/>
+  <text x="81" y="60" text-anchor="middle" font-size="14" font-weight="700">PostgreSQL</text>
+  <text x="81" y="80" text-anchor="middle" font-size="11" class="muted">events 表 + NOTIFY</text>
+  <rect x="16" y="216" width="130" height="60" rx="8" fill="var(--redis-bg)" stroke="var(--redis)" stroke-width="2"/>
+  <text x="81" y="242" text-anchor="middle" font-size="14" font-weight="700">Redis</text>
+  <text x="81" y="262" text-anchor="middle" font-size="11" class="muted">频道 run:5:live</text>
+  <!-- hub -->
+  <rect x="200" y="30" width="250" height="84" rx="8" fill="var(--card)" stroke="var(--pg)" stroke-width="2"/>
+  <text x="214" y="48" font-size="13" font-weight="700">event_hub 后台线程</text>
+  <text x="214" y="68" font-size="11" class="muted">每个 API 进程 1 个，只占 1 条 PG 连接</text>
+  <text x="214" y="88" font-size="11" class="muted">_listen_forever 收到 "5" → _wake(5)</text>
+  <text x="214" y="104" font-size="11" class="muted">→ 叫醒所有正在看 run 5 的连接</text>
+  <!-- pump -->
+  <rect x="200" y="204" width="250" height="84" rx="8" fill="var(--card)" stroke="var(--redis)" stroke-width="2"/>
+  <text x="214" y="226" font-size="13" font-weight="700">pump 任务（forward_deltas）</text>
+  <text x="214" y="246" font-size="11" class="muted">每个 SSE 连接 1 个，1 条 Redis 订阅</text>
+  <text x="214" y="266" font-size="11" class="muted">收到片段 → inbox.put_nowait(JSON)</text>
+  <!-- inbox -->
+  <rect x="500" y="112" width="160" height="80" rx="8" fill="var(--api-bg)" stroke="var(--api)" stroke-width="2"/>
+  <text x="580" y="136" text-anchor="middle" font-size="13" font-weight="700">收件箱 inbox</text>
+  <text x="580" y="156" text-anchor="middle" font-size="11" class="muted">asyncio.Queue</text>
+  <text x="580" y="174" text-anchor="middle" font-size="11" class="muted">每个 SSE 连接 1 个</text>
+  <!-- loop -->
+  <rect x="700" y="26" width="236" height="200" rx="8" fill="var(--card)" stroke="var(--api)" stroke-width="2"/>
+  <text x="714" y="48" font-size="13" font-weight="700">stream_events 的循环</text>
+  <text x="714" y="70" font-size="11.5">await inbox.get()，最多等 10 秒</text>
+  <text x="714" y="94" font-size="11.5">① 拿到 NEW_EVENTS</text>
+  <text x="726" y="112" font-size="11" class="muted">→ events_after(last_seq) 查库</text>
+  <text x="726" y="128" font-size="11" class="muted">→ 推 id: seq / event: 类型</text>
+  <text x="714" y="150" font-size="11.5">② 拿到片段 → 推 event: delta</text>
+  <text x="714" y="172" font-size="11.5">③ 10 秒什么都没有</text>
+  <text x="726" y="190" font-size="11" class="muted">→ 推 ping，再查一次库（兜底）</text>
+  <text x="714" y="214" font-size="11.5">状态已结束 → return，关闭流</text>
+  <!-- browser -->
+  <rect x="700" y="314" width="236" height="40" rx="8" fill="var(--web-bg)" stroke="var(--web)" stroke-width="2"/>
+  <text x="818" y="339" text-anchor="middle" font-size="13" font-weight="700">浏览器 EventSource</text>
+  <!-- 箭头 -->
+  <path d="M146 64 H198" stroke="var(--pg)" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ah2)"/>
+  <text x="172" y="56" text-anchor="middle" font-size="11" class="muted">NOTIFY</text>
+  <path d="M450 80 C 490 80, 520 90, 545 110" stroke="var(--pg)" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+  <text x="470" y="128" font-size="11" class="muted" text-anchor="middle">NEW_EVENTS</text>
+  <path d="M146 246 H198" stroke="var(--redis)" stroke-width="2" marker-end="url(#ah2)"/>
+  <text x="172" y="238" text-anchor="middle" font-size="11" class="muted">片段</text>
+  <path d="M450 236 C 490 236, 520 220, 545 194" stroke="var(--redis)" stroke-width="2" fill="none" marker-end="url(#ah2)"/>
+  <text x="474" y="184" font-size="11" class="muted" text-anchor="middle">片段 JSON</text>
+  <path d="M660 152 H698" stroke="var(--api)" stroke-width="2" marker-end="url(#ah2)"/>
+  <path d="M818 226 V312" stroke="var(--api)" stroke-width="2" marker-end="url(#ah2)"/>
+  <text x="826" y="262" font-size="11" class="muted">SSE</text>
+  <text x="16" y="376" font-size="12" class="muted">event_hub 在普通线程里，收件箱属于 asyncio 事件循环：线程不能直接往里放，要用 loop.call_soon_threadsafe 交给事件循环去放（event_hub.py:74-78）。</text>
+</svg>
+</div>
+<p>为什么 PG 这边“每个进程一条连接”，Redis 那边却“每个 SSE 连接一条”：PG 的连接贵（默认上限 100），100 个人同时看就占满了；Redis 的连接便宜（默认上限 1 万），每个连接自己订阅最简单。</p>
+
+<!-- ============================================================ -->
+<h2 id="events">四、前后端约定：10 种事件</h2>
+<p>后端和前端唯一的耦合点。看后端时知道“这个事件给前端哪块用”就够了，前端的拼法在 <code>web/app/src/timeline.ts</code>。</p>
+<div class="tablewrap">
+<table>
+<tr><th>事件</th><th>谁写的</th><th>什么时候</th><th>前端拿来做什么</th><th>带 seq？</th></tr>
+<tr><td><code>attempt_queued</code></td><td><code>runs._enqueue_attempt</code></td><td>提交、重新生成</td><td>新建一块“第 N 次执行”，显示排队中</td><td>是</td></tr>
+<tr><td><code>attempt_started</code></td><td><code>lease.claim</code></td><td>worker 领取</td><td>显示执行中；记下 (attempt_id, epoch) 作为“当前执行”</td><td>是</td></tr>
+<tr><td><code>run_understood</code></td><td><code>lease.save_understanding</code></td><td>理解题目完成</td><td>标题、结论说明、答案格式</td><td>是</td></tr>
+<tr><td><code>step</code></td><td><code>lease.commit_step</code></td><td>每做完一步</td><td>过程区加一步，用完整思考替换这一轮的片段；<code>citation_no</code> 对应来源卡片 [n]</td><td>是</td></tr>
+<tr><td><code>answer_written</code></td><td><code>lease.finish</code></td><td>撰写成功</td><td>用校验过的回答替换逐字拼出来的那份</td><td>是</td></tr>
+<tr><td><code>attempt_finished</code></td><td><code>lease.finish</code></td><td>执行结束</td><td>显示完成和结论</td><td>是</td></tr>
+<tr><td><code>attempt_failed</code></td><td><code>lease.fail</code>、<code>expire_leases</code>、<code>_fail_undelivered</code></td><td>执行失败</td><td>显示失败说明</td><td>是</td></tr>
+<tr><td><code>delta</code></td><td><code>live.DeltaPublisher</code>（经 Redis）</td><td>模型每吐几个字</td><td>逐字显示：kind 是 reasoning / content 时是思考，answer 时是回答正文；(attempt_id, epoch) 对不上的丢掉</td><td>否</td></tr>
+<tr><td><code>caught_up</code></td><td><code>api.stream_events</code></td><td>历史事件补发完</td><td>区分“回放”和“正在发生”（例如只给新出现的来源卡片画连线）</td><td>否</td></tr>
+<tr><td><code>ping</code></td><td><code>api.stream_events</code></td><td>10 秒没有任何数据</td><td>前端 25 秒什么都没收到，就认定连接已断，重连</td><td>否</td></tr>
+</table>
+</div>
+<p>带 seq 的 7 种是“持久事件”：写在 events 表里，SSE 的 <code>id:</code> 就是 seq，断线重连从最后一个 seq 之后补发。不带 seq 的 3 种只在连接上走一趟。</p>
+
+<!-- ============================================================ -->
+<h2 id="files">五、后端文件地图和阅读顺序</h2>
+<div class="tablewrap">
+<table>
+<tr><th>顺序</th><th>文件 · 函数</th><th>阶段</th><th>看什么</th></tr>
+<tr><td>1</td><td><code>runs.add_event</code>、<code>runs.events_after</code></td><td><span class="tag t-m2">M2</span></td><td>seq 怎么保证连续、不跳号；通知为什么跟着事务走；为什么先读状态再读事件</td></tr>
+<tr><td>2</td><td><code>event_hub.py</code>（94 行）</td><td><span class="tag t-m2">M2</span></td><td>一条 LISTEN 连接怎么分发给多个 SSE；线程和事件循环之间怎么传消息</td></tr>
+<tr><td>3</td><td><code>api.stream_events</code></td><td><span class="tag t-m2">M2</span></td><td>第三节那张图：收件箱、兜底、心跳、caught_up、<code>?after=</code></td></tr>
+<tr><td>4</td><td><code>live.py</code>（108 行）</td><td><span class="tag t-m2">M2</span></td><td>两层事件；Redis 出问题时为什么不能让题目失败</td></tr>
+<tr><td>5</td><td><code>worker.execute</code></td><td><span class="tag t-m2">M2</span> <span class="tag t-m25">M2.5</span></td><td>一道题的主流程：claim → 理解题目（另一个线程）→ Harness → 撰写 → finish</td></tr>
+<tr><td>6</td><td><code>understand.py</code>（53 行）</td><td><span class="tag t-m25">M2.5</span></td><td>理解题目；失败了怎么退回默认值</td></tr>
+<tr><td>7</td><td><code>citations.py</code>（42 行）</td><td><span class="tag t-m25">M2.5</span></td><td>引用编号的三条规则；为什么挪到后端</td></tr>
+<tr><td>8</td><td><code>harness/tools/actions.finalize</code> 第 44～76 行</td><td><span class="tag t-m25">M2.5</span></td><td>没引用就交：提醒一次，第二次照收、标 uncited</td></tr>
+<tr><td>9</td><td><code>worker._tools_with_guessed_format</code>、<code>_without_unit</code></td><td><span class="tag t-m25">M2.5</span></td><td>猜的格式只“软校验”（D25）：对不上按文本收下，不退回让模型改</td></tr>
+<tr><td>10</td><td><code>compose.py</code>（182 行）</td><td><span class="tag t-m25">M2.5</span></td><td>证据怎么整理给模型；写完怎么校验 [n] 和数字</td></tr>
+<tr><td>11</td><td>迁移 0003～0006</td><td><span class="tag t-m25">M2.5</span></td><td>新加的列：标题、说明、是否要求引用、猜的格式</td></tr>
+</table>
+</div>
+<p><b>可以跳过的：</b><code>web/app/</code> 下除 <code>timeline.ts</code> 开头注释以外的全部；<code>scripts/experiments/m25/</code>（定方案用的实验脚本，看导读里的结论即可）；两份导读里标题写“前端”“修订”的小节，大多是界面调整。</p>
+
+<!-- ============================================================ -->
+<h2 id="qa1">六、问答第一轮：接口、事件流、补发与回放（2026-10-14）</h2>
+<div class="qa">
+<p>对应时序图 A（提交）、B（打开事件流）两段。一句话总结这一轮：<b>前后端之间只传数据；页面怎么画由前端决定；“流式”和“直接显示全部”是同一套代码，区别只在打开那一刻库里已有多少事件。</b></p>
+
+<h3><span class="qn">Q1</span>图里第 4 步的 GET 是什么意思？</h3>
+<p class="ask">POST /runs 之后为什么还要 GET /runs/5？</p>
+<p>每次请求都带一个“动作类型”。<b>POST 是提交</b>，让后端新建或改动东西；<b>GET 是读取</b>，只查不改。<code>GET /runs/5</code> 读作“把 5 号 run 的情况给我”。</p>
+<p>提交（POST）只拿回一个编号 <code>{run_id: 5}</code>。前端跳到 5 号题的页面以后，先 GET 一次，拿到“到目前为止的全貌”，再打开事件流接收之后的变化。对后端来说，这一步就是 <code>runs.get_run</code> 里几条只读 SQL，不碰 RabbitMQ，也不碰 worker。</p>
+
+<h3><span class="qn">Q2</span>“跳到这道题自己的页面”是什么？GET 拿的是模板吗？</h3>
+<p class="short"><b>模板早就在浏览器里了，GET 拿的是填进模板的数据（JSON）。</b></p>
+<ul>
+<li>第一次打开网站时，浏览器把整个前端程序（所有页面模板）一次下载下来。</li>
+<li>“跳页面”是地址栏从 <code>/</code> 变成 <code>/runs/5</code>，前端把画面换成 RunPage 模板。这一步完全在浏览器里完成，不问后端。</li>
+<li>RunPage 模板一开始是空的，所以它发 <code>GET /runs/5</code>，拿回题目、标题、模型、执行时间这些数据，填进模板。</li>
+</ul>
+<p>比方：模板是印好的空白成绩单，每个学生用的是同一张；GET 是去教务处查 5 号学生的分数，查回来填上。<b>前后端之间从来不传页面，只传数据（JSON 和事件）。</b></p>
+
+<h3><span class="qn">Q3</span>这样分工也方便以后做多轮问答吧？</h3>
+<p>对，不过主要的活在后端。前端改动小：数据里多一个“轮次列表”，每一轮的画法和现在的单题一样。后端至少要定三件事：</p>
+<ol>
+<li><b>怎么存</b>：例如新增“会话”表，一个会话下挂多个 run，每个 run 是一轮；</li>
+<li><b>第二轮怎么带上第一轮</b>：问“那它的毛利率呢？”，Harness 要拿到上一轮的问题、答案和引用，模型才知道“它”是谁；</li>
+<li><b>GET 返回什么</b>：从“一道题”变成“整个会话的所有轮次”。</li>
+</ol>
+<p>现在的事件流基本能直接用，因为每条事件都带着 run_id 和 attempt_id。多轮问答是一个新功能，不是现在顺手就有的。</p>
+
+<h3><span class="qn">Q4</span>点开以前回答过的题，发的是什么？</h3>
+<p>走的还是同一套请求，后端没有专门给“历史页面”的接口：</p>
+<pre>① 左侧栏加载      GET /runs                  最近 50 道题：编号、问题、标题、状态、时间
+② 点 12 号题      （不发请求）               地址变成 /runs/12，换成 RunPage 模板
+③ RunPage 打开    GET /runs/12               题目、标题、模型、每次执行的开始和结束时间
+                  GET /runs/12/events?after=0  从第 0 条起补发全部事件；题已结束，发完就关</pre>
+<p>刷新页面、从历史点进来、刚提交完，走的都是<b>同一条代码路径</b>（<code>RunPage.tsx</code> 开头的注释）。<code>after=0</code> 不是“新题专用”，意思是“我手上一条都没有”；断线重连时手上有了，就用 <code>after=lastSeq</code> 接着要。</p>
+<p class="decide"><b>发现：</b><code>runs.get_run</code> 会把每次执行的全部步骤都查出来返回，但 RunPage 画步骤用的是事件流补发的事件，GET 只用了题目、标题、时间这些。查步骤的那部分目前前端没用上。（我第一次回答时说“GET 拿回步骤，前端用它画”，这个说法不对，已更正。）</p>
+
+<h3><span class="qn">Q5</span>现在有哪些 GET 和 POST，各干什么？</h3>
+<div class="tablewrap">
+<table>
+<tr><th>接口</th><th>干什么</th><th>后端调用</th><th>谁在用</th></tr>
+<tr><td><code>GET /health</code></td><td>返回 <code>{"ok": true}</code>，证明进程活着</td><td>无</td><td>部署和监控</td></tr>
+<tr><td><code>POST /runs</code></td><td><b>提交新题</b>：一个事务里写入 run、attempt、outbox 和 attempt_queued 事件，返回 202 和编号。必须带 <code>Idempotency-Key</code> 请求头，重复提交返回同一个 run_id</td><td><code>runs.create_run</code></td><td>输入框“提交”</td></tr>
+<tr><td><code>GET /runs</code></td><td>历史列表（最近 50 道）</td><td><code>runs.list_runs</code></td><td>左侧栏</td></tr>
+<tr><td><code>GET /runs/{id}</code></td><td>一道题的详情</td><td><code>runs.get_run</code></td><td>打开 RunPage</td></tr>
+<tr><td><code>POST /runs/{id}/regenerate</code></td><td><b>重新生成</b>：新建 attempt 和 outbox；正在执行时返回 409</td><td><code>runs.regenerate</code></td><td>“重新生成”按钮</td></tr>
+<tr><td><code>GET /runs/{id}/events?after=N</code></td><td><b>事件流（SSE）</b>：补发 N 之后的事件，连接保持，有新的就推，题目结束时关闭</td><td><code>stream_events</code></td><td>RunPage 一直挂着</td></tr>
+</table>
+</div>
+<p>只有两个 POST 会让 worker 干活，而且它们只写库（包括 outbox），由 dispatcher 去投递。前 5 个接口都是一问一答，只有最后一个是长连接。前端代码里的 <code>/api/runs</code> 是开发服务器的转发，去掉 <code>/api</code> 以后就是后端的路径。</p>
+
+<h3><span class="qn">Q6</span>事件流（B 段 5～8 步）到底在干什么？</h3>
+<p><b>要解决的问题：</b>一道题要跑一两分钟，前端想一有进展就显示。每秒 GET 一次，人一多库就被问爆了。<b>SSE 的办法：</b>浏览器发一个 GET，后端不马上结束回复，有新事件就往这条连接里写一段。这就像从“一直打电话问快递到哪了”，变成“订阅快递通知”。</p>
+<ol>
+<li><b>⑤</b> 浏览器用自带的 <code>EventSource</code> 打开 <code>/runs/5/events?after=0</code>。</li>
+<li><b>⑥</b> API 查库，先查状态，再查 seq &gt; 0 的事件。刚提交时只有 seq 1。</li>
+<li><b>⑦</b> 为了以后能被叫醒，API 先做两件准备工作。
+  <ul>
+  <li><code>hub.watch(5)</code>：在本进程登记“我在看 5 号”，领一个收件箱；PG 通知到了，就往收件箱里丢一张“有新事件”（NEW_EVENTS）。</li>
+  <li><code>forward_deltas</code>：订阅 Redis 的 <code>run:5:live</code>，收到逐字片段也丢进同一个收件箱。</li>
+  </ul>
+  <b>先自己放一张 NEW_EVENTS</b>，是因为 ⑥ 查库和 ⑦ 登记之间有个空档：这期间写入的事件，通知发出时还没人登记，收不到。所以第一轮循环一定再查一次库。</li>
+<li><b>⑧</b> 把查到的事件发给浏览器，再发 <code>caught_up</code>（“历史补完了”）。</li>
+</ol>
+<pre>之后循环：
+while 题目没结束:
+    等收件箱（最多 10 秒）
+    ├─ NEW_EVENTS → 查库取 seq &gt; 上次发到的位置 → 发给浏览器
+    ├─ 片段       → 直接发 delta
+    └─ 10 秒没动静 → 发 ping（“我还活着”），再查一次库兜底
+题目结束 → 发完最后的事件 → 关闭连接</pre>
+<p class="short">一句话：<b>浏览器开一条不挂断的连接；API 平时等在收件箱上，PG 通知或 Redis 片段把它叫醒，它再去库里取新事件推过去。</b>代码在 <code>api.py:200-275</code>。</p>
+
+<h3><span class="qn">Q7</span>events 表长什么样？是按 run_id 嵌套的吗？</h3>
+<p>PG 里没有真正的嵌套。<b>events 是一张平铺的表，一个事件一行，每行带 run_id。</b>“嵌套”是按 run_id 筛选出来的效果。</p>
+<div class="tablewrap">
+<table>
+<tr><th>列</th><th>含义</th></tr>
+<tr><td><code>id</code></td><td>全表自增主键，业务上不用</td></tr>
+<tr><td><code>run_id</code></td><td>属于哪道题（外键 → runs）</td></tr>
+<tr><td><code>seq</code></td><td>这道题里的第几条，每道题从 1 开始；<code>(run_id, seq)</code> 唯一，自带索引</td></tr>
+<tr><td><code>type</code></td><td>事件类型</td></tr>
+<tr><td><code>payload</code></td><td>事件内容，JSON。不同事件内容长得不一样，统一放进一个 JSON 列，SSE 取出来原样发</td></tr>
+<tr><td><code>created_at</code></td><td>写入时间</td></tr>
+</table>
+</div>
+<pre>id  | run_id | seq | type
+101 |   5    |  1  | attempt_queued
+102 |   6    |  1  | attempt_queued     ← 别的题，混在一起
+103 |   5    |  2  | attempt_started
+104 |   5    |  3  | step
+
+SELECT * FROM events WHERE run_id = 5 AND seq &gt; 0 ORDER BY seq;   -- events_after 做的事</pre>
+<p><b>为什么不用 id 当序号：</b>① 每道题要从 1 连续编号，浏览器才好记“看到第几条了”；② 自增 id 的顺序不可靠：事务 A 拿到 10、B 拿到 11，B 先提交，读者先看到 11，A 那条 10 就永远漏掉了。<code>seq</code> 的来源是 <code>add_event</code> 先给 runs 表这道题的 <code>last_seq</code> 加 1（<code>runs.py:41-44</code>）。这条 UPDATE 会锁住这一行直到提交，所以后拿号的一定后提交。<code>last_seq</code> 相当于这道题的取号机。</p>
+
+<h3><span class="qn">Q8</span>跑完的题和新题都是 after=0，怎么做到一个直接全显示、一个流式？</h3>
+<p class="short"><b>前后端都不区分这两种情况，代码完全一样；区别只在打开那一刻 events 表里已有多少行。</b>流式不是后端故意放慢，是后面的事件还没产生。</p>
+<p>同一道 2 步的题，浏览器收到的内容：</p>
+<div class="tablewrap">
+<table>
+<tr><th>跑完的题（库里已有 seq 1～7）</th><th>跑着的题（打开时刚做完第 1 步，库里有 seq 1～4）</th></tr>
+<tr><td><pre>id:1 attempt_queued
+id:2 attempt_started
+id:3 run_understood
+id:4 step        第 1 步，带完整思考
+id:5 step        第 2 步 finalize
+id:6 answer_written
+id:7 attempt_finished
+（发现已结束，关闭连接）</pre></td>
+<td><pre>── 补发（几毫秒内连着到）──
+id:1 attempt_queued
+id:2 attempt_started
+id:3 run_understood
+id:4 step
+caught_up
+── 实时 ──
+delta "我已经" delta "找到" …   第 2 步思考
+ping                           10 秒没动静时
+id:5 step        完整思考替换片段
+delta "根据年报" …               回答正文
+id:6 answer_written
+id:7 attempt_finished
+（关闭连接）</pre></td></tr>
+</table>
+</div>
+<div class="tablewrap">
+<table>
+<tr><th></th><th>跑完的题</th><th>跑着的题</th></tr>
+<tr><td>补发的历史事件</td><td>全部</td><td>已有的部分</td></tr>
+<tr><td>caught_up</td><td><b>没有</b></td><td>补发完发一次</td></tr>
+<tr><td>delta 逐字片段</td><td>没有（不存库）</td><td>caught_up 之后才有</td></tr>
+<tr><td>ping</td><td>没有</td><td>10 秒没动静时</td></tr>
+<tr><td>连接什么时候关</td><td>补发完立刻关</td><td>收到 attempt_finished 后关</td></tr>
+</table>
+</div>
+
+<h3><span class="qn">Q9</span>所以跑完的题收不到 caught_up？</h3>
+<p>对。<code>api.py:243-252</code> 的顺序是：先发查到的事件 → <b>状态已结束就 return</b> → 没结束才发 <code>caught_up</code>（开关保证只发一次）。跑完的题走不到发 caught_up 那一行。</p>
+<p>caught_up 的作用是让前端分清“回放”和“正在发生”：caught_up 之前到的直接显示，之后到的才播动画。重新生成过的题最能体现这一点：第 1 次执行早已结束，直接收起显示；第 2 次正在跑，结束时播收起动画。</p>
+
+<h3><span class="qn">Q10</span>正在跑的题，切出去再切回来，看到的是最新的吗？会不会重新跑一遍？</h3>
+<ul>
+<li><b>在网站里切到别的题：</b>页面卸载，旧连接主动关掉（<code>useRunStream.ts:104-108</code>）。切回来重新 GET，并用 <code>after=0</code> 打开事件流，已完成的步骤整批补发，直接显示到最新，然后接着实时走。<b>不会重跑一遍</b>，worker 那边也完全不受影响。唯一看不到的是离开期间那一步的逐字思考，这一步结束时，step 事件会带完整思考补上。</li>
+<li><b>切到浏览器别的标签页：</b>连接一直开着，切回来本来就是最新的。</li>
+<li><b>断网或 API 重启：</b>前端记着 lastSeq，用 <code>after=lastSeq</code> 只补缺的。</li>
+</ul>
+<p><b>切回来时过程区为什么是展开的：</b>规则是 <code>open = 用户点过的选择 ?? (执行中 || 刚结束停 0.7 秒)</code>（<code>Work.tsx:94</code>）。补发的第一条 attempt_queued 一到，这次执行就算“进行中”（排队中也算），而且补发完它确实还在跑，所以从第一帧起就是展开的，这是正常状态。小细节：如果你手动收起过，切走再切回来会重新展开，因为“用户点过”只存在页面内存里，会随页面一起消失。</p>
+
+<h3><span class="qn">Q11</span>那前端是等 caught_up 或 attempt_finished 到了才画画面吗？</h3>
+<p><b>不是。</b>每收到一条事件就更新一次画面（<code>useRunStream.ts:60-64</code>）。跑完的题之所以看不到“先展开、刷数据、再收回去”，<b>靠的是速度</b>：7 条事件几乎同时到达，浏览器大约每 16 毫秒才绘制一次，React 又会把挨得很近的更新合并，所以屏幕上的第一帧已经是“结束、收起”的状态。</p>
+<p>这不是严格的保证。e2e 测试 <code>replay.spec.ts</code> 是用 <code>setInterval</code> 定时取样检查，并不逐帧检查。步骤很多、补发内容被拆成几个网络包陆续到达时，理论上可能闪出一帧展开的样子。</p>
+<p class="decide"><b>决定（作者 2026-10-14）：</b>改成看 <code>run.status</code>。打开页面时，<code>GET /runs/{id}</code> 已经拿到题目状态；如果当时已结束，前端一开始就把所有执行当作“打开时已结束”，补发的事件只用来填内容，不让过程区展开。这样不再依赖速度。纯前端改动，不改后端，等 M2 / M2.5 review 完和其他改动一起做。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="qa2">七、问答第二轮：API 进程里到底谁在跑（2026-10-14）</h2>
+<div class="qa">
+<p>这一轮只讲时序图 B 段（打开事件流）背后，API 进程内部是怎么运行的。先记住一张全景和一句话，后面每题都是在展开它。</p>
+<p class="short"><b>一句话：</b>uvicorn 进程一直在跑；请求来了才调用路由函数；<code>stream_events</code> 只跑一下，就把生成器 <code>generate</code> 交给框架；框架在<b>事件循环线程</b>上不停地向 generate 要下一段，写给浏览器。generate 没东西可发时，就停在 <code>await inbox.get()</code>。往收件箱里放东西的有两方：<b>hub 线程</b>（盯着 PG）和 <b>pump 协程</b>（盯着 Redis），谁放了东西，谁就顺手把 generate 叫醒。</p>
+
+<div class="figwrap">
+<svg class="fig" viewBox="0 0 960 330" role="img" aria-label="一个 API 进程里的三类线程">
+  <rect x="8" y="8" width="944" height="314" rx="12" fill="none" stroke="var(--api)" stroke-dasharray="6 4"/>
+  <text x="22" y="30" font-size="13" font-weight="700">API 进程（uvicorn 启动，一直在跑）</text>
+  <!-- 事件循环线程 -->
+  <rect x="24" y="44" width="560" height="262" rx="10" fill="var(--api-bg)" stroke="var(--api)" stroke-width="2"/>
+  <text x="38" y="66" font-size="13" font-weight="700">事件循环线程（1 个）：所有 async 代码都在这里轮流跑</text>
+  <g font-size="12">
+    <rect x="40" y="82" width="160" height="50" rx="8" fill="var(--card)" stroke="var(--api)"/>
+    <text x="120" y="102" text-anchor="middle" font-weight="700">生成器 A（看 5 号）</text>
+    <text x="120" y="121" text-anchor="middle" class="muted">停在 await inbox.get()</text>
+    <rect x="216" y="82" width="160" height="50" rx="8" fill="var(--card)" stroke="var(--api)"/>
+    <text x="296" y="102" text-anchor="middle" font-weight="700">生成器 B（看 6 号）</text>
+    <text x="296" y="121" text-anchor="middle" class="muted">停在 await inbox.get()</text>
+    <rect x="392" y="82" width="176" height="50" rx="8" fill="var(--card)" stroke="var(--api)"/>
+    <text x="480" y="102" text-anchor="middle" font-weight="700">生成器 C（也看 5 号）</text>
+    <text x="480" y="121" text-anchor="middle" class="muted">正在 yield 一段</text>
+    <rect x="40" y="148" width="160" height="50" rx="8" fill="var(--card)" stroke="var(--redis)"/>
+    <text x="120" y="168" text-anchor="middle" font-weight="700">pump A</text>
+    <text x="120" y="187" text-anchor="middle" class="muted">等 Redis 连接上的数据</text>
+    <rect x="216" y="148" width="160" height="50" rx="8" fill="var(--card)" stroke="var(--redis)"/>
+    <text x="296" y="168" text-anchor="middle" font-weight="700">pump B</text>
+    <text x="296" y="187" text-anchor="middle" class="muted">等 Redis 连接上的数据</text>
+    <rect x="392" y="148" width="176" height="50" rx="8" fill="var(--card)" stroke="var(--redis)"/>
+    <text x="480" y="168" text-anchor="middle" font-weight="700">pump C</text>
+    <text x="480" y="187" text-anchor="middle" class="muted">等 Redis 连接上的数据</text>
+    <rect x="40" y="216" width="528" height="74" rx="8" fill="var(--card)" stroke="var(--border)"/>
+    <text x="54" y="238" font-weight="700">调度循环（asyncio 自己的代码）</text>
+    <text x="54" y="258" class="muted">① 把“待办”里的协程挨个跑到下一个 await</text>
+    <text x="54" y="278" class="muted">② 没事干就睡在 selector.select()，等“网络有数据 / 闹钟到点 / 有人写 self-pipe”</text>
+  </g>
+  <!-- 线程池 -->
+  <rect x="604" y="44" width="332" height="118" rx="10" fill="var(--pg-bg)" stroke="var(--pg)" stroke-width="2"/>
+  <text x="618" y="66" font-size="13" font-weight="700">线程池（最多 40 个，建好后反复用）</text>
+  <text x="618" y="90" font-size="12">· run_in_threadpool(events_after)：查库</text>
+  <text x="618" y="112" font-size="12">· 普通 def 路由整个放这里跑：</text>
+  <text x="630" y="132" font-size="12" class="muted">POST /runs、GET /runs/5、regenerate …</text>
+  <text x="618" y="152" font-size="11" class="muted">同步代码会卡住线程，不能放在事件循环线程上</text>
+  <!-- hub 线程 -->
+  <rect x="604" y="178" width="332" height="128" rx="10" fill="var(--worker-bg)" stroke="var(--worker)" stroke-width="2"/>
+  <text x="618" y="200" font-size="13" font-weight="700">hub 线程（1 个，进程启动时建）</text>
+  <text x="618" y="224" font-size="12">· 守着 1 条 PG 连接：LISTEN run_events</text>
+  <text x="618" y="246" font-size="12">· 登记簿：5 → {收件箱A, 收件箱C}，6 → {收件箱B}</text>
+  <text x="618" y="268" font-size="12">· 收到 "5" → call_soon_threadsafe</text>
+  <text x="630" y="288" font-size="12" class="muted">往 A、C 的收件箱放 NEW_EVENTS</text>
+</svg>
+</div>
+
+<h3><span class="qn">Q12</span><code>new EventSource(...)</code> 是 new 了个什么？在哪执行？</h3>
+<p>在<b>前端</b>执行（<code>useRunStream.ts:69</code>）。<code>EventSource</code> 是<b>浏览器自带的类</b>，不是我们写的，也不用安装。<code>new EventSource(地址)</code> 就是创建这个类的一个对象，相当于 Python 的 <code>source = EventSource(url)</code>，只是 JS 创建对象要多写一个 <code>new</code>。</p>
+<p>对象一建好，就立刻发出一个普通的 GET，然后一直守着这条连接。它替前端包了三件事：</p>
+<ol>
+<li><b>守着连接</b>：后端的回复不结束，它就一直收；</li>
+<li><b>解析文本</b>：把 <code>id: 4 / event: step / data: {...}</code> 拆开，交给前端事先注册的 <code>addEventListener('step', ...)</code>；</li>
+<li><b>断线重连</b>：自动重连，并在请求头 <code>Last-Event-ID</code> 里带上最后收到的 id。</li>
+</ol>
+<div class="tablewrap"><table>
+<tr><th>浏览器的通信工具</th><th>特点</th><th>我们为什么用 / 不用</th></tr>
+<tr><td><code>fetch</code></td><td>普通请求，一问一答</td><td>也能读流，但解析和重连都要自己写</td></tr>
+<tr><td><b><code>EventSource</code></b></td><td>专门接收服务器推送（SSE）</td><td><b>只需要“后端 → 前端”单向，刚好够用</b></td></tr>
+<tr><td><code>WebSocket</code></td><td>双向，两边随时都能发</td><td>我们不需要浏览器往后端推，用它太重</td></tr>
+</table></div>
+<p><b>SSE 的中文：</b>Server-Sent Events，<b>服务器推送事件</b>。它是浏览器的标准：服务器回复一个不结束的 HTTP 响应，按 <code>id: / event: / data:</code> 的格式一段一段往下写。</p>
+
+<h3><span class="qn">Q13</span>后端收到的是 SQL 吗？SSE 和查库什么关系？Redis 在哪绑定？</h3>
+<p><b>浏览器从来不直接碰数据库。</b>一共三段连接，SSE 只是其中一段：</p>
+<pre>浏览器 ──① HTTP GET──▶ API（stream_events） ──② SQL──▶ PG
+   ▲                          │  └──── 订阅 ────▶ Redis
+   └──── ③ SSE（不挂断的回复）──┘</pre>
+<div class="tablewrap"><table>
+<tr><th>段</th><th>传的是什么</th></tr>
+<tr><td>① 浏览器 → API</td><td>HTTP 请求 <code>GET /runs/5/events?after=0</code>，<b>不是 SQL</b></td></tr>
+<tr><td>② API → PG</td><td>API 自己发的 SQL：<code>SELECT … FROM events WHERE run_id=5 AND seq&gt;0</code></td></tr>
+<tr><td>③ API → 浏览器</td><td><b>这一段才叫 SSE</b>：回复一直不结束，有新东西就接着写</td></tr>
+</table></div>
+<p>查库、登记收件箱、订阅 Redis、往回复里写，<b>全部发生在 <code>stream_events</code> 这一个函数里</b>。比方：顾客（浏览器）打电话给客服（API）说“5 号订单有进展告诉我”；客服不挂电话，一边查仓库系统（PG），一边订阅物流短信（Redis），有消息就在电话里念给顾客听（SSE）。顾客只和客服说话。</p>
+
+<h3><span class="qn">Q14</span>为什么这个地址会调用 <code>stream_events</code>？<code>db</code>、<code>redis_url</code> 没赋值，从哪来？</h3>
+<p><b>地址 → 函数：后端自己定的。</b>函数上方的 <code>@app.get("/runs/{run_id}/events")</code> 把这个地址和下面的函数绑在一起。请求进来时，FastAPI 拿地址逐条比对，匹配上就调用对应的函数。函数名随便起，前端必须按后端定的地址来请求，这就是前后端的约定。</p>
+<p><b>参数 → 依赖注入：FastAPI 在调用之前替你把值准备好。</b>秘密在参数类型上（<code>api.py:57-77</code>）：</p>
+<pre>def get_db() -&gt; Engine:        return get_engine()               # 全局的数据库连接池
+def get_redis_url() -&gt; str:    return get_settings().redis_url   # .env 里的 Redis 地址
+
+DB       = Annotated[Engine,   Depends(get_db)]        # “类型是 Engine，值由 get_db() 提供”
+RedisURL = Annotated[str,      Depends(get_redis_url)]
+User     = Annotated[int,      Depends(current_user)]  # 现在固定是开发用户 1，M3 换成真实登录用户
+Hub      = Annotated[EventHub, Depends(get_hub)]       # 进程启动时建的那个 hub</pre>
+<div class="tablewrap"><table>
+<tr><th>参数</th><th>值从哪来</th><th>这次的值</th><th>Java（Spring）里的对应</th></tr>
+<tr><td><code>run_id: int</code></td><td>地址里 <code>{run_id}</code> 那一段</td><td>5</td><td><code>@PathVariable</code></td></tr>
+<tr><td><code>after: Query</code></td><td>地址里 <code>?after=0</code></td><td>0</td><td><code>@RequestParam</code></td></tr>
+<tr><td><code>last_event_id: Header</code></td><td>请求头 <code>Last-Event-ID</code></td><td>没有，默认 0</td><td><code>@RequestHeader</code></td></tr>
+<tr><td><code>db</code>、<code>redis_url</code>、<code>user</code>、<code>hub</code></td><td>调用对应的 <code>get_xxx()</code></td><td>连接池、地址、1、hub</td><td><code>@Autowired</code> 注入的 Bean</td></tr>
+</table></div>
+<p>好处是测试时可以整体替换，例如把 <code>get_db</code> 换成测试库，路由函数一行都不用改。</p>
+
+<h3><span class="qn">Q15</span>每次请求都是一个新的 <code>stream_events</code> 吗？<code>generate</code> 是谁调用的？return 到哪了？</h3>
+<p><b>代码只有一份，每次调用各有一套自己的变量。</b>A 看 5 号、B 看 6 号同时打开，就是两次调用：各自的 <code>run_id</code>、<code>last_seq</code>、<code>caught_up</code>、收件箱和生成器，互不影响，和 Java 里同一个方法被调用两次一样。</p>
+<p><b>生成器：</b>函数体里有 <code>yield</code> 的函数，调用时<b>不执行函数体</b>，只得到一个“暂停着的执行过程”。之后每次有人向它要下一个值，它就往下跑到下一个 <code>yield</code>，交出值，然后停在那里。</p>
+<pre>def count():
+    print("开始"); yield 1
+    print("继续"); yield 2
+
+g = count()   # 什么都没打印，只得到生成器 g
+next(g)       # 打印“开始”，返回 1，停住
+next(g)       # 打印“继续”，返回 2，停住</pre>
+<p><b>谁在要值：</b><code>stream_events</code> 查一次库、<b>定义</b> generate，然后 <code>return StreamingResponse(generate())</code>，几毫秒就结束了。它 return 给调用它的 FastAPI，FastAPI 再交给 uvicorn。<code>StreamingResponse</code> 是框架（Starlette）提供的，拿到生成器后反复做这件事：</p>
+<pre>async for chunk in 生成器:      # 向 generate 要下一段 → generate 跑到下一个 yield
+    await 写给浏览器(chunk)
+# generate return → 回复结束，连接关闭</pre>
+<p><b>没有为这个用户开新线程。</b>generate 是一个<b>协程</b>：一个能暂停、之后再接着跑的函数，暂停时只在内存里保存局部变量和停在哪一行，占几 KB。它跑在事件循环线程上。</p>
+<p><b>每次 yield 出来的东西：</b>一段纯文本，也就是浏览器在网络上收到的原文。<code>\n\n</code>（空行）表示一段结束。</p>
+<pre>"id: 4\nevent: step\ndata: {\"step_no\": 1, \"tool_name\": \"search_docs\", …}\n\n"   ← 持久事件（events 表的 payload）
+"event: caught_up\ndata: {}\n\n"                                                     ← 历史补完
+"event: ping\ndata: {}\n\n"                                                          ← 10 秒心跳
+"event: delta\ndata: {\"attempt_id\": 12, \"epoch\": 1, \"turn\": 2, \"kind\": \"reasoning\", \"text\": \"先查年报\"}\n\n"   ← Redis 片段</pre>
+
+<div class="player" id="pl-life">
+  <div class="ptitle">动画 ①：一个 SSE 连接的一生（代码走到哪一行、谁在跑、浏览器收到什么）</div>
+  <div class="life2">
+    <div class="codebox" id="life-code"></div>
+    <div class="statebox" id="life-state"></div>
+  </div>
+  <div class="cap"></div>
+  <div class="ctrl"><button data-a="prev">◀ 上一步</button><button data-a="play">▶ 自动播放</button><button data-a="next">下一步 ▶</button><span class="cnt"></span></div>
+</div>
+
+<h3><span class="qn">Q16</span>api.py 是单线程吗？<code>await</code> 是等待还是跳过？线程池是什么？</h3>
+<p>一个 API 进程里有三类线程（见本节开头的全景图）：</p>
+<div class="tablewrap"><table>
+<tr><th>线程</th><th>几个</th><th>谁建的</th><th>跑什么</th></tr>
+<tr><td><span class="pill p-loop">事件循环线程</span></td><td>1</td><td>uvicorn 启动时（<code>asyncio.run</code>）</td><td>所有 <code>async def</code> 代码：每个 generate、每个 pump、框架写网络</td></tr>
+<tr><td><span class="pill p-pool">线程池</span></td><td>最多 40，复用</td><td>框架（AnyIO）按需建</td><td>会卡住线程的同步代码：<code>run_in_threadpool</code> 里的查库；以及普通 <code>def</code> 写的路由（其余 5 个接口都是）</td></tr>
+<tr><td><span class="pill p-hub">hub 线程</span></td><td>1</td><td>我们自己（<code>hub.start()</code>）</td><td>守着 PG 的 LISTEN 连接</td></tr>
+</table></div>
+<p><b><code>await</code> 既不是傻等，也不是跳过：</b></p>
+<ul>
+<li><b>对这个函数来说是“等”</b>：停在这一行，后面的代码不执行，等的东西到了才从这一行接着跑；</li>
+<li><b>对线程来说是“去干别的”</b>：线程不卡在这里，回去跑别的连接的代码。</li>
+</ul>
+<p>如果写成阻塞调用（例如在 async 函数里直接同步查库，或者 <code>time.sleep</code>），线程就被卡死，所有连接都得陪着等。所以查库要写成 <code>await run_in_threadpool(...)</code>：把查库交给线程池里的一个线程，事件循环线程先去忙别的，查完再回到这一行。线程池就是 Java 的 <code>ExecutorService</code>，<code>run_in_threadpool(f)</code> 相当于 <code>CompletableFuture.supplyAsync(f, executor)</code>。</p>
+
+<div class="player" id="pl-board">
+  <div class="ptitle">动画 ②：一个线程轮流照看三个连接（A、C 看 5 号，B 看 6 号）</div>
+  <div class="tablewrap"><table class="board" id="board"></table></div>
+  <div class="cap"></div>
+  <div class="ctrl"><button data-a="prev">◀ 上一步</button><button data-a="play">▶ 自动播放</button><button data-a="next">下一步 ▶</button><span class="cnt"></span></div>
+</div>
+
+<h3><span class="qn">Q17</span>收件箱在哪创建？没消息时 generate 停在哪一行？</h3>
+<p><b>收件箱是 <code>hub.watch()</code> 新建的</b>（<code>event_hub.py:62</code>）：</p>
+<pre>def watch(self, run_id):
+    entry = (asyncio.get_running_loop(), asyncio.Queue())   # ← 新建一个空的内存队列：收件箱
+    self._watchers.setdefault(run_id, set()).add(entry)     # 登记进登记簿（hub 线程以后往里放 NEW_EVENTS）
+    try:
+        yield entry[1]                                      # 交给 generate
+    finally:
+        …从登记簿划掉…                                       # 连接结束时</pre>
+<pre>with hub.watch(run_id) as inbox:                               # api.py:238  接住收件箱
+    async with live.forward_deltas(redis_url, run_id, inbox):  # api.py:239  同一个收件箱交给 pump</pre>
+<p>收件箱<b>不是 Redis</b>，而是 API 进程内存里的一个 <code>asyncio.Queue</code>，每个 generate 一个。</p>
+<p><b>没消息时停在 <code>api.py:255</code>：</b></p>
+<pre>item = await asyncio.wait_for(inbox.get(), SSE_FALLBACK_SECONDS)   # 取一样东西，最多等 10 秒</pre>
+<div class="tablewrap"><table>
+<tr><th>怎么醒</th><th>item 是什么</th><th>接着走到</th></tr>
+<tr><td>hub 放了 NEW_EVENTS</td><td><code>"new_events"</code></td><td>第 265 行：查库，回到循环开头把新事件发出去</td></tr>
+<tr><td>pump 放了片段</td><td>片段 JSON</td><td>第 271 行：直接发 <code>event: delta</code></td></tr>
+<tr><td>10 秒什么都没有</td><td>抛 TimeoutError</td><td>第 256 行：发 ping，再把 item 设成 NEW_EVENTS，兜底查一次库</td></tr>
+</table></div>
+<p>一道题从开始到结束，generate 绝大部分时间都停在这一行。</p>
+
+<h3><span class="qn">Q18</span>hub 盯的是 PG 还是 Redis？片段是直接从 Redis 取的吗？</h3>
+<p><b>hub 只盯 PG；Redis 由每个连接自己的 pump 盯。</b>两路互不相干，只是放进同一个收件箱：</p>
+<div class="tablewrap"><table>
+<tr><th></th><th>hub</th><th>pump</th></tr>
+<tr><td>是什么</td><td>普通线程，每个 API 进程 1 个</td><td>协程（<code>asyncio.create_task</code>），每个 generate 1 个，在事件循环线程上</td></tr>
+<tr><td>盯着谁</td><td>PG 的通知（1 条 LISTEN 连接）</td><td>Redis 频道 <code>run:5:live</code>（每个连接各占 1 条 Redis 连接）</td></tr>
+<tr><td>放进收件箱的</td><td>纸条 <code>NEW_EVENTS</code>，不带内容</td><td>片段原文</td></tr>
+<tr><td>为什么这样设计</td><td>PG 连接贵（默认上限 100），不能每人一条</td><td>Redis 连接便宜（默认上限 1 万），每人一条最简单</td></tr>
+</table></div>
+<p><b>hub 为什么只递纸条：</b>A 可能已经收到第 6 条，C 刚连上只收到第 2 条，各自缺的不一样。让它们各自按 <code>seq &gt; last_seq</code> 去库里取，最准确，也不会漏。</p>
+<p><b>片段的完整链路：是 worker 写进 Redis，Redis 再推过来，不是 API 去 Redis 里取。</b></p>
+<pre>worker：模型吐出“先查年报” → run_episode 回调 on_delta → DeltaPublisher.publish("run:5:live", 片段)   live.py:61
+Redis ：推给所有订阅了 run:5:live 的连接（这一刻没人订阅就直接丢掉）
+API   ：pump 收到 → inbox.put_nowait(片段) → 叫醒 generate → yield "event: delta …" → 浏览器</pre>
+<p>Redis 在这里是<b>转播站，不是仓库</b>（发布 / 订阅，pub/sub）：推完就没了，所以片段没法补发。真正存东西的是 PG 的 events 表；这一步结束时，step 事件会带着完整思考补上。</p>
+
+<h3><span class="qn">Q19</span>事件循环是不是挨个去看收件箱？hub 和 pump 放了东西，它怎么知道？</h3>
+<p class="short"><b>不轮询。</b>事件循环手里只有一张“<b>待办</b>”名单（<code>loop._ready</code>），停在 <code>await</code> 上的协程不在名单上，它根本不去看。<b>谁往收件箱里放东西，谁就顺手把等着的协程放回待办。</b>线程没事做时睡在操作系统的 <code>select</code> 上，能叫醒它的只有三样：网络连接来了数据、闹钟到点、有人往 self-pipe 写了字节。</p>
+<p><b>收件箱怎么记住谁在等</b>（<code>asyncio.Queue</code> 源码简化）：</p>
+<pre>async def get(self):
+    while not self._items:
+        ticket = loop.create_future()   # 开一张“提货单”
+        self._getters.append(ticket)    # 登记：有人在等
+        await ticket                    # generate 停在这里
+    return self._items.pop(0)
+
+def put_nowait(self, item):
+    self._items.append(item)
+    if self._getters:
+        self._getters.pop(0).set_result(None)   # 在提货单上盖章 → “继续跑 generate”进待办</pre>
+<p><b>调度循环本身</b>（简化）：</p>
+<pre>while True:
+    for callback in 当前待办: callback()                 # ① 把待办做掉，每个协程跑到下一个 await 就交回来
+    ready = selector.select(timeout=离最近闹钟还有多久)   # ② 没事就睡在这里（Linux epoll / Windows IOCP）
+    把有数据的连接、到点的闹钟对应的协程放进待办          # ③</pre>
+<p><b>两路的差别：</b>pump 本身就在事件循环线程上，它放东西时线程是醒着的，直接放进待办就行。hub 在<b>另一个线程</b>，事件循环可能正睡在 select 上；如果直接调用 <code>put_nowait</code>，不但没人去执行待办，两个线程同时改一个列表还会改乱。所以要用 <code>loop.call_soon_threadsafe</code>（<code>event_hub.py:78</code>）：先加锁把“放纸条”塞进待办，<b>再往 self-pipe 写 1 个字节</b>。self-pipe 是事件循环启动时给自己建的一对互通的 socket，select 一直盯着其中一头，字节一到就醒。</p>
+
+<div class="player" id="pl-wake">
+  <div class="ptitle">动画 ③：事件循环是怎么被叫醒的（三种情况）</div>
+  <div class="tabs"></div>
+  <div class="wakewrap"><svg id="wake" viewBox="0 0 1082 488" role="img" aria-label="事件循环唤醒过程"></svg></div>
+  <div class="wake-legend">卡片顶部的小字是它属于哪个线程；浅蓝底色的区域都在事件循环线程上。红框 = 这一步在动的部分，红点沿箭头走一遍。</div>
+  <div class="cap"></div>
+  <div class="ctrl"><button data-a="prev">◀ 上一步</button><button data-a="play">▶ 自动播放</button><button data-a="next">下一步 ▶</button><span class="cnt"></span></div>
+</div>
+
+<h3><span class="qn">Q20</span>那段 <code>while True</code> 调度循环是我们写的吗？为什么不在 uvicorn 包里？</h3>
+<p><b>都不是。它是 Python 标准库 asyncio 的代码</b>（<code>asyncio/base_events.py</code> 里的 <code>BaseEventLoop._run_once</code>）。Q19 里贴的是简化版。三层分工：</p>
+<pre>我们（api.py / event_hub.py / live.py）   写 async def 协程，放到事件循环上跑
+uvicorn（Web 服务器）                      选一个事件循环、启动它；在上面收连接、解析 HTTP、调用 FastAPI
+asyncio（Python 标准库）                   事件循环本身：while True、待办 _ready、select、Queue、self-pipe</pre>
+<pre># uvicorn 启动时做的事（简化）
+def run(self):
+    asyncio.run(self.serve())   # ← 调用标准库：建事件循环，在主线程上跑起来</pre>
+<p>比方：asyncio 是<b>发动机</b>；uvicorn 是<b>整车厂</b>，选了这台发动机装上、点火；我们是<b>司机</b>，只管往哪开。uvicorn 也能换发动机：装了 <code>uvloop</code>（C 写的事件循环）就用它。我们没装，用的是标准库。</p>
+<div class="tablewrap"><table>
+<tr><th>东西</th><th>谁写的</th></tr>
+<tr><td>调度循环、待办列表、self-pipe、闹钟表、<code>asyncio.Queue</code>、<code>call_soon_threadsafe</code>、<code>wait_for</code></td><td>Python 标准库 asyncio</td></tr>
+<tr><td>线程池、<code>run_in_threadpool</code>、<code>StreamingResponse</code></td><td>Starlette / AnyIO（FastAPI 底层）</td></tr>
+<tr><td>收端口、启动事件循环</td><td>uvicorn</td></tr>
+<tr><td><b><code>stream_events</code> / <code>generate</code>、hub、pump 的业务逻辑</b></td><td><b>我们</b></td></tr>
+</table></div>
+
+<h3><span class="qn">Q21</span>三个线程到底是什么关系？</h3>
+<p class="short"><b>一个 API 进程里三类线程：事件循环线程 1 个、线程池最多 40 个、hub 线程 1 个。</b>事件循环线程是主场：请求都先到它这里，另外两类都是从它这里派出去干活的，干完再把结果交回给它。</p>
+<div class="player" id="pl-thr">
+  <div class="ptitle">动画 ④：三个线程怎么分工处理请求（五个场景）</div>
+  <div class="tabs"></div>
+  <div class="wakewrap"><svg id="thr" viewBox="0 0 1000 440" role="img" aria-label="三类线程处理请求的过程"></svg></div>
+  <div class="wake-legend">三条色带是三类线程：蓝 = 事件循环线程，紫 = 线程池，绿 = hub 线程。小卡片沿线移动 = 一件活或一个结果从一处交到另一处；红框 = 这一步在忙的地方。</div>
+  <div class="cap"></div>
+  <div class="ctrl"><button data-a="prev">◀ 上一步</button><button data-a="play">▶ 自动播放</button><button data-a="next">下一步 ▶</button><span class="cnt"></span></div>
+</div>
+<div class="tablewrap"><table>
+<tr><th></th><th>谁创建</th><th>在代码里怎么露面</th><th>和事件循环线程怎么交接</th></tr>
+<tr><td><span class="pill p-loop">事件循环线程</span></td><td>uvicorn（<code>asyncio.run</code>）</td><td><b>看不到创建代码</b>；凡是 <code>async def</code> / <code>await</code> 的地方都跑在它上面</td><td>—</td></tr>
+<tr><td><span class="pill p-pool">线程池</span></td><td>框架按需</td><td>也看不到创建代码；只在 <code>run_in_threadpool(...)</code> 和普通 <code>def</code> 路由处用到</td><td>派：<code>await run_in_threadpool</code>；回：结果自动交回 await 那一行</td></tr>
+<tr><td><span class="pill p-hub">hub 线程</span></td><td>我们（<code>hub.start()</code>）</td><td><b>唯一显式创建的</b>：<code>threading.Thread(target=self._listen_forever)</code>（<code>event_hub.py:46</code>）</td><td>回：<code>loop.call_soon_threadsafe(...)</code>（写 self-pipe 叫醒）</td></tr>
+</table></div>
+<p>注意这只是<b>一个 API 进程</b>里的情况。整个系统还有别的进程：dispatcher、worker 主进程和子进程、PG、Redis、RabbitMQ，各有自己的线程，和这里无关。</p>
+
+<h3><span class="qn">Q22</span>事件循环线程在我们的代码里体现在哪？</h3>
+<p>没有一行是“创建它”的。起点是启动命令（<code>compose.yaml:124</code>）：<code>uvicorn margin.api:app --port 8000</code>，uvicorn 进程的主线程就是它。之后能看到它的地方有三种：</p>
+<ul>
+<li><b>跑在它上面的：所有 <code>async def</code></b>。<code>lifespan</code>（<code>api.py:43</code>）、<code>stream_events</code>（201）、<code>generate</code>（233）、<code>forward_deltas</code> 和 <code>pump</code>（<code>live.py:74、94</code>）。<code>asyncio.create_task(pump())</code>（<code>live.py:102</code>）是在它上面再挂一个协程。</li>
+<li><b>在它上面让出的：每个 <code>await</code></b>。比如 <code>api.py:231</code> 查库、<code>255</code> 等收件箱、<code>live.py:86</code> 等 Redis 回复。</li>
+<li><b>直接拿到它的：只有 hub 里两处。</b><code>asyncio.get_running_loop()</code>（<code>event_hub.py:62</code>，意思是“正在运行我的那个事件循环”。<code>watch</code> 是在 generate 里调用的，所以拿到的就是它），以及 <code>loop.call_soon_threadsafe(...)</code>（78 行，hub 线程用它把活交回来）。</li>
+</ul>
+<p>这两处是在<b>使用</b>事件循环（拿引用、往它的待办里塞事），不是在创建或管理它。</p>
+
+<h3><span class="qn">Q23</span>那整个 api.py（包括初始化 hub）都是事件循环线程在跑吗？</h3>
+<p><b>不全是。一个文件不等于一个线程，代码在哪个线程跑，看的是谁调用、怎么调用。</b></p>
+<div class="tablewrap"><table>
+<tr><th>代码</th><th>在哪个线程</th><th>什么时候</th></tr>
+<tr><td>模块顶层：<code>import</code>、<code>app = FastAPI(...)</code>、函数定义</td><td><span class="pill p-loop">主线程</span>（就是事件循环线程）</td><td>启动时导入一次</td></tr>
+<tr><td><code>async def lifespan</code>：<code>EventHub(...)</code>、<code>hub.start()</code></td><td><span class="pill p-loop">事件循环线程</span></td><td>开始接请求前一次</td></tr>
+<tr><td><code>async def stream_events</code>、<code>generate</code></td><td><span class="pill p-loop">事件循环线程</span></td><td>每个事件流请求</td></tr>
+<tr><td>普通 <code>def</code> 路由：<code>create_run</code>、<code>get_run</code>、<code>regenerate</code>、<code>list_runs</code>、<code>health</code></td><td><span class="pill p-pool">线程池</span></td><td>每个请求</td></tr>
+<tr><td>依赖函数 <code>get_db</code>、<code>get_redis_url</code>、<code>current_user</code>、<code>get_hub</code></td><td><span class="pill p-pool">线程池</span>（普通 def 的依赖也放进线程池）</td><td>每个请求，调用路由之前</td></tr>
+<tr><td><code>run_in_threadpool(runs.events_after, …)</code> 里的查库</td><td><span class="pill p-pool">线程池</span></td><td>stream_events 每次查库</td></tr>
+</table></div>
+<p><b>初始化 hub 跨了两个线程：</b></p>
+<pre>async def lifespan(app):                 # 事件循环线程
+    hub = EventHub(database_url)         # 事件循环线程：建对象、空登记簿
+    hub.start()                          # 事件循环线程：调用 Thread.start()，立刻返回
+    #   └─▶ 新线程开始执行 _listen_forever  ← 从这里起是 hub 线程：连 PG、LISTEN、一直循环
+    app.state.hub = hub
+    yield                                # 进程运行期间停在这里；关闭时往下走 → hub.stop()</pre>
+<div class="tablewrap"><table>
+<tr><th>event_hub.py 的方法</th><th>在哪个线程</th><th>谁调用</th></tr>
+<tr><td><code>__init__</code>、<code>start</code></td><td><span class="pill p-loop">事件循环线程</span></td><td>lifespan</td></tr>
+<tr><td><code>watch</code>（建收件箱、登记、注销）</td><td><span class="pill p-loop">事件循环线程</span></td><td>generate</td></tr>
+<tr><td><code>_listen_forever</code>、<code>_wake</code></td><td><span class="pill p-hub">hub 线程</span></td><td>线程自己</td></tr>
+<tr><td><code>call_soon_threadsafe</code> 交过去的 <code>put_nowait</code></td><td>回到<span class="pill p-loop">事件循环线程</span></td><td><code>_wake</code> 交过去的</td></tr>
+</table></div>
+<p><b>你的说法“这个文件由事件循环线程负责”作为大方向成立</b>：文件是它加载的，每个请求都先到它这里，线程池和 hub 线程都是它派出去的。但具体到某个函数，要再问一句“<b>它是 <code>async def</code> 吗？</b>”。这个区别会决定代码写得对不对：</p>
+<div class="tablewrap"><table>
+<tr><th>写法</th><th>后果</th></tr>
+<tr><td>普通 <code>def</code> 路由里 <code>time.sleep(5)</code> 或慢查询</td><td>只占一个线程池线程，其他请求和 SSE 照常</td></tr>
+<tr><td><code>async def</code>（如 generate）里直接同步查库或 <code>time.sleep(5)</code></td><td><b>事件循环线程卡 5 秒，这个进程所有 SSE 全部停住</b></td></tr>
+<tr><td>hub 线程直接调用 <code>inbox.put_nowait</code></td><td>跨线程改 asyncio 对象：可能没人被叫醒、数据可能改乱，所以必须用 <code>call_soon_threadsafe</code></td></tr>
+</table></div>
+
+<h3>汇总一：一道题从打开页面到结束，各线程在干什么</h3>
+<p>A 打开刚提交的 5 号题。时间是示意值。</p>
+<div class="tablewrap"><table>
+<tr><th>时间</th><th>外部（worker / PG / Redis）</th><th><span class="pill p-hub">hub 线程</span></th><th><span class="pill p-loop">事件循环线程</span></th><th><span class="pill p-pool">线程池</span></th><th>浏览器</th></tr>
+<tr><td>0 ms</td><td></td><td>睡在 LISTEN 上</td><td>uvicorn 收到 GET → FastAPI 准备参数（依赖注入）→ 调用 stream_events</td><td>events_after(after=0)：查到 seq 1</td><td>new EventSource</td></tr>
+<tr><td>2 ms</td><td></td><td></td><td>return StreamingResponse → 发响应头 → 第一次向 generate 要值：watch 建收件箱、订阅 Redis、启动 pump、自放 NEW_EVENTS</td><td></td><td></td></tr>
+<tr><td>3 ms</td><td></td><td></td><td>yield seq 1 → yield caught_up → 拿到自放的 NEW_EVENTS → 补查</td><td>补查：0 条</td><td>收到 seq 1、caught_up</td></tr>
+<tr><td>4 ms</td><td></td><td></td><td>generate 停在 <code>api.py:255</code>；线程去照看别人，没事就睡在 select</td><td></td><td></td></tr>
+<tr><td>1.2 s</td><td>worker claim，写 seq 2，提交 → PG 发通知 "5"</td><td>收到 "5" → call_soon_threadsafe（写 self-pipe）</td><td>被 self-pipe 叫醒 → 放 NEW_EVENTS → generate 进待办 → 查库</td><td>查到 seq 2</td><td></td></tr>
+<tr><td>1.2 s</td><td></td><td></td><td>yield seq 2 → 又停在 255 行</td><td></td><td>收到 attempt_started</td></tr>
+<tr><td>3 s</td><td>worker publish 片段到 Redis</td><td></td><td>select：pump 的 Redis 连接有数据 → 跑 pump → 放片段 → 跑 generate → yield delta</td><td></td><td>思考逐字出现</td></tr>
+<tr><td>13 s</td><td>（模型在想，10 秒没新东西）</td><td></td><td>闹钟到点 → TimeoutError → yield ping → 兜底查库</td><td>查到 0 条</td><td>收到 ping，重置 25 秒计时</td></tr>
+<tr><td>…</td><td>每一步都重复“通知 → 查库 → 发”</td><td>…</td><td>…</td><td>…</td><td>…</td></tr>
+<tr><td>90 s</td><td>worker finish，写 seq 7，提交 → 通知</td><td>call_soon_threadsafe</td><td>查到 seq 7、状态 completed → yield → return → 退出两层 with：从登记簿划掉、取消 Redis 订阅 → 回复结束</td><td>查到 seq 7</td><td>收到 attempt_finished，连接关闭</td></tr>
+</table></div>
+
+<h3>汇总二：和 Java 的对照</h3>
+<div class="tablewrap"><table>
+<tr><th>Python（我们这里）</th><th>Java 里的近似</th></tr>
+<tr><td>uvicorn</td><td>Tomcat / Netty</td></tr>
+<tr><td><code>@app.get("/runs/...")</code></td><td><code>@GetMapping("/runs/...")</code></td></tr>
+<tr><td><code>Depends(get_db)</code> 依赖注入</td><td><code>@Autowired</code></td></tr>
+<tr><td>普通 <code>def</code> 路由放进线程池</td><td>传统 Spring MVC：Tomcat 线程池，一个请求占一个线程</td></tr>
+<tr><td>事件循环 + <code>async def</code> + <code>await</code></td><td>Netty / Spring WebFlux 的事件循环；写法接近 <code>CompletableFuture</code> 链，或 Java 21 的虚拟线程</td></tr>
+<tr><td>线程池、<code>run_in_threadpool(f)</code></td><td><code>ExecutorService</code>、<code>CompletableFuture.supplyAsync(f, executor)</code></td></tr>
+<tr><td>生成器 <code>yield</code></td><td><code>Iterator</code>，或 WebFlux 的 <code>Flux</code></td></tr>
+<tr><td><code>StreamingResponse</code>（text/event-stream）</td><td>Spring 的 <code>SseEmitter</code>，或返回 <code>Flux&lt;ServerSentEvent&gt;</code></td></tr>
+<tr><td><code>asyncio.Queue</code>（收件箱）</td><td><code>BlockingQueue</code>，但等待时不占线程</td></tr>
+<tr><td><code>call_soon_threadsafe</code></td><td>Netty 的 <code>eventLoop.execute(task)</code>（从别的线程把任务交给事件循环）</td></tr>
+</table></div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="qa3">八、问答第三轮：叫醒、闹钟、理解与撰写、一条数据的旅程（2026-10-20）</h2>
+<div class="qa">
+<p class="short"><b>一句话：</b>事件循环只会被“它盯着的连接来了字节”或“闹钟到点”叫醒；Redis 和 PG 都是独立的服务器，只往连接里发字节，后面的动作全是我们的代码。理解题目和撰写回答都在 worker 里，前端只发一次问题。每段数据都贴着标签（事件名 + kind），<b>后端决定“这是什么”，前端决定“放在哪”</b>；中间的 Redis 和 API 都不解析内容，只是原样转交。</p>
+
+<h3><span class="qn">Q24</span>叫醒事件循环的，是不是都是“网络通道来了数据”？Redis 不是缓存吗，怎么会操作 pump？</h3>
+<p><b>能叫醒事件循环的只有两类：</b></p>
+<div class="tablewrap"><table>
+<tr><th>类别</th><th>具体是什么</th></tr>
+<tr><td>它盯着的某条连接来了字节</td><td>浏览器连接（新请求、断开）；pump 的 Redis 连接（片段到了）；<b>self-pipe</b>（hub 线程或线程池写进来 1 个字节）</td></tr>
+<tr><td>闹钟到点</td><td>见 Q25</td></tr>
+</table></div>
+<p><b>PG 那一路并不直接叫醒事件循环。</b>PG 的通知连接由 hub 线程自己守着，不归事件循环管：</p>
+<pre>PG 通知 → hub 线程的连接来了字节 → hub 线程醒来 → 往 self-pipe 写 1 字节 → 事件循环醒来</pre>
+<p><b>Redis 不操作 pump，它只往连接里发字节。</b>Redis 不是被 py 文件调用的库，而是一个<b>独立运行的服务器程序</b>（compose 里的 <code>redis</code> 容器），有自己的进程，这一点和 PG 一样。缓存只是它的一种用途；M2 用的是它的<b>发布 / 订阅</b>（pub/sub）：</p>
+<pre>① pump（我们的代码）连上 Redis，发 SUBSCRIBE run:5:live → Redis 记下“这条连接订阅了它”
+② worker（我们的代码）发 PUBLISH run:5:live "…"        → Redis 把消息写进每条订阅连接
+③ API 进程：pump 那条连接来了字节 → select 返回 → 事件循环跑 pump → pump 解码、放进收件箱（我们的代码）</pre>
+<p>比方：Redis 是<b>广播电台</b>，pump 是你家<b>收音机</b>。电台只发信号，收到信号后怎么播放，是收音机自己的事。PG 发 NOTIFY 也一样：PG 只往 hub 的连接里写字节。</p>
+
+<h3><span class="qn">Q25</span>闹钟到点，是扫一遍待办吗？10 秒是固定值，事件循环怎么算睡多久？</h3>
+<p><b>每个连接的等待时长固定是 10 秒，但各个连接从不同时刻开始等。</b>每次 <code>wait_for(inbox.get(), 10)</code> 都登记一个闹钟，记的是<b>到点时刻 = 现在 + 10</b>。事件循环把所有闹钟按时刻排在一个堆里，睡觉前只看最早的那个：</p>
+<div class="figwrap">
+<svg class="fig" viewBox="0 0 960 200" role="img" aria-label="三个连接的闹钟和 select 的睡眠时长">
+  <defs><marker id="ah5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker></defs>
+  <line x1="40" y1="150" x2="930" y2="150" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#ah5)"/>
+  <text x="930" y="172" text-anchor="end" font-size="12" class="muted">时刻（秒）</text>
+  <g font-size="12">
+    <line x1="80" y1="40" x2="80" y2="150" stroke="var(--border)" stroke-dasharray="3 3"/><text x="80" y="168" text-anchor="middle">100.0</text>
+    <line x1="220" y1="40" x2="220" y2="150" stroke="var(--border)" stroke-dasharray="3 3"/><text x="220" y="168" text-anchor="middle">103.5</text>
+    <line x1="352" y1="40" x2="352" y2="150" stroke="var(--border)" stroke-dasharray="3 3"/><text x="352" y="168" text-anchor="middle">106.8</text>
+    <line x1="480" y1="40" x2="480" y2="150" stroke="var(--border)" stroke-dasharray="3 3"/><text x="480" y="168" text-anchor="middle">110.0</text>
+    <line x1="620" y1="40" x2="620" y2="150" stroke="var(--border)" stroke-dasharray="3 3"/><text x="620" y="168" text-anchor="middle">113.5</text>
+    <line x1="752" y1="40" x2="752" y2="150" stroke="var(--border)" stroke-dasharray="3 3"/><text x="752" y="168" text-anchor="middle">116.8</text>
+  </g>
+  <rect x="80" y="34" width="400" height="18" rx="9" fill="var(--api-bg)" stroke="var(--api)"/><text x="88" y="47" font-size="12" font-weight="700">A 开始等 → 闹钟 110.0</text>
+  <rect x="220" y="62" width="400" height="18" rx="9" fill="var(--pg-bg)" stroke="var(--pg)"/><text x="228" y="75" font-size="12" font-weight="700">B 开始等 → 闹钟 113.5</text>
+  <rect x="352" y="90" width="400" height="18" rx="9" fill="var(--worker-bg)" stroke="var(--worker)"/><text x="360" y="103" font-size="12" font-weight="700">C 开始等 → 闹钟 116.8</text>
+  <path d="M352 126 H476" stroke="var(--warn)" stroke-width="3" marker-end="url(#ah5)"/>
+  <text x="490" y="131" font-size="12" font-weight="700" style="fill: var(--warn)">select 睡 3.2 秒</text>
+  <text x="790" y="122" font-size="12" class="muted">106.8 时没事可做：</text>
+  <text x="790" y="138" font-size="12" class="muted">最早的是 A（110.0）</text>
+</svg>
+</div>
+<pre># asyncio/base_events.py 的 _run_once（简化）
+if self._ready:           timeout = 0                                         # 有待办：不睡
+elif self._scheduled:     timeout = max(0, self._scheduled[0]._when - now)    # 睡到最早的闹钟
+else:                     timeout = None                                      # 没闹钟：一直睡到有连接来数据
+self._selector.select(timeout)
+while self._scheduled and self._scheduled[0]._when &lt;= now:                  # 醒来：只把到点的挪进待办
+    self._ready.append(heapq.heappop(self._scheduled))</pre>
+<ul>
+<li><b>不是扫描</b>：闹钟存在一个排好序的堆里，只看最前面那个。</li>
+<li><b>提前醒的情况</b>：比如 108.0 时 A 的收件箱来了东西，A 那个 110.0 的闹钟就作废。等 A 处理完、重新开始等，再登记一个 118.0 的新闹钟。</li>
+<li><b>我们一直在用它</b>：模型想得久、10 秒没有任何东西时，<code>api.py:255</code> 的闹钟就会响，于是发 ping、再兜底查一次库。</li>
+<li><b>还有别人的闹钟</b>：uvicorn 的主循环每 0.1 秒 <code>asyncio.sleep(0.1)</code> 一次（检查是否该退出、更新日期头），所以事件循环最多睡 0.1 秒就会醒一下。看一眼没事，又接着睡，开销很小。</li>
+</ul>
+
+<h3><span class="qn">Q26</span>M2.5 的“理解题目”和“撰写回答”是怎么实现的？前端要发什么？</h3>
+<p class="short"><b>前端什么都不用额外发</b>，只有 <code>POST /runs</code> 里的问题。两步都在 worker 里完成：用同一个模型，各配一份独立的提示词（<code>src/margin/prompts/</code>，不放进 <code>harness/prompts/</code>，那里是自训模型训练时用的接口），各调用一次，都不带工具。</p>
+<pre>worker.execute（worker.py:167-218）
+claim
+ ├─ 另一个线程：理解题目（约 6 秒）──────────┐ save_understanding：写 runs 表 + run_understood 事件
+ └─ 主线程：Harness（一两分钟）              │
+        └─ finalize 要“猜的格式”时等它一下（通常早就好了）
+ → compose 撰写回答（流式，正文逐字推给前端）
+ → 等理解题目的线程结束（让 run_understood 排在结束事件前面）
+ → finish：写 final.written + answer_written + attempt_finished</pre>
+<div class="tablewrap"><table>
+<tr><th></th><th>理解题目（understand.py）</th><th>撰写回答（compose.py）</th></tr>
+<tr><td>发给模型</td><td>提示词 + 问题原句</td><td>提示词 + <code>render()</code> 整理的证据：问题、提交结果、编号好的引用原文（带前后文，表格带表头）、计算、最新工作笔记。<b>不发每一步的思考</b>：实验 E2 里带上思考后输入多 4 倍，数字反而更容易错</td></tr>
+<tr><td>调用方式</td><td><code>complete(messages, 2000)</code>，非流式</td><td><code>complete(messages, 4000, on_delta=…)</code>，流式，只转发正文片段</td></tr>
+<tr><td>模型返回</td><td>JSON：<code>{"title", "label", "answer_format"}</code>，pydantic 校验</td><td>一段带 [n] 的正文</td></tr>
+<tr><td>代码再处理</td><td>—</td><td><code>check()</code>：删掉不存在的 [n]；回答里的数字在问题、引用、计算、答案里找不到的，记为“未核实”（不删）</td></tr>
+<tr><td>失败</td><td>退回“问题前 20 字 + 文本格式”</td><td>返回 <code>{"error"}</code>，页面退回“短答案 + 依据列表”</td></tr>
+<tr><td>写到哪</td><td>runs 表 <code>title / answer_label / guessed_format</code> + <code>run_understood</code> 事件</td><td>attempt 的 <code>final.written</code> + <code>answer_written</code> 事件</td></tr>
+<tr><td>用在哪</td><td>标题栏、左侧列表、结论说明；finalize 按猜的格式“软校验”（D25）</td><td>回答区：先逐字显示，再换成校验后的版本</td></tr>
+</table></div>
+<p>worker 和模型之间都是向网关发 <code>POST /v1/chat/completions</code>（OpenAI 兼容格式）。理解题目、Harness 的每一轮、撰写回答用的是同一个客户端，区别只在 messages 不同、带不带工具（只有 Harness 带）、是否流式。</p>
+
+<h3><span class="qn">Q27</span>前端怎么知道哪段是思考、哪段是理解题目、哪段是回答正文？</h3>
+<p><b>靠标签，分两层：</b></p>
+<ol>
+<li><b>SSE 的 <code>event:</code> 行</b>：run_understood、step、answer_written…… 这些名字是写事件的函数定的，比如 <code>add_event(session, run_id, "run_understood", …)</code>。</li>
+<li><b>delta 里的 <code>kind</code></b>：所有逐字片段的事件名都叫 delta，再用 kind 区分。<code>reasoning / content</code> 是 Harness 调用模型时，模型客户端按网关返回的字段贴上的；<code>answer</code> 是撰写回答时 worker 写死的（<code>worker.py:206</code>）。</li>
+</ol>
+<div class="tablewrap"><table>
+<tr><th>标签</th><th>前端存进这次执行的哪个字段（timeline.ts）</th><th>哪个组件画、显示在哪</th></tr>
+<tr><td><code>run_understood</code></td><td><code>understood</code></td><td>RunPage、Work：标题栏、左侧列表、过程区第一项、结论说明</td></tr>
+<tr><td><code>delta</code> + <code>kind: reasoning / content</code></td><td><code>live</code></td><td>Work：过程区里正在进行的那一步，逐字出现</td></tr>
+<tr><td><code>step</code></td><td><code>steps</code></td><td>Work：过程区加一步，用完整思考替换 live</td></tr>
+<tr><td><code>delta</code> + <code>kind: answer</code></td><td><code>answer</code></td><td>Answer：回答区，逐字出现</td></tr>
+<tr><td><code>answer_written</code></td><td><code>written</code>，同时清空 <code>answer</code></td><td>Answer：换成校验后的正文</td></tr>
+</table></div>
+<p>前端从来不靠内容去猜这段是什么，只看标签。第四节的“10 种事件”表就是双方的约定。</p>
+
+<h3><span class="qn">Q28</span>后端往 Redis 里发的是什么？纯字符串吗？</h3>
+<p><b>是一个字符串，内容是按约定格式写的 JSON。</b>中间的 Redis 和 API 都不解析它，原样往下传，最后由前端 <code>JSON.parse</code>。数据有两层格式：</p>
+<div class="tablewrap"><table>
+<tr><th>层</th><th>格式</th><th>谁定的</th><th>谁解析</th></tr>
+<tr><td>外层</td><td>SSE：<code>id: / event: / data:</code>，空行结束</td><td>浏览器标准</td><td>浏览器的 EventSource</td></tr>
+<tr><td>内层</td><td><code>data:</code> 后面的 JSON：有哪些字段、各叫什么名字</td><td><b>我们自己约定</b></td><td>前端 <code>JSON.parse</code></td></tr>
+</table></div>
+<p>JSON 不是随手拼的字符串：<code>json.dumps</code> 会把引号、换行转义成 <code>\"</code>、<code>\n</code>。这一点很要紧，因为 SSE 是按换行分行的，正文里的真实换行如果不转义，会把一段消息截断。字段名在后端（<code>live.py:58</code> 的字典）和前端（<code>timeline.ts</code> 的 <code>Delta</code> 类型）各写一份，中间没有自动校验。两边对不上时，靠前端 e2e 测试拿录制下来的真实数据回放来发现。</p>
+
+<h3><span class="qn">Q29</span><code>event:</code> 是 generate 套的吧？它怎么知道这段是 delta 还是 step？</h3>
+<p><b>它不看内容，看的是这段东西从哪条路来。</b><code>api.py:244-271</code> 里有四个 <code>yield</code>：</p>
+<div class="tablewrap"><table>
+<tr><th>浏览器看到的 <code>event:</code></th><th>名字是谁定的</th><th>generate 怎么得到</th></tr>
+<tr><td>attempt_queued、step、run_understood、answer_written、attempt_finished……</td><td>写事件的函数（runs.py、lease.py）</td><td>照抄数据库 events 表的 <code>type</code> 列</td></tr>
+<tr><td>delta</td><td>generate 自己</td><td>收件箱里拿到的不是 <code>NEW_EVENTS</code>（只有 pump 会放这种东西）</td></tr>
+<tr><td>caught_up</td><td>generate 自己</td><td>第一次补发完</td></tr>
+<tr><td>ping</td><td>generate 自己</td><td>等满 10 秒</td></tr>
+</table></div>
+<p>generate 只是个<b>转发员</b>：持久事件的名字是写库的人起的，它照抄；另外三种是它自己的规则，写死在代码里。</p>
+
+<div class="player" id="pl-trip">
+  <div class="ptitle">动画 ⑤：一条数据的旅程（每一站谁经手、长什么样）</div>
+  <div class="tabs"></div>
+  <div class="wakewrap"><svg id="trip" viewBox="0 0 1000 300" role="img" aria-label="一条数据从 worker 到页面的每一站"></svg></div>
+  <div class="shape"><div class="k">这一站，数据长这样：</div><pre id="trip-shape"></pre></div>
+  <div class="cap"></div>
+  <div class="ctrl"><button data-a="prev">◀ 上一步</button><button data-a="play">▶ 自动播放</button><button data-a="next">下一步 ▶</button><span class="cnt"></span></div>
+</div>
+</div>
+
+</main>
+
+<script>
+(function () {
+  const NS = 'http://www.w3.org/2000/svg';
+  const W = 1000;
+  const LANES = {
+    web: { x: 75, name: '浏览器（前端）', c: 'web' },
+    api: { x: 255, name: 'API 进程', c: 'api' },
+    pg: { x: 440, name: 'PostgreSQL', c: 'pg' },
+    redis: { x: 590, name: 'Redis', c: 'redis' },
+    mq: { x: 730, name: 'dispatcher · RabbitMQ', c: 'mq' },
+    wk: { x: 912, name: 'worker 子进程', c: 'worker' }
+  };
+  const KINDS = {
+    http: ['HTTP 请求 / 响应', false], sse: ['SSE 推送', true], sql: ['读写 PG', false],
+    notify: ['PG 通知（NOTIFY）', true], redis: ['Redis 发布 / 转发', false], mq: ['投递（M1.5，略）', true],
+    local: ['进程内部', false]
+  };
+  // 每一项：phase 阶段标题；或 n 编号 + from/to（箭头）或 on（进程内的说明框）
+  // t 箭头上的字，s 箭头下的小字；ref 代码位置（表格用）；d 表格里的解释
+  const ITEMS = [
+    { phase: 'A　提交' },
+    { n: 1, from: 'web', to: 'api', k: 'http', t: 'POST /runs（带 Idempotency-Key）',
+      ref: 'Composer.tsx:29 → api.ts:135 → api.py:169 create_run', d: '前端为“这次提交”生成一个幂等键；网络出错重试时用同一个键。' },
+    { n: 2, from: 'api', to: 'pg', k: 'sql', t: 'runs.create_run', s: 'run + attempt 12 + outbox + attempt_queued 事件，一个事务',
+      ref: 'runs.py:82 create_run → 64 _enqueue_attempt → 33 add_event', d: '同一个幂等键第二次来，ON CONFLICT 什么都不插，返回同一个 run。add_event 在同一事务里 pg_notify(run_events, "5")（第 49 行）。' },
+    { n: 3, from: 'api', to: 'web', k: 'http', dash: true, t: '202 { run_id: 5 }', ref: 'api.py:181', d: '只说“收下了”，题目还没开始执行。' },
+    { n: 4, from: 'web', to: 'api', k: 'http', t: 'GET /runs/5', s: 'runs.get_run：题目、标题、模型、每次执行的时间',
+      ref: 'RunPage.tsx:42 → api.py:190 → runs.py:146', d: '页面先拿到题目本身（问题原句、标题、模型名、执行时间），再开事件流。get_run 也返回了全部步骤，但页面画步骤用的是事件流补发的事件，这部分目前没用上（见 Q4）。' },
+
+    { phase: 'B　打开事件流（M2）' },
+    { n: 5, from: 'web', to: 'api', k: 'http', t: 'new EventSource(/runs/5/events?after=0)',
+      ref: 'useRunStream.ts:69 → api.ts:156 → api.py:200 stream_events', d: '浏览器自带的 SSE 客户端。after 是“我已经收到的最后一个 seq”，第一次是 0。' },
+    { n: 6, from: 'api', to: 'pg', k: 'sql', t: 'runs.events_after(5, after=0)', s: '先读 run 状态，再读 seq > 0 的事件',
+      ref: 'api.py:231 → runs.py:181', d: '顺序不能反：先读事件再读状态，中间恰好有“结束”提交，会读到“已结束”却漏掉结束事件，SSE 随即关闭。' },
+    { n: 7, on: 'api', k: 'local', t: ['hub.watch(5)：登记“我在看 run 5”，拿到收件箱', 'live.forward_deltas：订阅 Redis 频道 run:5:live', '收件箱先放一个 NEW_EVENTS，第一轮补查一次'],
+      ref: 'api.py:238-242 · event_hub.py:56 · live.py:74', d: '查完第 6 步到登记之间提交的事件不会叫醒这个连接，所以登记后先补查一次。第三节有图。' },
+    { n: 8, from: 'api', to: 'web', k: 'sse', t: 'id:1 attempt_queued → event: caught_up',
+      ref: 'api.py:244-252 · timeline.ts:130', d: '先把历史事件一次推完，再发 caught_up（不带 id）。执行中刷新页面，就是在这里一下子收到前面所有步骤。' },
+
+    { phase: 'C　投递（M1.5，见上一份报告）' },
+    { n: 9, from: 'pg', to: 'wk', k: 'mq', t: 'dispatcher 发消息 → RabbitMQ 推给 worker', s: 'execute_attempt(12)',
+      ref: 'dispatcher.py · worker.py:223', d: 'outbox → dispatch_once → RabbitMQ → worker 主进程 → 子进程。细节见 M1.5 监督机制梳理。' },
+
+    { phase: 'D　执行（M2 推流 + M2.5 理解题目、撰写回答）' },
+    { n: 10, from: 'wk', to: 'pg', k: 'sql', t: 'lease.claim', s: 'pending → running，epoch 1；写 attempt_started{12, epoch 1}',
+      ref: 'worker.py:171 → lease.py:59', d: '一条带条件的 UPDATE。事件里带 epoch，前端用它过滤旧执行的片段。' },
+    { n: 11, from: 'pg', to: 'api', k: 'notify', t: 'NOTIFY run_events "5"', s: 'event_hub 线程收到 → _wake(5) → 收件箱放 NEW_EVENTS',
+      ref: 'runs.py:49 · event_hub.py:80-89 → 74-78', d: '通知在事务提交后才发出，所以 API 被叫醒去查时，这条事件一定查得到。' },
+    { n: 12, from: 'api', to: 'pg', k: 'sql', t: 'runs.events_after(5, last_seq=1)', ref: 'api.py:265-268', d: '只取比上次多出来的事件。' },
+    { n: 13, from: 'api', to: 'web', k: 'sse', t: 'id:2 attempt_started', ref: 'timeline.ts:138', d: '前端把这次执行标成“执行中”，记下当前执行 = (12, 1)。之后每个持久事件都走 11 → 12 → 13 这条路，下面不再画。' },
+    { n: 14, on: 'wk', k: 'local', t: ['另一个线程：理解题目（约 6 秒，和 Harness 并行）', 'understand.understand → lease.save_understanding', '→ 写 run 的标题 / 说明 / 猜的格式 + run_understood'],
+      ref: 'worker.py:186 → 103 _understand · understand.py:44 · lease.py:124', d: '第一次执行才做；重新生成时标题已经有了。失败就退回“问题前 20 个字 + 文本格式”，不影响答题。' },
+    { n: 15, from: 'wk', to: 'redis', k: 'redis', t: 'PUBLISH run:5:live', s: '{attempt 12, epoch 1, turn 1, kind: reasoning, text: "先查…"}',
+      ref: 'worker.py:191-197 · harness/loop.py:101 · live.py:54', d: 'Harness 用流式调用模型，每来几个字回调 on_delta，DeltaPublisher 发到 Redis。Redis 出错只记日志，这次执行后面不再发，题目照常做。' },
+    { n: 16, from: 'redis', to: 'api', k: 'redis', t: 'pump 收到 → 放进同一个收件箱', ref: 'live.py:94-98', d: '这个连接订阅了频道，Redis 立刻转过来；没人订阅就直接丢掉。' },
+    { n: 17, from: 'api', to: 'web', k: 'sse', t: 'event: delta（不带 id）', s: 'applyDelta：(attempt, epoch) 对得上才显示',
+      ref: 'api.py:271 · timeline.ts:100-119', d: '页面上思考逐字出现。片段不带 id，不影响断线续传的位置。' },
+    { n: 18, from: 'wk', to: 'pg', k: 'sql', t: 'on_step → lease.commit_step', s: '_fence 查 epoch + 写 steps + step 事件（带 citation_no）',
+      ref: 'worker.py:198-199 · citations.py:31 · lease.py:102', d: '每做完一步写一次库。这一步是通过校验的 cite 时，CitationNumbers 给它编号 [n]，随事件下发。之后经 11～13 推给页面，用完整思考替换这一轮的片段。' },
+    { n: 19, on: 'wk', k: 'local', t: ['finalize：产品模式下一次引用都没有', '→ 退回提醒一次；第二次照收，结果里标 uncited'],
+      ref: 'harness/tools/actions.py:44-76', d: '在 Harness 里面发生，模型看到的是工具报错。不经过前端，只是多出一步 step。' },
+    { n: 20, from: 'wk', to: 'redis', k: 'redis', t: 'compose.compose 流式撰写回答', s: 'publish(turn, "answer", 正文片段) → 16 → 17',
+      ref: 'worker.py:205-206 · compose.py:160-182', d: 'Harness 交了答案才撰写。只推正文，不推撰写时的思考。前端把 kind=answer 的片段拼成回答逐字显示。' },
+    { n: 21, on: 'wk', k: 'local', t: ['compose.check：删掉不存在的 [n]', '找出回答里没有出处的数字（记为未核实）'],
+      ref: 'compose.py:141-157', d: '出处 = 问题、引用原文和前后文、计算结果、提交的答案。撰写失败（网关报错、正文为空）不让题目失败，页面退回短答案。' },
+    { n: 22, from: 'wk', to: 'pg', k: 'sql', t: 'lease.finish', s: '同一事务：attempt / run completed + answer_written + attempt_finished',
+      ref: 'worker.py:218 → lease.py:140', d: '写之前先等理解题目的线程结束（worker.py:208），保证 run_understood 排在 attempt_finished 前面。' },
+    { n: 23, from: 'api', to: 'web', k: 'sse', t: 'answer_written、attempt_finished → 关闭流', s: '状态已是 completed：stream_events return',
+      ref: 'api.py:248-249 · timeline.ts:151, 166', d: 'answer_written 把逐字拼的回答换成校验过的（可能删了 [n]）。服务端推完就关流。' },
+    { n: 24, on: 'web', k: 'local', t: ['onerror + 已结束 → close()，不再重连', 'onSettled → GET /runs/5 取耗时'],
+      ref: 'useRunStream.ts:87-92 · RunPage.tsx:82-88', d: 'EventSource 会把服务端关流当成断线、几秒后自动重连，所以要主动关掉。' },
+
+    { phase: 'E　重新生成' },
+    { n: 25, from: 'web', to: 'api', k: 'http', t: 'POST /runs/5/regenerate', s: 'runs.regenerate：新 attempt 13 + outbox + attempt_queued',
+      ref: 'RunPage.tsx:99-110 → api.py:195 → runs.py:114', d: '还有没结束的执行就返回 409（M1.5 报告 Q16）。' },
+    { n: 26, from: 'web', to: 'api', k: 'http', t: 'reopen()：EventSource ?after=最后的 seq', s: '回到第 5 步，只收新事件',
+      ref: 'useRunStream.ts:111 · api.py:225-229', d: '新开的 EventSource 不能自己设 Last-Event-ID 请求头，所以用 ?after=。两者都有时取大的。' }
+  ];
+
+  // ---------- 图例 ----------
+  const legend = document.getElementById('legend');
+  for (const [k, [name, dash]] of Object.entries(KINDS)) {
+    if (k === 'local') continue;
+    legend.insertAdjacentHTML('beforeend',
+      `<span><svg width="34" height="10"><line x1="2" y1="5" x2="32" y2="5" class="k-${k}" stroke-width="2.5" ${dash ? 'stroke-dasharray="6 4"' : ''}/></svg> ${name}</span>`);
+  }
+  legend.insertAdjacentHTML('beforeend', '<span><svg width="20" height="14"><rect x="1" y="1" width="18" height="12" rx="3" fill="var(--worker-bg)" stroke="var(--worker)"/></svg> 进程内部做的事</span>');
+
+  // ---------- 画时序图 ----------
+  const svg = document.getElementById('seq');
+  const el = (tag, attrs, parent) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    (parent || svg).append(e);
+    return e;
+  };
+  const textW = (s, size) => { let w = 0; for (const ch of s) w += ch.charCodeAt(0) > 255 ? size : size * 0.58; return w; };
+  const defs = el('defs', {});
+  for (const k of Object.keys(KINDS)) {
+    const m = el('marker', { id: 'ah-' + k, viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' }, defs);
+    el('path', { d: 'M0 0 L10 5 L0 10 z', class: 'k-' + k }, m);
+  }
+  const lifeLayer = el('g', {});
+  const itemLayer = el('g', {});
+  let y = 70;
+  const rows = [];
+  for (const it of ITEMS) {
+    if (it.phase) {
+      el('rect', { x: 0, y: y + 6, width: W, height: 26, class: 'band' }, itemLayer);
+      el('text', { x: 10, y: y + 24, class: 'band-t' }, itemLayer).textContent = it.phase;
+      y += 46;
+      continue;
+    }
+    const g = el('g', { class: 'item', 'data-n': it.n }, itemLayer);
+    if (it.on) {
+      const lane = LANES[it.on];
+      const lines = it.t;
+      const w = Math.max(...lines.map(s => textW(s, 12))) + 44;
+      const h = lines.length * 21 + 16;
+      const left = Math.min(Math.max(lane.x - w / 2, 6), W - w - 6);
+      el('rect', { x: left, y: y + 4, width: w, height: h, rx: 6, fill: 'var(--worker-bg)', stroke: 'var(--worker)', 'stroke-width': 1.5 }, g);
+      el('circle', { cx: left + 16, cy: y + 4 + 19, r: 10, class: 'badge k-local' }, g);
+      el('text', { x: left + 16, y: y + 4 + 23, 'text-anchor': 'middle', class: 'badge-t' }, g).textContent = it.n;
+      lines.forEach((s, i) => { el('text', { x: left + 34, y: y + 4 + 23 + i * 21, 'font-size': 12.5 }, g).textContent = s; });
+      y += h + 22;
+    } else {
+      const x1 = LANES[it.from].x, x2 = LANES[it.to].x, dir = x2 > x1 ? 1 : -1;
+      const ly = y + 36;
+      const dash = it.dash || KINDS[it.k][1];
+      el('line', { x1: x1 + dir * 24, y1: ly, x2: x2 - dir * 4, y2: ly, class: 'k-' + it.k + (dash ? ' dash' : ''), 'marker-end': `url(#ah-${it.k})` }, g);
+      el('circle', { cx: x1 + dir * 12, cy: ly, r: 10, class: 'badge k-' + it.k }, g);
+      el('text', { x: x1 + dir * 12, y: ly + 4, 'text-anchor': 'middle', class: 'badge-t' }, g).textContent = it.n;
+      const mid = (x1 + dir * 24 + x2) / 2;
+      const clampMid = (s, size) => { const w = textW(s, size) / 2; return Math.min(Math.max(mid, w + 6), W - w - 6); };
+      el('text', { x: clampMid(it.t, 12.5), y: ly - 17, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 600 }, g).textContent = it.t;
+      if (it.s) el('text', { x: clampMid(it.s, 11), y: ly + 27, 'text-anchor': 'middle', 'font-size': 11.5, class: 'muted' }, g).textContent = it.s;
+      y += it.s ? 76 : 58;
+    }
+    rows.push(it);
+  }
+  const H = y + 20;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  for (const lane of Object.values(LANES)) {
+    el('line', { x1: lane.x, y1: 54, x2: lane.x, y2: H - 6, class: 'life' }, lifeLayer);
+    const w = textW(lane.name, 13) + 22;
+    const hg = el('g', { class: 'head' }, lifeLayer);
+    el('rect', { x: lane.x - w / 2, y: 14, width: w, height: 38, rx: 8, fill: `var(--${lane.c}-bg)`, stroke: `var(--${lane.c})` }, hg);
+    el('text', { x: lane.x, y: 38, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 700 }, hg).textContent = lane.name;
+  }
+
+  // ---------- 表格 ----------
+  const table = document.getElementById('steps');
+  let html = '<tr><th>#</th><th>做什么</th><th>代码位置</th></tr>';
+  for (const it of ITEMS) {
+    if (it.phase) { html += `<tr class="phase"><td colspan="3">${it.phase}</td></tr>`; continue; }
+    const what = Array.isArray(it.t) ? it.t.join('；') : it.t + (it.s ? '：' + it.s : '');
+    html += `<tr data-n="${it.n}"><td>${it.n}</td><td><b>${what}</b><br>${it.d}</td><td class="ref">${it.ref}</td></tr>`;
+  }
+  table.innerHTML = html;
+
+  // ---------- 联动高亮 ----------
+  function mark(n) {
+    svg.querySelectorAll('.item').forEach(g => {
+      g.classList.toggle('on', n !== null && g.dataset.n === String(n));
+      g.classList.toggle('dim', n !== null && g.dataset.n !== String(n));
+    });
+    table.querySelectorAll('tr[data-n]').forEach(r => r.classList.toggle('on', r.dataset.n === String(n)));
+  }
+  svg.querySelectorAll('.item').forEach(g => {
+    g.addEventListener('mouseenter', () => mark(g.dataset.n));
+    g.addEventListener('mouseleave', () => mark(null));
+  });
+  table.querySelectorAll('tr[data-n]').forEach(r => {
+    r.addEventListener('mouseenter', () => mark(r.dataset.n));
+    r.addEventListener('mouseleave', () => mark(null));
+  });
+})();
+</script>
+
+<script>
+/* 第七节的三段动画：一个通用的“分步播放器”，每段动画只写自己的 render */
+(function () {
+  function Player(id, scenes, render) {
+    const root = document.getElementById(id);
+    const cap = root.querySelector('.cap'), cnt = root.querySelector('.cnt');
+    const playBtn = root.querySelector('[data-a="play"]');
+    let si = 0, k = 0, timer = null;
+    const tabs = root.querySelector('.tabs');
+    if (tabs) {
+      scenes.forEach((s, i) => {
+        const b = document.createElement('button');
+        b.textContent = s.name;
+        b.onclick = () => { stop(); si = i; k = 0; show(); };
+        tabs.appendChild(b);
+      });
+    }
+    function show() {
+      const steps = scenes[si].steps;
+      render(scenes[si], k);
+      cap.innerHTML = steps[k].cap;
+      cnt.textContent = `第 ${k + 1} / ${steps.length} 步`;
+      if (tabs) [...tabs.children].forEach((b, i) => b.classList.toggle('on', i === si));
+    }
+    function stop() { clearInterval(timer); timer = null; playBtn.textContent = '▶ 自动播放'; }
+    function next() {
+      if (k < scenes[si].steps.length - 1) { k++; show(); } else stop();
+    }
+    root.querySelector('[data-a="next"]').onclick = () => { stop(); next(); };
+    root.querySelector('[data-a="prev"]').onclick = () => { stop(); if (k > 0) { k--; show(); } };
+    playBtn.onclick = () => {
+      if (timer) { stop(); return; }
+      if (k === scenes[si].steps.length - 1) { k = 0; show(); }
+      playBtn.textContent = '❚❚ 暂停';
+      timer = setInterval(next, 2600);
+    };
+    show();
+  }
+  // 把第 0..k 步的 set 依次合并，得到第 k 步时的完整状态
+  function merged(steps, k, init) {
+    const s = Object.assign({}, init || {});
+    for (let i = 0; i <= k; i++) Object.assign(s, steps[i].set || {});
+    return s;
+  }
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // ================= 动画 ①：一个 SSE 连接的一生 =================
+  const CODE = [
+    [200, '@app.get("/runs/{run_id}/events")'],
+    [201, 'async def stream_events(run_id, db, user, hub, redis_url, …, after=0):'],
+    [229, '    start = max(last_event_id, after)'],
+    [231, '    first = await run_in_threadpool(runs.events_after, …, start)'],
+    [233, '    async def generate():'],
+    [234, '        events, status = first'],
+    [238, '        with hub.watch(run_id) as inbox:'],
+    [239, '            async with live.forward_deltas(redis_url, run_id, inbox):'],
+    [242, '                inbox.put_nowait(NEW_EVENTS)'],
+    [243, '                while True:'],
+    [246, '                    for event in events: yield f"id: …\\nevent: …\\ndata: …"'],
+    [248, '                    if status in FINISHED: return'],
+    [252, '                    if not caught_up: yield "event: caught_up …"'],
+    [255, '                    item = await asyncio.wait_for(inbox.get(), 10)'],
+    [263, '                    (超时) yield "event: ping…"; item = NEW_EVENTS'],
+    [267, '                    if item == NEW_EVENTS: events, status = await run_in_threadpool(…)'],
+    [271, '                    else: yield f"event: delta\\ndata: {item}"'],
+    [274, '    return StreamingResponse(generate(), …)'],
+  ];
+  const LOOP = '<span class="pill p-loop">事件循环线程</span>', POOL = '<span class="pill p-pool">线程池</span>',
+    WAIT = '<span class="pill p-wait">没有线程在跑它（暂停中）</span>', DONE = '<span class="pill p-done">已结束</span>';
+  const LIFE = [
+    { hl: [200, 201], set: { who: 'uvicorn 收到请求 → FastAPI 按地址找到 stream_events', th: LOOP,
+        args: 'run_id=5，after=0，last_event_id=0（没带）；db=连接池、redis_url、user=1、hub —— 依赖注入', first: '—', last: '—', cu: '—', inbox: '还没有', redis: '还没订阅' },
+      cap: '浏览器 <code>new EventSource</code> 发来 <code>GET /runs/5/events?after=0</code>。FastAPI 先调用 <code>get_db()</code>、<code>get_redis_url()</code> 等函数把参数准备好，再调用 <code>stream_events</code>。<b>这是一次新的调用</b>，下面所有变量都只属于这个连接。' },
+    { hl: [229, 231], set: { who: 'stream_events 停在 await，等线程池查库', th: POOL, first: '查询中…' },
+      cap: 'start = max(0, 0) = 0。查库是同步代码，交给线程池；<code>stream_events</code> 停在 await，事件循环线程先去忙别的连接。run 不存在或不是自己的，会在这里直接返回 404。' },
+    { hl: [231], set: { who: 'stream_events（从 await 这一行接着跑）', th: LOOP, first: '[seq 1 attempt_queued]，status = running' },
+      cap: '线程池查完，结果交回事件循环，<code>stream_events</code> 从 await 这一行接着往下跑。' },
+    { hl: [233], set: {}, cap: '这里只是<b>定义</b> generate，函数体一行都不执行。' },
+    { hl: [274], set: { who: 'stream_events return → FastAPI → uvicorn；StreamingResponse 接手', gen: '已创建，还没开始跑' },
+      cap: '<code>generate()</code> 得到一个生成器对象（暂停在第一行之前），交给 <code>StreamingResponse</code>。<b>stream_events 到此结束</b>，前后几毫秒。uvicorn 先把响应头（200，text/event-stream）发给浏览器，浏览器的 EventSource 进入 open 状态。' },
+    { hl: [234, 238], set: { who: 'StreamingResponse 向 generate 要第一段 → generate 开始跑', gen: '运行中', inbox: '新建的空队列；已登记到 hub：5 → {收件箱A}' },
+      cap: '框架第一次 <code>async for</code> 向生成器要值，generate 才真正开始执行。<code>hub.watch(5)</code> 新建收件箱并登记，以后 PG 通知 “5” 就会往这里放 NEW_EVENTS。' },
+    { hl: [239], set: { redis: '已订阅 run:5:live；pump 协程已启动（也在事件循环线程上）' },
+      cap: '<code>forward_deltas</code> 建一个自己的 Redis 客户端、订阅频道，再起一个 pump 协程：收到片段就放进<b>同一个收件箱</b>。' },
+    { hl: [242, 243], set: { inbox: '[NEW_EVENTS]（自己放的）' },
+      cap: '<code>first</code> 是登记之前查的。查完到登记之间如果有事件提交，通知发出时还没人登记，就收不到。所以先自己放一张 NEW_EVENTS，第一轮循环一定补查一次。' },
+    { hl: [246], set: { who: 'generate 停在 yield；框架把这段写给浏览器，再来要下一段', last: '1' }, recv: 'id: 1\nevent: attempt_queued\ndata: {…}',
+      cap: '<code>yield</code> 交出一段文本，generate 暂停。框架把它写进网络连接，然后再次向 generate 要下一段，generate 从 yield 后面接着跑。' },
+    { hl: [248, 252], set: { cu: 'True' }, recv: 'event: caught_up\ndata: {}',
+      cap: '状态是 running，不 return。第一次走到这里，发 <code>caught_up</code>：历史补完了，后面都是实时的。<b>已结束的题会在上一行 return，走不到这里</b>。' },
+    { hl: [255], set: { who: 'generate', inbox: '[]（刚取走自己放的 NEW_EVENTS）' },
+      cap: '收件箱里本来就有东西，<code>inbox.get()</code> 立刻返回，不用等。' },
+    { hl: [267], set: { who: 'generate 停在 await，等线程池补查', th: POOL },
+      cap: '补查 seq > 1。这里假设空档里没有新事件，查到 0 条，回到循环开头：没东西可发，状态还是 running，caught_up 已经发过。' },
+    { hl: [255], set: { who: 'generate 停在这一行（不占任何线程）', th: WAIT, gen: '暂停在 api.py:255', inbox: '[]；登记了“generate A 在等我”' },
+      cap: '<b>真正开始等。</b>收件箱是空的，generate 暂停。事件循环线程去照看别的连接，没事就睡在 select 上。一道题的绝大部分时间，generate 都停在这一行。' },
+    { hl: [255, 267], set: { who: 'generate 被叫醒 → 查库', th: POOL, gen: '运行中', inbox: '[NEW_EVENTS] ← hub 放的，立刻被取走' },
+      cap: '1.2 秒后，worker 领取，写入 seq 2 并提交。PG 发通知 “5” → hub 线程 → 收件箱 A → generate 从 255 行醒来，拿到 NEW_EVENTS，交线程池查 seq > 1。（怎么叫醒的见动画 ③）' },
+    { hl: [246], set: { who: 'generate', th: LOOP, last: '2', first: '查到 [seq 2 attempt_started]' }, recv: 'id: 2\nevent: attempt_started\ndata: {…}',
+      cap: '把查到的事件发出去，last_seq 变成 2，然后回到 255 行继续等。' },
+    { hl: [255, 271], set: { inbox: '[片段] ← pump 放的，立刻被取走' }, recv: 'event: delta\ndata: {"attempt_id":12,"epoch":1,"turn":1,"kind":"reasoning","text":"先查年报"}',
+      cap: '模型开始想。worker 把片段 publish 到 Redis，pump 收到后放进收件箱，generate 醒来，item 不是 NEW_EVENTS，直接作为 delta 发出。<b>片段不查库，也不带 id</b>。' },
+    { hl: [255, 263], set: { inbox: '[]（等了 10 秒，什么都没来）' }, recv: 'event: ping\ndata: {}',
+      cap: '模型想了很久，10 秒没有任何东西。<code>wait_for</code> 超时 → 发 ping（告诉前端连接还活着）→ 把 item 设成 NEW_EVENTS，兜底查一次库。' },
+    { hl: [267, 246, 248], set: { who: 'generate return → 退出两层 with → 框架结束回复', th: DONE, gen: '已结束', last: '7', inbox: '已从 hub 登记簿划掉', redis: '已取消订阅，Redis 连接已关', first: '查到 [… seq 7 attempt_finished]，status = completed' },
+      recv: 'id: 7\nevent: attempt_finished\ndata: {…}',
+      cap: '90 秒后 worker 交卷，写入 seq 7。查到并发出后，状态是 completed，<code>return</code>。离开 <code>async with</code> 时取消 Redis 订阅，离开 <code>with</code> 时从 hub 划掉收件箱。框架看到生成器结束，就结束这个 HTTP 回复，浏览器的连接随之关闭。' },
+  ];
+  const lifeScene = { steps: LIFE };
+  const codeEl = document.getElementById('life-code'), stateEl = document.getElementById('life-state');
+  codeEl.innerHTML = CODE.map(([n, t]) => `<div data-l="${n}"><span class="ln">${n}</span>${esc(t)}</div>`).join('');
+  Player('pl-life', [lifeScene], (scene, k) => {
+    const st = merged(LIFE, k, { gen: '还没创建' });
+    const hl = new Set(LIFE[k].hl);
+    codeEl.querySelectorAll('div').forEach(d => d.classList.toggle('on', hl.has(Number(d.dataset.l))));
+    const recv = [];
+    for (let i = 0; i <= k; i++) if (LIFE[i].recv) recv.push([i, LIFE[i].recv]);
+    const row = (key, val) => `<div class="row"><span class="k">${key}</span><span class="v">${val}</span></div>`;
+    stateEl.innerHTML =
+      row('现在谁在跑', st.who) + row('在哪个线程', st.th) + row('参数', st.args) +
+      row('first', esc(st.first)) + row('generate', st.gen) + row('last_seq', st.last) + row('caught_up', st.cu) +
+      row('收件箱', esc(st.inbox)) + row('Redis', st.redis) +
+      '<div class="row"><span class="k">浏览器收到</span></div>' +
+      `<div class="recv">${recv.length ? recv.map(([i, t]) => `<div class="${i === k ? 'new' : ''}">${esc(t)}</div>`).join('') : '（还没有）'}</div>`;
+    const r = stateEl.querySelector('.recv'); r.scrollTop = r.scrollHeight;
+  });
+
+  // ================= 动画 ②：一个线程轮流照看三个连接 =================
+  const ROWS = [['loop', '事件循环线程'], ['ready', '待办 _ready'], ['A', '生成器 A（5 号）'], ['B', '生成器 B（6 号）'],
+    ['C', '生成器 C（5 号）'], ['pool', '线程池'], ['hub', 'hub 线程']];
+  const chips = (a) => a.length ? a.map(x => `<span class="chip">${x}</span>`).join('') : '（空）';
+  const W8 = '停在 await inbox.get()';
+  const BOARD = [
+    { set: { loop: '睡在 select 上（没事干）', ready: [], A: W8, B: W8, C: W8, pool: '空闲', hub: '睡在 LISTEN 上' },
+      cap: '三个连接都停在自己的 <code>await inbox.get()</code> 上，<b>不在待办里</b>。线程空闲，睡在操作系统的 select 上。' },
+    { set: { hub: '收到 "5" → 查登记簿：5 → {A, C} → call_soon_threadsafe 两次', loop: '被 self-pipe 叫醒', ready: ['往 A 的收件箱放纸条', '往 C 的收件箱放纸条'] },
+      cap: 'worker 写了 5 号的新事件。hub 线程收到通知，把“放纸条”塞进待办，并写 self-pipe 叫醒事件循环。<b>B 看的是 6 号，没有登记 5 号，完全不受影响。</b>' },
+    { set: { hub: '回去继续 LISTEN', loop: '执行待办：放纸条 → 顺手在 A、C 的提货单上盖章', ready: ['继续跑 A', '继续跑 C'] },
+      cap: '<code>put_nowait</code> 放进纸条时，顺手把等着的 A、C 放回待办。' },
+    { set: { loop: '跑 A：拿到 NEW_EVENTS → 交线程池查库 → A 又停在 await', ready: ['继续跑 C'], A: '停在 await run_in_threadpool（等查库）', pool: '线程 1：查 A（seq > 1）' },
+      cap: 'A 跑到 <code>await run_in_threadpool</code> 就交回控制权。查库在线程池里进行，事件循环线程<b>马上</b>去跑待办里的下一个。' },
+    { set: { loop: '跑 C：同样交线程池', ready: [], C: '停在 await run_in_threadpool（等查库）', pool: '线程 1：查 A（seq > 1）<br>线程 2：查 C（seq > 0，C 刚连上，缺得多）' },
+      cap: 'A 和 C 看的是同一道题，但各自按自己的 last_seq 查，缺什么补什么。' },
+    { set: { loop: '待办空了 → 又睡在 select 上' },
+      cap: '两个查询在线程池里<b>并行</b>跑，事件循环线程空着。此时如果 B 有动静，它也能马上处理。' },
+    { set: { pool: '线程 1：查完，结果交回事件循环<br>线程 2：还在查', loop: '被叫醒', ready: ['继续跑 A（带查询结果）'] },
+      cap: '线程池查完，也是通过“塞待办 + 叫醒”的方式把结果交回来，A 回到待办。' },
+    { set: { loop: '跑 A：yield seq 2 → 框架写给浏览器 A → A 回到 await inbox.get()', ready: [], A: W8 },
+      cap: '浏览器 A 收到 attempt_started。A 又停回收件箱上。' },
+    { set: { pool: '空闲', loop: '跑 C：yield seq 1、seq 2 → 回到等待', C: W8 },
+      cap: 'C 也补齐了。整个过程只有一个事件循环线程，它在 A、C 之间来回切换，只是切换得很快。' },
+    { set: { loop: '闹钟到点 → 跑 B：yield ping → 交线程池兜底查库', B: '停在 await run_in_threadpool（兜底查询）', pool: '线程 1：查 B（seq > 3）' },
+      cap: 'B 已经 10 秒没收到东西，它的闹钟到点了：发 ping，再兜底查一次库。闹钟不需要别人通知，select 睡觉时本来就带着“最多睡到最近的闹钟”。' },
+    { set: { loop: 'select：pump A、pump C 的 Redis 连接有数据 → 跑 pump A、pump C → 各放一个片段', ready: ['继续跑 A', '继续跑 C'] },
+      cap: 'worker 往 run:5:live 发了片段。Redis 推给两个订阅者（A、C 的 pump），pump 和 generate 在同一个线程上，放片段时直接把 A、C 放回待办。' },
+    { set: { loop: '跑 A：yield delta；跑 C：yield delta；B 的查询回来 → 0 条 → 回到等待', ready: [], A: W8, B: W8, C: W8, pool: '空闲' },
+      cap: '<b>一个线程照看三个连接，从不挨个去问“有消息吗”。</b>谁的事情到了，谁才进待办被跑一下，跑到下一个 await 就交回来。连接再多，没动静的连接也不占 CPU。' },
+  ];
+  const board = document.getElementById('board');
+  Player('pl-board', [{ steps: BOARD }], (scene, k) => {
+    const st = merged(BOARD, k);
+    const changed = new Set(Object.keys(BOARD[k].set));
+    board.innerHTML = ROWS.map(([id, name]) => {
+      const v = id === 'ready' ? chips(st.ready) : st[id];
+      return `<tr><td>${name}</td><td class="${changed.has(id) && k > 0 ? 'chg' : ''}">${v}</td></tr>`;
+    }).join('');
+  });
+
+  // ================= 动画 ③：事件循环怎么被叫醒 =================
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.getElementById('wake');
+  const el = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const a in attrs) e.setAttribute(a, attrs[a]); (parent || svg).appendChild(e); return e; };
+  const LOOPC = 'var(--api)', HUBC = 'var(--worker)', EXT = 'var(--muted)';
+  const COLX = [16, 234, 452, 670, 888], ROW1 = 64, ROW2 = 300, CW = 164, CH = 128;
+  const CARDS = {
+    pg: [COLX[0], ROW1, 'PostgreSQL', '外部', EXT], hub: [COLX[1], ROW1, 'hub 线程', 'hub 线程', HUBC],
+    pipe: [COLX[2], ROW1, 'self-pipe', '事件循环的内部 socket', LOOPC], select: [COLX[3], ROW1, 'select()', '事件循环线程', LOOPC],
+    timer: [COLX[4], ROW1, '闹钟表', '事件循环线程', LOOPC],
+    redis: [COLX[0], ROW2, 'Redis', '外部', EXT], pump: [COLX[1], ROW2, 'pump A', '事件循环线程 · 协程', LOOPC],
+    ready: [COLX[2], ROW2, '待办 _ready', '事件循环线程', LOOPC], inbox: [COLX[3], ROW2, '收件箱 A', '事件循环线程', LOOPC],
+    gen: [COLX[4], ROW2, '生成器 A', '事件循环线程 · 协程', LOOPC],
+  };
+  const defs = el('defs', {});
+  const mk = el('marker', { id: 'ah-wake', viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, defs);
+  el('path', { d: 'M0 0 L10 5 L0 10 z', fill: 'var(--warn)' }, mk);
+  // 事件循环线程的范围：上排右三张、下排右四张
+  el('rect', { x: COLX[2] - 10, y: ROW1 - 26, width: COLX[4] + CW + 20 - COLX[2], height: CH + 38, rx: 16, class: 'region' });
+  el('rect', { x: COLX[1] - 10, y: ROW2 - 26, width: COLX[4] + CW + 20 - COLX[1], height: CH + 38, rx: 16, class: 'region' });
+  el('text', { x: COLX[4] + CW, y: ROW1 - 9, 'text-anchor': 'end', class: 'region-t' }).textContent = '事件循环线程';
+  el('text', { x: COLX[4] + CW, y: ROW2 - 9, 'text-anchor': 'end', class: 'region-t' }).textContent = '事件循环线程';
+  const cardEls = {};
+  for (const [id, [x, y, title, who, color]] of Object.entries(CARDS)) {
+    const fo = el('foreignObject', { x, y, width: CW, height: CH });
+    const div = document.createElement('div');
+    div.className = 'wcard';
+    div.innerHTML = `<div class="who" style="color:${color}">${who}</div><div class="ttl">${title}</div><div class="body"></div>`;
+    fo.appendChild(div);
+    cardEls[id] = { div, body: div.querySelector('.body') };
+  }
+  const arrow = el('path', { class: 'flow', 'marker-end': 'url(#ah-wake)', d: '' });
+  const pill = el('g', {});
+  const pillBg = el('rect', { rx: 11, height: 22, class: 'pill-bg' }, pill);
+  const label = el('text', { 'text-anchor': 'middle', class: 'pill-t' }, pill);
+  const tok = el('circle', { r: 7, class: 'tok' });
+  let tokRun = 0;
+  function placePill(x, y, text) {
+    label.textContent = text;
+    label.setAttribute('x', x); label.setAttribute('y', y + 4.5);
+    const w = label.getComputedTextLength() + 22;
+    pillBg.setAttribute('x', x - w / 2); pillBg.setAttribute('y', y - 11); pillBg.setAttribute('width', w);
+    pill.style.display = '';
+  }
+  function edge(id, dx, dy) {
+    const [x, y] = CARDS[id], cx = x + CW / 2, cy = y + CH / 2;
+    const t = Math.min(dx ? (CW / 2 + 7) / Math.abs(dx) : Infinity, dy ? (CH / 2 + 7) / Math.abs(dy) : Infinity);
+    return [cx + dx * t, cy + dy * t];
+  }
+  const INIT = {
+    pg: ['events 表', '提交时发 NOTIFY'], hub: ['睡在 LISTEN 上'], pipe: ['（空）'],
+    select: ['线程睡在这里', '等网络数据、闹钟或 self-pipe'], timer: ['A：最多再等 10 秒'],
+    redis: ['频道 run:5:live'], pump: ['await：等 Redis 连接上的数据'], ready: ['（空）'],
+    inbox: ['东西：无', '等待者：generate A'], gen: ['停在 api.py:255', 'await inbox.get()'],
+  };
+  const SLEEP = ['线程睡在这里', '等网络数据、闹钟或 self-pipe'];
+  const WAKE = [
+    { name: 'PG 通知（另一个线程来叫）', steps: [
+      { from: 'pg', to: 'hub', t: 'NOTIFY "5"', set: { hub: ['收到 "5"', '查登记簿：5 → 收件箱 A'] },
+        cap: 'worker 写入 seq 2 并提交，PG 把通知发给 hub 的 LISTEN 连接。hub 线程从 <code>conn.notifies()</code> 里醒来（<code>event_hub.py:88</code>）。' },
+      { from: 'hub', to: 'ready', t: '① 加锁塞进待办', set: { ready: ['inbox.put_nowait(NEW_EVENTS)'] },
+        cap: '<code>call_soon_threadsafe</code> 第一件事：加锁，把“往收件箱 A 放 NEW_EVENTS”<b>这件事</b>塞进待办。注意 hub 线程没有自己去放：asyncio 的对象只能在事件循环线程上操作。' },
+      { from: 'hub', to: 'pipe', t: '② 写 1 个字节', set: { pipe: ['收到 1 个字节'], hub: ['做完了，回去继续 LISTEN'] },
+        cap: '第二件事：往 self-pipe 写 1 个字节。只塞进待办还不够，事件循环正睡在 select 上，没人去执行待办。' },
+      { from: 'pipe', to: 'select', t: 'select 返回', set: { select: ['醒了！', 'self-pipe 那头有数据'], pipe: ['读掉这 1 个字节'] },
+        cap: 'select 一直盯着 self-pipe 的另一头。字节一到，select 以为“有网络数据来了”，立刻返回，事件循环线程醒来。' },
+      { from: 'select', to: 'ready', t: '开始执行待办', set: { select: ['运行中'] },
+        cap: '事件循环开始执行待办：<code>inbox.put_nowait(NEW_EVENTS)</code>。' },
+      { from: 'ready', to: 'inbox', t: 'put_nowait', set: { inbox: ['东西：NEW_EVENTS', '等待者：A（已盖章）'], ready: ['继续跑 generate A'] },
+        cap: '<code>put_nowait</code> 放进纸条，<b>顺手在 generate A 的提货单上盖章</b>，“继续跑 generate A”进了待办。谁放东西，谁顺手叫醒等的人。' },
+      { from: 'ready', to: 'gen', t: '下一轮：跑 A', set: { ready: ['（空）'], inbox: ['东西：无（被 A 取走）', '等待者：无'], gen: ['从 255 行醒来', 'item = NEW_EVENTS', '→ 交线程池查 seq > 1'] },
+        cap: '下一轮，事件循环跑 generate A：<code>inbox.get()</code> 返回 NEW_EVENTS，接着去查库。' },
+      { on: ['gen'], set: { gen: ['查到 seq 2 → yield', '浏览器收到 attempt_started', '回到 255 行等待'], inbox: ['东西：无', '等待者：generate A'], select: SLEEP },
+        cap: '发出去以后，generate A 又停回 255 行，重新登记“我在等”。待办空了，线程回到 select 上睡觉。' },
+    ] },
+    { name: 'Redis 片段（同一个线程，网络数据叫醒）', steps: [
+      { from: 'redis', to: 'pump', t: '片段到达 pump 的连接', set: { pump: ['连接上来了数据', '（pump 自己还停在 await）'] },
+        cap: 'worker <code>publish</code> 后，Redis 把片段推到 pump A 的那条 Redis 连接上。数据先进了操作系统的网络缓冲区，pump 还没醒。' },
+      { from: 'pump', to: 'select', t: '操作系统：这个连接可读', set: { select: ['醒了！', 'pump A 的 Redis 连接有数据'] },
+        cap: 'pump 等的就是这条连接上的数据，这条连接一直在 select 的监视名单里。数据一到，select 返回。<b>这里不需要 self-pipe</b>：网络数据本身就能叫醒 select。' },
+      { from: 'select', to: 'ready', t: 'pump A 进待办', set: { ready: ['继续跑 pump A'], select: ['运行中'] },
+        cap: '事件循环把“继续跑 pump A”放进待办。' },
+      { from: 'ready', to: 'pump', t: '跑 pump A', set: { ready: ['（空）'], pump: ['读出片段 JSON', 'inbox.put_nowait(片段)'] },
+        cap: 'pump 从 <code>pubsub.listen()</code> 里拿到这条消息，放进收件箱（<code>live.py:98</code>）。' },
+      { from: 'pump', to: 'inbox', t: 'put_nowait', set: { inbox: ['东西：片段', '等待者：A（已盖章）'], ready: ['继续跑 generate A'], pump: ['回去 await，等下一条'] },
+        cap: 'pump 和 generate 在<b>同一个线程</b>上，直接放、直接盖章，不需要 <code>call_soon_threadsafe</code>。' },
+      { from: 'ready', to: 'gen', t: '跑 A', set: { ready: ['（空）'], inbox: ['东西：无（被 A 取走）', '等待者：无'], gen: ['从 255 行醒来', 'item = 片段（不是 NEW_EVENTS）', '→ yield "event: delta …"'] },
+        cap: 'generate A 拿到的不是 NEW_EVENTS，直接作为 delta 发出（<code>api.py:271</code>）。<b>不查库</b>。' },
+      { on: ['gen'], set: { gen: ['浏览器：思考逐字出现', '回到 255 行等待'], inbox: ['东西：无', '等待者：generate A'], select: SLEEP },
+        cap: '片段从 worker 到浏览器，只经过 Redis 和 API 的内存，不经过 PG。' },
+    ] },
+    { name: '10 秒超时（闹钟叫醒）', steps: [
+      { from: 'timer', to: 'select', t: '闹钟到点', set: { timer: ['A 的 10 秒到了'], select: ['睡眠到期，醒了'] },
+        cap: 'select 每次去睡的时候都带着“最多睡到最近的闹钟”。A 等满 10 秒，select 自己就返回了，不需要任何人来叫。' },
+      { from: 'select', to: 'ready', t: 'wait_for 超时', set: { select: ['运行中'], ready: ['继续跑 A（带 TimeoutError）'], inbox: ['东西：无', '等待者：取消登记'] },
+        cap: '<code>asyncio.wait_for</code> 取消这次 <code>inbox.get()</code>，在收件箱里撤掉 A 的登记，让 generate A 带着 TimeoutError 进待办。' },
+      { from: 'ready', to: 'gen', t: '跑 A', set: { ready: ['（空）'], gen: ['except TimeoutError', 'yield ping → 浏览器', 'item = NEW_EVENTS → 兜底查库'] },
+        cap: 'generate A 进入 except：先发 ping，再把 item 当作 NEW_EVENTS，去库里查一次（<code>api.py:256-264</code>）。' },
+      { on: ['gen'], set: { gen: ['查到 0 条', '回到 255 行', '闹钟重新开始计 10 秒'], timer: ['A：最多再等 10 秒'], inbox: ['东西：无', '等待者：generate A'], select: SLEEP },
+        cap: '兜底查询弥补的是 hub 断线重连那几秒里丢掉的通知（PG 通知不持久）。ping 让前端知道连接还活着：前端 25 秒收不到任何东西就重连。' },
+    ] },
+  ];
+  Player('pl-wake', WAKE, (scene, k) => {
+    const st = merged(scene.steps, k, INIT), step = scene.steps[k];
+    const on = new Set(step.on || [step.from, step.to]);
+    for (const [id, c] of Object.entries(cardEls)) {
+      c.div.classList.toggle('on', on.has(id));
+      c.body.innerHTML = (st[id] || []).map(t => `<div class="ln">${esc(t)}</div>`).join('');
+    }
+    if (!step.from) { arrow.setAttribute('d', ''); pill.style.display = 'none'; tok.style.display = 'none'; return; }
+    const [fx, fy] = CARDS[step.from], [tx, ty] = CARDS[step.to];
+    if (fy === ty && Math.abs(tx - fx) > CW + 60) {
+      // 同一排、中间隔着别的卡片：从下方绕过去
+      const x1 = fx + CW / 2, x2 = tx + CW / 2, yb = fy + CH + 6;
+      arrow.setAttribute('d', `M${x1} ${yb} C ${x1} ${yb + 34}, ${x2} ${yb + 34}, ${x2} ${yb + 2}`);
+      placePill((x1 + x2) / 2, yb + 42, step.t);
+    } else if (fy === ty) {
+      // 同一排相邻：箭头走卡片之间的空隙，标签放在空隙正上方
+      const dir = tx > fx ? 1 : -1, cy = fy + CH / 2;
+      const x1 = dir > 0 ? fx + CW + 4 : fx - 4, x2 = dir > 0 ? tx - 6 : tx + CW + 6;
+      arrow.setAttribute('d', `M${x1} ${cy} L${x2} ${cy}`);
+      placePill((x1 + x2) / 2, fy - 13, step.t);
+    } else {
+      let dx = (tx - fx), dy = (ty - fy); const len = Math.hypot(dx, dy); dx /= len; dy /= len;
+      const [x1, y1] = edge(step.from, dx, dy), [x2, y2] = edge(step.to, -dx, -dy);
+      arrow.setAttribute('d', `M${x1} ${y1} L${x2} ${y2}`);
+      placePill((x1 + x2) / 2, (y1 + y2) / 2, step.t);
+    }
+    // 小圆点沿着箭头走一遍
+    tok.style.display = '';
+    const total = arrow.getTotalLength(), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const t0 = performance.now(), run = ++tokRun;
+    (function move(now) {
+      if (run !== tokRun) return;
+      const p = still ? 1 : Math.min((now - t0) / 900, 1);
+      const pt = arrow.getPointAtLength(total * (p < .5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2));
+      tok.setAttribute('cx', pt.x); tok.setAttribute('cy', pt.y);
+      if (p < 1) requestAnimationFrame(move);
+    })(t0);
+  });
+
+  // ================= 动画 ④：三个线程怎么分工处理请求 =================
+  const tsvg = document.getElementById('thr');
+  const tel = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const a in attrs) e.setAttribute(a, attrs[a]); (parent || tsvg).appendChild(e); return e; };
+  // 三条泳道
+  const LANES = [
+    [30, 128, 'var(--api-bg)', 'var(--api)', '事件循环线程（1 个）'],
+    [182, 128, 'var(--pg-bg)', 'var(--pg)', '线程池（最多 40 个，这里画 3 个）'],
+    [334, 96, 'var(--worker-bg)', 'var(--worker)', 'hub 线程（1 个）'],
+  ];
+  for (const [y, h, bg, c, name] of LANES) {
+    tel('rect', { x: 160, y, width: 640, height: h, rx: 14, fill: bg, stroke: c, 'stroke-width': 1.5 });
+    const t = tel('text', { x: 174, y: y + 19, class: 'lane-t' }); t.textContent = name; t.style.fill = c;
+  }
+  // 卡片：[x, y, w, h, 标题]
+  const TC = {
+    browser: [12, 30, 132, 400, '浏览器'],
+    loop: [174, 58, 300, 92, '正在跑（同一时刻只有一件）'],
+    park: [488, 58, 298, 92, '停在 await 上的协程（不占线程）'],
+    pool1: [174, 210, 198, 92, '线程 1'], pool2: [382, 210, 198, 92, '线程 2'], pool3: [590, 210, 196, 92, '线程 3'],
+    hub: [174, 360, 300, 62, 'hub 线程'],
+    pg: [828, 30, 160, 190, 'PostgreSQL'], redis: [828, 240, 160, 110, 'Redis'],
+  };
+  const tcards = {};
+  for (const [id, [x, y, w, h, title]] of Object.entries(TC)) {
+    const fo = tel('foreignObject', { x, y, width: w, height: h });
+    const div = document.createElement('div');
+    div.className = 'wcard';
+    div.innerHTML = `<div class="ttl" style="font-size:13px">${title}</div><div class="body"></div>`;
+    fo.appendChild(div);
+    tcards[id] = { div, body: div.querySelector('.body') };
+  }
+  const moveLayer = tel('g', {});
+  const center = (id) => { const [x, y, w, h] = TC[id]; return [x + w / 2, y + h / 2]; };
+  let thrRun = 0;
+  function animateMoves(moves) {
+    moveLayer.innerHTML = '';
+    const run = ++thrRun, still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const items = moves.map(([from, to, text], i) => {
+      const g = tel('g', { class: 'mv' }, moveLayer);
+      const r = tel('rect', { rx: 10, height: 20, y: -10 }, g);
+      const t = tel('text', { 'text-anchor': 'middle', y: 4 }, g); t.textContent = text;
+      const w = t.getComputedTextLength() + 18; r.setAttribute('x', -w / 2); r.setAttribute('width', w);
+      // 同一步里有多张卡片时上下错开，避免叠在一起
+      const off = (i - (moves.length - 1) / 2) * 26;
+      const [x1, y1] = center(from), [x2, y2] = center(to);
+      return { g, x1, y1: y1 + off, x2, y2: y2 + off };
+    });
+    const t0 = performance.now();
+    (function step(now) {
+      if (run !== thrRun) return;
+      const p = still ? 1 : Math.min((now - t0) / 1100, 1);
+      const e = p < .5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+      for (const it of items) it.g.setAttribute('transform', `translate(${it.x1 + (it.x2 - it.x1) * e}, ${it.y1 + (it.y2 - it.y1) * e})`);
+      if (p < 1) requestAnimationFrame(step); else items.forEach(it => it.g.classList.add('done'));
+    })(t0);
+  }
+  const IDLE = ['空闲：睡在 select 上'], FREE = ['空闲'];
+  const TINIT = { browser: [], loop: IDLE, park: ['（没有）'], pool1: FREE, pool2: FREE, pool3: FREE,
+    hub: ['睡在 LISTEN 上'], pg: [], redis: [] };
+  const PARKED = ['generate A：等收件箱', 'pump A：等 Redis 数据'];
+  const THR = [
+    { name: '① 普通接口 GET /runs/5', steps: [
+      { mv: [['browser', 'loop', 'GET /runs/5']], on: ['loop'], set: { loop: ['uvicorn 收连接、解析 HTTP', 'FastAPI 找到 get_run'] },
+        cap: '所有请求都<b>先到事件循环线程</b>：uvicorn 在它上面收连接、解析 HTTP，FastAPI 在它上面按地址找到路由函数 <code>get_run</code>。' },
+      { mv: [['loop', 'pool1', 'get_run(5)']], on: ['loop', 'pool1'], set: { loop: ['get_run 是普通 def', '→ 整个交给线程池'], pool1: ['先跑依赖 get_db() 等', '再跑 get_run 函数体'] },
+        cap: '<code>get_run</code> 是普通 <code>def</code>，FastAPI 把它（连同依赖函数 <code>get_db</code>、<code>current_user</code>）<b>整个交给线程池</b>，自己 <code>await</code> 等结果。' },
+      { mv: [['pool1', 'pg', 'SELECT …']], on: ['pool1', 'pg'], set: { loop: IDLE, pool1: ['runs.get_run 查库', '（线程在这里等 PG）'], pg: ['执行查询'] },
+        cap: '线程 1 查库时会卡住等 PG，<b>但卡的是线程 1</b>。事件循环线程已经空了，可以去处理别人的请求和 SSE。' },
+      { mv: [['pg', 'pool1', '题目、执行']], on: ['pool1'], set: { pool1: ['查完，组装返回值'], pg: [] },
+        cap: 'PG 返回结果，线程 1 把函数跑完。' },
+      { mv: [['pool1', 'loop', '结果']], on: ['pool1', 'loop'], set: { pool1: FREE, loop: ['拿回结果', '序列化成 JSON，写回复'] },
+        cap: '结果交回事件循环线程，FastAPI 在它上面把返回值转成 JSON。线程 1 回到池子里等下一件活。' },
+      { mv: [['loop', 'browser', '200 {…}']], on: ['loop', 'browser'], set: { loop: IDLE, browser: ['收到 JSON', '填进 RunPage 模板'] },
+        cap: '回复写给浏览器，连接结束。<b>整个过程中，事件循环线程只在开头和结尾各忙了一下</b>，中间最慢的查库在线程池里做。' },
+    ] },
+    { name: '② 打开事件流（async 路由）', steps: [
+      { mv: [['browser', 'loop', 'GET /runs/5/events']], on: ['loop'], set: { loop: ['FastAPI 找到 stream_events', '是 async def → 就在这里跑'] },
+        cap: '<code>stream_events</code> 是 <code>async def</code>，FastAPI <b>不把它交出去</b>，直接在事件循环线程上跑。（它的依赖函数 get_db 等是普通 def，会先在线程池里跑一下，图里省略。）' },
+      { mv: [['loop', 'pool1', 'events_after(0)']], on: ['loop', 'pool1'], set: { loop: IDLE, park: ['stream_events：等查库'], pool1: ['查 seq > 0'] },
+        cap: '函数里的查库写成 <code>await run_in_threadpool(...)</code>：交给线程池，<code>stream_events</code> 停在 await 上（进右边“停着”的格子），线程空了。' },
+      { mv: [['pool1', 'pg', 'SELECT …']], on: ['pool1', 'pg'], set: { pg: ['执行查询'] },
+        cap: '线程 1 去 PG 查这道题的事件。' },
+      { mv: [['pg', 'pool1', '[seq 1]'], ['pool1', 'loop', '结果']], on: ['loop'], set: { pool1: FREE, pg: [], park: ['（没有）'], loop: ['stream_events 继续：return', '→ generate 开始跑', 'watch：建收件箱、登记'] },
+        cap: '结果回到事件循环线程，<code>stream_events</code> 从 await 那一行接着跑，返回 <code>StreamingResponse</code>。框架开始向 generate 要内容，generate 先建收件箱、在 hub 登记。' },
+      { mv: [['loop', 'redis', 'SUBSCRIBE run:5:live']], on: ['loop', 'redis'], set: { loop: ['订阅 Redis', '启动 pump 协程'], redis: ['run:5:live', '订阅者：pump A'] },
+        cap: '<code>forward_deltas</code> 订阅 Redis 频道，再挂一个 pump 协程，也在事件循环线程上。' },
+      { mv: [['loop', 'browser', 'seq 1 + caught_up']], on: ['loop', 'park', 'browser'], set: { loop: IDLE, park: PARKED, browser: ['收到 attempt_queued', '收到 caught_up'] },
+        cap: '发出第一批事件后，generate 停在 <code>await inbox.get()</code>，pump 停在等 Redis 数据。<b>两个协程都“停着”，不占任何线程</b>，事件循环线程又空了。' },
+    ] },
+    { name: '③ worker 写了新事件（hub 出场）', steps: [
+      { mv: [['pg', 'hub', 'NOTIFY "5"']], on: ['pg', 'hub'], set: { park: PARKED, hub: ['收到 "5"', '查登记簿 → 收件箱 A'], pg: ['worker 提交 seq 2'] },
+        cap: 'worker 写入 seq 2 并提交，PG 把通知发给 hub 线程守着的 LISTEN 连接。<b>hub 线程是唯一直接从 PG 收通知的线程。</b>' },
+      { mv: [['hub', 'loop', 'call_soon_threadsafe']], on: ['hub', 'loop'], set: { hub: ['写 self-pipe 叫醒对方', '回去继续 LISTEN'], loop: ['被叫醒', '放 NEW_EVENTS → A 进待办'], pg: [] },
+        cap: 'hub 线程<b>不自己往收件箱里放</b>，而是用 <code>call_soon_threadsafe</code> 把这件事交给事件循环线程，并写 self-pipe 把它叫醒（动画 ③ 的细节）。' },
+      { mv: [['loop', 'pool2', 'events_after(1)']], on: ['loop', 'pool2'], set: { hub: ['睡在 LISTEN 上'], loop: IDLE, park: ['generate A：等查库', 'pump A：等 Redis 数据'], pool2: ['查 seq > 1'] },
+        cap: 'generate A 醒来，拿到 NEW_EVENTS，又把查库交给线程池（这次碰巧是线程 2），自己再停住。' },
+      { mv: [['pool2', 'pg', 'SELECT …'], ['pg', 'pool2', '[seq 2]']], on: ['pool2', 'pg'], set: { pool2: ['查到 seq 2'] },
+        cap: '线程 2 查到新事件。' },
+      { mv: [['pool2', 'loop', '结果']], on: ['pool2', 'loop'], set: { pool2: FREE, park: ['pump A：等 Redis 数据'], loop: ['generate A 继续', 'yield seq 2'] },
+        cap: '结果交回，generate A 接着跑，<code>yield</code> 出这条事件。' },
+      { mv: [['loop', 'browser', 'id: 2 attempt_started']], on: ['loop', 'browser'], set: { loop: IDLE, park: PARKED, browser: ['收到 attempt_started'] },
+        cap: '框架写给浏览器，generate A 又回到收件箱上等。<b>三个线程各管一段：hub 收通知 → 事件循环调度 → 线程池查库 → 事件循环推送。</b>' },
+    ] },
+    { name: '④ 好几件事同时来', steps: [
+      { mv: [['browser', 'loop', 'POST /runs'], ['browser', 'loop', 'GET /runs']], on: ['loop'], set: { park: PARKED, loop: ['收下两个请求', '都是普通 def 路由'] },
+        cap: '另一个用户提交新题（<code>POST /runs</code>），同时有人刷新左侧列表（<code>GET /runs</code>）。generate A 仍在等收件箱。' },
+      { mv: [['loop', 'pool1', 'create_run'], ['loop', 'pool2', 'list_runs']], on: ['loop', 'pool1', 'pool2'], set: { loop: IDLE, pool1: ['create_run：写 run、', 'attempt、outbox、事件'], pool2: ['list_runs：查最近 50 道'] },
+        cap: '两个请求分给线程 1 和线程 2，<b>同时</b>在跑。事件循环线程交完就空了。' },
+      { mv: [['pool1', 'pg', 'INSERT …'], ['pool2', 'pg', 'SELECT …'], ['redis', 'loop', '片段（给 A）']], on: ['pool1', 'pool2', 'pg', 'loop'], set: { pg: ['两个查询并行'], loop: ['pump A 被叫醒 → 放片段', 'generate A → yield delta'] },
+        cap: '线程 1、2 在等 PG 的同时，Redis 推来一个片段。事件循环线程不受影响，<b>马上</b>处理：pump 放进收件箱，generate A 发出 delta。' },
+      { mv: [['loop', 'browser', 'delta'], ['pg', 'pool1', 'ok'], ['pg', 'pool2', '50 道题']], on: ['browser', 'pool1', 'pool2'], set: { loop: IDLE, park: PARKED, pg: [], browser: ['A 的思考逐字出现'] },
+        cap: 'A 的浏览器收到片段；与此同时两个查询也回来了。' },
+      { mv: [['pool1', 'loop', '{run_id: 6}'], ['pool2', 'loop', '[…50 道]']], on: ['loop'], set: { pool1: FREE, pool2: FREE, loop: ['依次写两个回复'] },
+        cap: '两个结果交回事件循环线程，它依次写回复，每个只要几毫秒。' },
+      { mv: [['loop', 'browser', '202'], ['loop', 'browser', '200']], on: ['loop', 'browser'], set: { loop: IDLE, browser: ['新题提交成功', '列表刷新了'] },
+        cap: '<b>慢的事（查库）都在线程池里并行做；事件循环线程只做快的事（收、派、推），所以一个线程能同时照看很多连接。</b>' },
+    ] },
+    { name: '⑤ 错误示范：async 里直接同步查库', steps: [
+      { mv: [['browser', 'loop', 'GET /runs/5/events']], on: ['loop'], set: { park: ['pump A：等 Redis 数据'], loop: ['假设 generate 里写成', 'runs.events_after(…)', '（忘了 run_in_threadpool）'] },
+        cap: '假设有人在 <code>async def</code> 里直接调用同步的查库函数，没有用 <code>await run_in_threadpool</code> 交出去。' },
+      { mv: [['loop', 'pg', 'SELECT（同步）']], on: ['pg'], bad: ['loop'], set: { loop: ['卡住了！', '线程本身在等 PG 回复'], pg: ['慢查询：1 秒'] },
+        cap: '这次等 PG 的是<b>事件循环线程本身</b>。它被卡住，没法回到调度循环，也就没法去 select 上看别人的事。' },
+      { mv: [['redis', 'park', '片段（给 A）'], ['browser', 'park', 'GET /runs'], ['hub', 'park', 'NEW_EVENTS']], on: ['park'], bad: ['loop'], set: { park: ['排队等线程：', 'A 的片段、GET /runs、', 'hub 交来的 NEW_EVENTS'], pool1: ['空闲（用不上）'], pool2: ['空闲（用不上）'], pool3: ['空闲（用不上）'] },
+        cap: '这 1 秒里，Redis 片段、新请求、hub 的通知全都到了，但<b>没人处理</b>，只能排着。线程池明明空着，也帮不上忙：派活这件事本身也要事件循环线程来做。' },
+      { mv: [['pg', 'loop', '结果（1 秒后）']], on: ['loop'], set: { loop: ['终于回来', '再挨个处理积压'], pg: [], park: ['（积压的事挨个处理）'], pool1: FREE, pool2: FREE, pool3: FREE },
+        cap: '1 秒后才回来。<b>这个进程所有用户的推送都停了 1 秒。</b>这就是规矩：<code>async def</code> 里会卡住线程的操作，必须用 <code>await run_in_threadpool(...)</code> 交出去（<code>api.py:231、267</code>）。' },
+    ] },
+  ];
+  Player('pl-thr', THR, (scene, k) => {
+    const st = merged(scene.steps, k, TINIT), step = scene.steps[k];
+    const on = new Set(step.on || []), bad = new Set(step.bad || []);
+    for (const [id, c] of Object.entries(tcards)) {
+      c.div.classList.toggle('on', on.has(id));
+      c.div.classList.toggle('bad', bad.has(id));
+      c.body.innerHTML = (st[id] || []).map(t => `<div class="ln">${esc(t)}</div>`).join('');
+    }
+    animateMoves(step.mv || []);
+  });
+
+  // ================= 动画 ⑤：一条数据的旅程 =================
+  const psvg = document.getElementById('trip'), shapeEl = document.getElementById('trip-shape');
+  const pel = (tag, attrs, parent) => { const e = document.createElementNS(NS, tag); for (const a in attrs) e.setAttribute(a, attrs[a]); (parent || psvg).appendChild(e); return e; };
+  pel('rect', { x: 4, y: 4, width: 992, height: 140, rx: 14, fill: 'var(--code-bg)' });
+  pel('text', { x: 16, y: 22, class: 'side-t' }).textContent = '后端';
+  pel('rect', { x: 400, y: 156, width: 596, height: 140, rx: 14, fill: 'var(--web-bg)' });
+  pel('text', { x: 984, y: 174, 'text-anchor': 'end', class: 'side-t' }).textContent = '浏览器（前端）';
+  const PC = {
+    worker: [16, 30, 'worker'], mid: [212, 30, 'Redis'], relay: [408, 30, 'pump'], gen: [604, 30, 'generate'], es: [800, 30, 'EventSource'],
+    parse: [800, 182, 'useRunStream'], field: [604, 182, 'timeline.ts'], comp: [412, 182, '页面组件'],
+  };
+  const PW = 180, PH = 104;
+  const pcards = {};
+  for (const [id, [x, y]] of Object.entries(PC)) {
+    const fo = pel('foreignObject', { x, y, width: PW, height: PH });
+    const div = document.createElement('div');
+    div.className = 'wcard';
+    div.innerHTML = '<div class="ttl" style="font-size:13.5px"></div><div class="body"></div>';
+    fo.appendChild(div);
+    pcards[id] = { div, ttl: div.querySelector('.ttl'), body: div.querySelector('.body') };
+  }
+  const pLayer = pel('g', {});
+  let tripRun = 0;
+  function tripMove(from, to, text) {
+    pLayer.innerHTML = '';
+    const run = ++tripRun;
+    if (!from) return;
+    const g = pel('g', { class: 'mv' }, pLayer);
+    const r = pel('rect', { rx: 10, height: 20, y: -10 }, g);
+    const t = pel('text', { 'text-anchor': 'middle', y: 4 }, g); t.textContent = text;
+    const w = t.getComputedTextLength() + 18; r.setAttribute('x', -w / 2); r.setAttribute('width', w);
+    const c = (id) => [PC[id][0] + PW / 2, PC[id][1] + PH / 2];
+    const [x1, y1] = c(from), [x2, y2] = c(to);
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches, t0 = performance.now();
+    (function step(now) {
+      if (run !== tripRun) return;
+      const p = still ? 1 : Math.min((now - t0) / 1100, 1), e = p < .5 ? 2 * p * p : 1 - (-2 * p + 2) ** 2 / 2;
+      g.setAttribute('transform', `translate(${x1 + (x2 - x1) * e}, ${y1 + (y2 - y1) * e})`);
+      if (p < 1) requestAnimationFrame(step); else g.classList.add('done');
+    })(t0);
+  }
+  const DELTA_JSON = '{"attempt_id": 12, "epoch": 1, "turn": 2, "kind": "reasoning", "text": "先查年报"}';
+  const ANS_JSON = '{"attempt_id": 12, "epoch": 1, "turn": 6, "kind": "answer", "text": "根据年报"}';
+  const TRIP = [
+    { name: '思考片段（delta · reasoning）', titles: { mid: 'Redis', relay: 'pump' }, steps: [
+      { on: ['worker'], set: { worker: ['模型吐出“先查年报”', 'DeltaPublisher：json.dumps'] },
+        shape: 'Python 字典 → json.dumps → 字符串：\n' + DELTA_JSON,
+        cap: 'Harness 流式调用模型，每来几个字就回调 <code>on_delta</code>。<code>DeltaPublisher</code> 把它和 attempt_id、epoch、turn、kind 一起拼成 JSON 字符串（<code>live.py:58</code>）。<b>kind = reasoning 是模型客户端按网关返回的字段贴的。</b>' },
+      { mv: ['worker', 'mid', 'PUBLISH run:5:live'], on: ['worker', 'mid'], set: { mid: ['只把字节写进', '每条订阅连接', '不看内容'] },
+        shape: '（一串字节，Redis 不关心里面是什么）\n' + DELTA_JSON,
+        cap: 'Redis 是独立的服务器。它收到 PUBLISH 后，只做一件事：把这串字节写进所有订阅了 <code>run:5:live</code> 的连接。' },
+      { mv: ['mid', 'relay', '字节'], on: ['mid', 'relay'], set: { relay: ['decode 成字符串', '不解析 JSON', '放进收件箱'] },
+        shape: '收件箱里的一项（Python 字符串）：\n' + DELTA_JSON,
+        cap: 'pump 的连接来了字节，事件循环跑 pump。pump 只把字节 decode 成字符串放进收件箱（<code>live.py:98</code>），<b>不解析 JSON</b>。' },
+      { mv: ['relay', 'gen', '收件箱'], on: ['relay', 'gen'], set: { gen: ['不是 NEW_EVENTS', '→ 写死 event: delta', '套上 SSE 格式'] },
+        shape: 'event: delta\ndata: ' + DELTA_JSON + '\n（空行 = 这一段结束）',
+        cap: 'generate 从收件箱拿到的不是 NEW_EVENTS，就知道是片段，<b>写死</b>成 <code>event: delta</code>，把字符串原样放在 <code>data:</code> 后面（<code>api.py:271</code>）。片段不带 <code>id:</code>。' },
+      { mv: ['gen', 'es', 'SSE 文本'], on: ['gen', 'es'], set: { es: ['按行拆开', 'event = delta', '→ 交给 delta 监听'] },
+        shape: 'e.type = "delta"\ne.data = \'' + DELTA_JSON + '\'   ← 仍是字符串',
+        cap: '浏览器自带的 EventSource 按 SSE 标准拆行：<code>event:</code> 那一行决定交给哪个监听函数，<code>data:</code> 那一行原样给出字符串。' },
+      { mv: ['es', 'parse', 'e.data'], on: ['es', 'parse'], set: { parse: ['JSON.parse(e.data)', '→ 变成对象'] },
+        shape: '{ attempt_id: 12, epoch: 1, turn: 2, kind: "reasoning", text: "先查年报" }   ← JS 对象',
+        cap: '直到这里才第一次解析 JSON（<code>useRunStream.ts:81</code>）。从 worker 到这里，中间每一站都只是原样转交。' },
+      { mv: ['parse', 'field', '对象'], on: ['parse', 'field'], set: { field: ['applyDelta', 'epoch 对得上', 'kind = reasoning', '→ live.reasoning += text'] },
+        shape: 'attempt.live = { turn: 2, reasoning: "……先查年报", content: "" }',
+        cap: '<code>applyDelta</code> 先核对 (attempt_id, epoch)：不是当前执行的片段就丢掉。然后<b>看 kind</b>：reasoning 拼进 <code>live.reasoning</code>（<code>timeline.ts:100-116</code>）。' },
+      { mv: ['field', 'comp', 'live'], on: ['field', 'comp'], set: { comp: ['Work 组件', '过程区里正在进行的', '那一步：思考逐字出现'] },
+        shape: '页面：过程区 · 第 2 步 · “……先查年报”',
+        cap: 'Work 组件只读 <code>live</code> 字段，把它画在过程区当前那一步。<b>后端决定“这是什么”（事件名 + kind），前端决定“放在哪”（哪个字段、哪个组件）。</b>' },
+    ] },
+    { name: '持久事件（step）', titles: { mid: 'PostgreSQL', relay: 'hub + 查库' }, steps: [
+      { on: ['worker'], set: { worker: ['一步做完', 'lease.commit_step', 'add_event(…, "step", …)'] },
+        shape: 'add_event(session, run_id=5, type_="step",\n          payload={"step_no": 2, "tool_name": "read_section", "reasoning": "……", …})',
+        cap: 'Harness 每做完一步，<code>on_step</code> 回调 <code>lease.commit_step</code>：校验 epoch，写 steps 表，再写一条 step 事件。<b>事件名 "step" 就是在这里定的。</b>' },
+      { mv: ['worker', 'mid', 'INSERT + NOTIFY'], on: ['worker', 'mid'], set: { mid: ['events 表一行', 'type = "step"', '提交后发 NOTIFY "5"'] },
+        shape: 'events 表：\n run_id | seq | type   | payload（JSON）\n   5    |  4  | "step" | {"step_no": 2, "tool_name": "read_section", …}',
+        cap: '和 delta 不同，持久事件<b>存进 PG</b>，有连续的 seq。事务提交后，PG 发出通知 “5”。' },
+      { mv: ['mid', 'relay', 'NOTIFY "5"'], on: ['mid', 'relay'], set: { relay: ['hub：放 NEW_EVENTS', 'generate 醒来', '查 seq > last_seq'] },
+        shape: 'events_after(5, last_seq=3) 查到：\nEvent(seq=4, type="step", payload={…})',
+        cap: 'hub 线程收到通知，通过 call_soon_threadsafe 往收件箱放 NEW_EVENTS。generate 醒来去查库，拿到的是一行带 <code>type</code> 列的记录。' },
+      { mv: ['relay', 'gen', 'Event 行'], on: ['relay', 'gen'], set: { gen: ['id: ← seq', 'event: ← type 列', 'data: ← json.dumps'] },
+        shape: 'id: 4\nevent: step\ndata: {"step_no": 2, "tool_name": "read_section", …}\n（空行）',
+        cap: '<code>event:</code> 后面的名字是<b>照抄数据库 type 列</b>，generate 自己不认识 step（<code>api.py:246</code>）。<code>id:</code> 就是 seq，断线重连时靠它续传。' },
+      { mv: ['gen', 'es', 'SSE 文本'], on: ['gen', 'es'], set: { es: ['event = step', '→ 交给 step 监听', 'lastEventId = 4'] },
+        shape: 'e.type = "step"\ne.lastEventId = "4"\ne.data = \'{"step_no": 2, …}\'',
+        cap: 'EventSource 记住 id = 4。如果断线，自动重连时会在请求头里带 <code>Last-Event-ID: 4</code>。' },
+      { mv: ['es', 'parse', 'e.data'], on: ['es', 'parse'], set: { parse: ['JSON.parse(e.data)', 'seq = 4'] },
+        shape: '{ type: "step", seq: 4, data: { step_no: 2, tool_name: "read_section", … } }',
+        cap: '解析成对象，连同 seq 交给 timeline。' },
+      { mv: ['parse', 'field', '对象'], on: ['parse', 'field'], set: { field: ['applyEvent', 'case "step"', '→ steps.push', '清掉这一轮 live'] },
+        shape: 'attempt.steps = [ …, { step_no: 2, tool_name: "read_section", reasoning: "……" } ]\nattempt.live = null',
+        cap: '<code>applyEvent</code> 按事件名 switch：step 推进 <code>steps</code>，同时丢掉这一轮逐字拼出来的 live。' },
+      { mv: ['field', 'comp', 'steps'], on: ['field', 'comp'], set: { comp: ['Work 组件', '过程区加一步', '完整思考替换逐字版'] },
+        shape: '页面：过程区 · 第 2 步 · 读文档（完整思考）',
+        cap: '逐字版和完整版是同一位置的两种状态：先 live 逐字出现，step 到了换成存库的完整版。刷新页面时只有 step（片段不存库）。' },
+    ] },
+    { name: '撰写回答（answer）', titles: { mid: 'Redis / PG', relay: 'pump / hub' }, steps: [
+      { on: ['worker'], set: { worker: ['compose 流式撰写', 'on_text → publish(', 'turn, "answer", text)'] },
+        shape: ANS_JSON,
+        cap: 'Harness 结束后，<code>compose</code> 把证据交给模型写回答，正文片段一到就回调 <code>on_text</code>。<b>kind = "answer" 是 worker 写死的</b>（<code>worker.py:206</code>）；思考片段不推。' },
+      { mv: ['worker', 'gen', 'Redis → pump → 收件箱'], on: ['worker', 'mid', 'relay', 'gen'], set: { mid: ['同思考片段那条路'], relay: ['pump 放进收件箱'], gen: ['写死 event: delta'] },
+        shape: 'event: delta\ndata: ' + ANS_JSON,
+        cap: '走的是和思考片段<b>完全一样</b>的路：Redis → pump → 收件箱 → generate 写成 delta。区别只在 JSON 里的 kind。' },
+      { mv: ['gen', 'field', 'EventSource → JSON.parse'], on: ['es', 'parse', 'field'], set: { es: ['event = delta'], parse: ['JSON.parse'], field: ['kind = answer', '→ answer += text'] },
+        shape: 'attempt.answer = "根据年报，广晟控股 2022 年营业收入为 1,204.6"',
+        cap: '前端解析后看 kind：answer 拼进 <code>attempt.answer</code>，不进 live（<code>timeline.ts:106-107</code>）。' },
+      { mv: ['field', 'comp', 'answer'], on: ['field', 'comp'], set: { comp: ['Answer 组件', '回答区：正文逐字出现'] },
+        shape: '页面：回答区 · “根据年报，广晟控股 2022 年营业收入为 1,204.6▍”',
+        cap: '回答区由 Answer 组件画，它读的是 <code>answer</code> 字段，和过程区的 Work 组件互不相干。' },
+      { mv: ['worker', 'gen', 'PG：answer_written'], on: ['worker', 'mid', 'relay', 'gen'], set: { worker: ['check() 校验', 'finish → add_event', '"answer_written"'], mid: ['events 表', 'type = "answer_written"'], relay: ['hub → NEW_EVENTS', '查库'], gen: ['event: ← type 列'] },
+        shape: 'id: 6\nevent: answer_written\ndata: {"attempt_id": 12, "text": "……1,204.63 亿元[1]……", "citations": [1], "unverified": []}',
+        cap: '写完后代码校验：删不存在的 [n]、找没有出处的数字。<code>finish</code> 把校验后的版本作为<b>持久事件</b> answer_written 写进 PG，走 step 那条路发出来。' },
+      { mv: ['field', 'comp', 'written'], on: ['field', 'comp'], set: { field: ['case "answer_written"', '→ written = 校验版', 'answer 清空'], comp: ['Answer 组件', '换成校验后的正文'] },
+        shape: 'attempt.written = { text: "……[1]……", citations: [1], unverified: [] }\nattempt.answer = ""',
+        cap: '前端收到 answer_written，用校验版<b>替换</b>逐字拼出来的那份（逐字版里可能有被删掉的 [n]）。同一块回答区：先 delta 逐字出现，再由持久事件定稿。' },
+    ] },
+  ];
+  const PTITLE = { worker: 'worker', mid: 'Redis', relay: 'pump', gen: 'generate', es: 'EventSource', parse: 'useRunStream', field: 'timeline.ts', comp: '页面组件' };
+  Player('pl-trip', TRIP, (scene, k) => {
+    const st = merged(scene.steps, k, {}), step = scene.steps[k], on = new Set(step.on || []);
+    const titles = { ...PTITLE, ...(scene.titles || {}) };
+    for (const [id, c] of Object.entries(pcards)) {
+      c.ttl.textContent = titles[id];
+      c.div.classList.toggle('on', on.has(id));
+      c.body.innerHTML = (st[id] || []).map(t => `<div class="ln">${esc(t)}</div>`).join('');
+    }
+    shapeEl.textContent = step.shape;
+    tripMove(...(step.mv || []));
+  });
+})();
+</script>
+</body>
+</html>
