@@ -66,6 +66,8 @@ th { background: var(--code-bg); font-weight: 600; }
 .t-pg { color: var(--pg); background: var(--pg-bg); }
 .t-api { color: var(--api); background: var(--api-bg); }
 .t-new { color: var(--warn); background: var(--warn-bg); }
+.t-m16 { color: var(--worker); background: var(--worker-bg); }
+.m16 { background: var(--worker-bg); border-left: 4px solid var(--worker); padding: 8px 12px; border-radius: 6px; margin: 8px 0 12px; font-size: 14px; }
 .t-user { color: var(--fg); background: var(--code-bg); }
 .legend { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 14px; font-size: 13px; }
 .toc { font-size: 14px; columns: 2; column-gap: 28px; }
@@ -193,6 +195,7 @@ svg.fig .t-ok { fill: var(--ok); }
 <p class="sub">先讲清 Celery 和 RabbitMQ 的关系（带动画），再看每个阶段由谁盯着，最后逐条回答问题。代码片段都摘自当前仓库，标了文件和行号。</p>
 
 <div class="card changes">
+<b>第六版</b>（2026-10-21）：M1.6 做完，Q3、Q4、Q6、Q8～Q10、Q15、Q17～Q19、Q23～Q26 和第四节 #9、#10、#12 标了 <span class="tag t-m16">M1.6 已改</span>，写明现在的做法和实测数字。正文保留 M1.5 时的样子，现状见 <a href="M1.6_监督与超时总表.md">M1.6 监督与超时总表</a>。<br>
 <b>第五版</b>（2026-10-13）：第五轮 Q26，推演“只看时间、带退避和上限的直接重发”，并和“有空位才发”对比；第七节新增一条 M3 候选方案。<br>
 <b>第四版</b>（2026-10-12）：第三节新增第四轮问答 Q16～Q25；动画新增两个“重新生成”场景，数据表多了 runs 表。<b>更正两处</b>：① AMQP 心跳实际约 60 秒，不是 120 秒（Celery 提 120，RabbitMQ 提 60，取较小值，Q19）；② Q14 里“到期后 4 条全部放回”是 4.3 之前的行为，4.3 的 quorum 队列只放回超时的那条。另把第一节 Q13 那句“交换机按路由键找队列”改成了白话；第四节 #10 写全了三条规则；第七节新增 3 条建议。<br>
 <b>第三版</b>（2026-10-11）：第三节新增第三轮问答 Q11～Q15（RabbitMQ 怎么分配、续租是什么、worker 怎么订阅、ack 用什么函数、对账为什么绕一圈），配示意图；第七节新增一条 review 发现。<br>
@@ -470,6 +473,7 @@ if self.task.acks_late:
 
 <div class="card qa">
 <h3>Q3：多消费者时顺序不一致，水位线还靠得住吗？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 水位线已删除。现在只在 worker 有空位时才发，发出 1 分钟还没 claim 就重发，不再看别的任务的先后。</p>
 <p>RabbitMQ 往外推的顺序是先进先出。乱的是<b>各个子进程真正 claim（写下 started_at）的时刻</b>：子进程 1 拿到 A 后先要加载语料，子进程 2 拿到 B 马上就 claim 了。乱序一般几秒，最多一两分钟，2 分钟宽限期就是为它留的。判错一次的代价是一条重复消息，claim 会挡掉它。详见第五节。</p>
 </div>
 
@@ -477,6 +481,7 @@ if self.task.acks_late:
 
 <div class="card qa">
 <h3>Q4：requeue_lost 具体应对什么情况？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> <code>requeue_lost</code> 换成 <code>resend_lost</code>：只看时间（1 分钟 × 2^已重发次数），前提是读得到队列、有消费者、就绪数为 0；3 次后判 <code>delivery_lost</code>。</p>
 <p>一句话：<b>outbox 是 sent，attempt 却一直是 pending，而 RabbitMQ 里已经没有这条消息了。</b>没有消息就没有 worker 会来执行，这道题会永远卡住（M1 的漏洞）。消息“没了”有这几种来路：</p>
 <table>
 <tr><th>来路</th><th>例子</th><th>常见吗</th></tr>
@@ -502,6 +507,7 @@ if self.task.acks_late:
 
 <div class="card qa">
 <h3>Q6：“没通知最多 10 秒扫一次”和“每 15 秒巡检”都是 dispatcher，为什么有两项？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 两个时间已合成一个 <code>TICK_SECONDS = 10</code>：兜底扫描和巡检都是 10 秒，一轮里先巡检再投递。</p>
 <p>是同一个 dispatcher 进程，在同一个循环里做<b>两件不同的事</b>：</p>
 <table>
 <tr><th></th><th>投递</th><th>巡检</th></tr>
@@ -545,6 +551,7 @@ if self.task.acks_late:
 
 <div class="card qa">
 <h3>Q8：worker 收到消息、claim 前死了，attempt 是不是还没改状态，还是 pending？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 现在先 claim 再加载，“收到消息到 claim”只有几毫秒（实测 0～54 毫秒）；这几毫秒里死了，仍是 pending，1 分钟后重发。</p>
 <p><b>对，还是 pending</b>，started_at 也是空的：claim 是第一次改 attempt 的地方，claim 之前没人动过它。</p>
 <p>但消息去哪，要看死的是谁：</p>
 <table>
@@ -560,6 +567,7 @@ if self.task.acks_late:
 
 <div class="card qa">
 <h3>Q9：“超过 2 分钟没人领”是谁知道的？三条规则按什么顺序？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 宽限期 2 分钟和三条规则都已删除，改成“发出 1 / 2 / 4 分钟还没 claim 就重发”，见 Q26。</p>
 <p><b>dispatcher 在巡检里调用 requeue_lost，查 PG 知道的。</b>PG 里有两样东西：outbox 的 <code>sent_at</code>（什么时候发出的），attempts 的 <code>status</code> / <code>started_at</code>（有没有人领）。RabbitMQ 不参与判断，只在规则 ② 里提供一个数：队列里还有几条消息。</p>
 <p>每次巡检的顺序：</p>
 <ol class="flowlist">
@@ -597,6 +605,7 @@ if requeued:
 
 <div class="card qa">
 <h3>Q10：是不是有两个硬时限（Celery 25 分钟、RabbitMQ 1 小时）？1 小时真能触发吗？Celery 和 RabbitMQ 不是一起的吗？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> <code>consumer_timeout</code> 配置（<code>deploy/rabbitmq/margin.conf</code>）已删除，只剩 Celery 的 25 分钟硬时限。</p>
 <p><b>真正的硬时限只有一个：Celery 的 25 分钟。</b></p>
 <table>
 <tr><th></th><th>Celery 硬时限 25 分钟</th><th>RabbitMQ 确认期限 1 小时</th></tr>
@@ -765,6 +774,7 @@ def reject(self, requeue=False):
 
 <div class="card qa">
 <h3>Q15：“就绪 0、消费者 1”是什么意思？对账改回 pending 再 NOTIFY，是不是绕圈子，为什么不直接重发？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 重发后不再 NOTIFY：改回 pending 的行立刻到期，dispatcher 这一轮就会发出。改为 attempt 结束时 NOTIFY（空出位子）。</p>
 <p><b>三个数</b>（动画里 RabbitMQ 框下面那行）：</p>
 <table>
 <tr><th>数</th><th>意思</th><th>谁会读它</th></tr>
@@ -846,6 +856,7 @@ attempt_no = ... + 1
 
 <div class="card qa">
 <h3>Q17：子进程 claim 前死了，但队列一直不为空，这条消息是不是就丢了？“就绪 0、消费者 1”有什么用？还有别的规则吗？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 规则全部换成只看时间的重发（Q26）。“就绪 0、消费者 &gt; 0”现在是重发的前提：就绪数不为 0 时暂停重发、满 2 分钟记 warning。</p>
 <p><b>不会丢，这时由规则 ①（水位线）发现。</b>队列不为空，说明后面还有消息在排队。死掉的子进程马上会补上，它会去领后面的消息。只要后面有一条消息 claim 了，水位线就越过了我，规则 ① 就成立。</p>
 <p>例子：attempt 20 的消息 10:00:00 推给子进程 1，子进程 1 加载语料时死了。队列里还有 21、22 排着。</p>
 <table>
@@ -876,6 +887,7 @@ attempt_no = ... + 1
 
 <div class="card qa">
 <h3>Q18：“最多 10 秒扫一次”和“每 15 秒巡检”能不能合并，都改成 10 秒？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 已合并成 10 秒（M1.6-3）。</p>
 <p><b>能，而且没有坏处。</b>两个数管的事不同，但不冲突：</p>
 <table>
 <tr><th></th><th>10 秒（兜底扫描）</th><th>15 秒（巡检）</th></tr>
@@ -898,6 +910,7 @@ while True:
 
 <div class="card qa">
 <h3>Q19：1 小时的确认期限在我们这里不生效，那实际生效的是什么？超时是只收回超时的那一条吗？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 实测（M1.6 实验 V4）：worker 主进程冻住后约 2.6 分钟才被 RabbitMQ 断开；这期间会多重发一次，多出的消息由 claim 挡住。</p>
 <p><b>经典队列上什么时限都没有：消息推出去以后一直挂着，直到 ack、reject，或者连接断开。</b>真正保护我们的是下面三样，都不是 RabbitMQ 的确认期限：</p>
 <table>
 <tr><th>出了什么事</th><th>谁收场</th><th>多久</th><th>消息怎样</th></tr>
@@ -992,6 +1005,7 @@ correlation_id:   "3f2c9a1e-…"               <span class="c"># 同上面的 id
 
 <div class="card qa">
 <h3>Q23：机制一览表是不是漏了 30 分钟？能不能去掉另外两条规则，只用超时判断？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 已按这个方向改：30 分钟兜底和另外两条规则都删了，只看时间，配合“有空位才发”。</p>
 <p><b>表里确实没写清楚</b>，只写了“满足三条规则之一”。已把第四节 #10 改成三条规则逐条列出，30 分钟写在里面。</p>
 <p><b>只用超时不行，因为一个数没法同时满足“快”和“不误判”。</b>超时 T 要大于正常排队最久的时间，不然排队的题会被当成丢了；可 T 一大，真丢了的消息就要等 T 才发现。例子：4 个子进程，每题约 2 分钟，一次来了 20 道题：</p>
 <table>
@@ -1005,6 +1019,7 @@ correlation_id:   "3f2c9a1e-…"               <span class="c"># 同上面的 id
 
 <div class="card qa">
 <h3>Q24：如果某个任务每次都要加载 3 分钟，不管哪个子进程领都会被误判丢失，不能只靠延长判定时间吧？看了 5.3，感觉系统根本扛不住多用户，以后能改吗？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 已实施：先 claim 再加载（M1.6-2）、有空位才发（M1.6-4），积压留在 outbox。实验 V2：缓存丢失加载 100 秒，54 毫秒 claim，不重发；V3：20 道题就绪数始终 0。</p>
 <p><b>你说的情况对：会误判，而且光加长宽限期治标不治本。</b>具体会怎样：</p>
 <ul>
   <li>2 分钟时，这道题还在加载、没 claim。只要有别的题先 claim 了（①），或者队列空了（②），就判它丢了，补发一次。</li>
@@ -1039,6 +1054,7 @@ correlation_id:   "3f2c9a1e-…"               <span class="c"># 同上面的 id
 
 <div class="card qa">
 <h3>Q25：经典队列上，确认期限不生效，那生效的是什么？对账补发后的 NOTIFY，为什么说可以给以后多个 dispatcher 用？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 重发后的 NOTIFY 已删除。</p>
 <p><b>第一问见 Q19：</b>经典队列对未确认的消息没有任何时限。生效的是 Celery 的 25 分钟硬时限、AMQP 心跳（约 60 秒）和连接断开。经典队列上照常生效的其他规则：额度（预取 4）、持久化（消息写盘）、连接断开时放回。</p>
 <p><b>第二问：我上一轮的说法不准确，“给多个 dispatcher 用”的理由其实很弱。</b>假设开了两个 dispatcher，D1 和 D2，都在 LISTEN：</p>
 <table>
@@ -1055,6 +1071,7 @@ correlation_id:   "3f2c9a1e-…"               <span class="c"># 同上面的 id
 
 <div class="card qa">
 <h3>Q26：一个更简单的办法：巡检时发现 attempt 还是 pending、outbox 是 sent，超过“重发时间”就直接再发一份到 RabbitMQ（outbox 状态不动），带退避和重发上限。这样行不行？</h3>
+<p class="m16"><span class="tag t-m16">M1.6 已改</span> 采用了“只看时间的重发 + 有空位才发”，但重发仍走“outbox 改回 pending”，不在巡检里直接 publish（告警时一次发送要 27 秒，会卡住巡检）。实测清空队列后 68 秒重发。</p>
 <p>先把方案写具体，后面按这组数推演：发出 2 分钟还没 claim 就重发；之后的间隔翻倍（4、8 分钟）；最多重发 3 次；第 3 次重发后再过 16 分钟还没 claim，判失败。也就是说，从第一次发出算起，<b>30 分钟</b>还没人领就判失败。</p>
 <div class="src">你的方案（巡检里，示意）</div>
 <pre><code>stuck = select(Outbox).join(Attempt, ...).where(
@@ -1136,10 +1153,10 @@ rows = select(Outbox).where(Outbox.status == "pending", ...).limit(min(BATCH, fr
 <tr><td>6</td><td>claim</td><td><span class="tag t-worker">子进程</span></td><td>每次收到消息</td><td>重复消息、已结束的 attempt</td><td>跳过，消息确认掉</td><td>M1</td></tr>
 <tr><td>7</td><td>续租线程</td><td><span class="tag t-worker">子进程</span></td><td>15 秒</td><td>（证明自己还活着）</td><td>lease_until = 现在 + 90 秒</td><td>M1</td></tr>
 <tr><td>8</td><td>epoch 检查（_fence）</td><td><span class="tag t-worker">子进程</span></td><td>每次写库</td><td>执行权已经换代</td><td>抛 LeaseLost，事务回滚，停止执行</td><td>M1</td></tr>
-<tr><td>9</td><td>租约巡检 expire_leases</td><td><span class="tag t-disp">dispatcher</span></td><td>15 秒</td><td>running 且 90 秒没续租</td><td>判失败 lease_expired，epoch + 1</td><td>M1</td></tr>
-<tr><td>10</td><td>对账 requeue_lost</td><td><span class="tag t-disp">dispatcher</span></td><td>15 秒</td><td>pending + sent 超过 2 分钟，且满足任一条：<br>① 比我晚发的已有人领（水位线）<br>② 队列就绪 0<br>③ <b>发出超过 30 分钟</b>（兜底）<br>消费者 0 时整个跳过</td><td>outbox 改回 pending 补发；第 4 次判 delivery_lost</td><td><span class="tag t-new">M1.5</span></td></tr>
+<tr><td>9</td><td>租约巡检 expire_leases</td><td><span class="tag t-disp">dispatcher</span></td><td>15 秒<br><span class="tag t-m16">M1.6 已改</span> 10 秒</td><td>running 且 90 秒没续租</td><td>判失败 lease_expired，epoch + 1</td><td>M1</td></tr>
+<tr><td>10</td><td>对账 requeue_lost<br><span class="tag t-m16">M1.6 已改</span> 换成只看时间的重发 resend_lost（Q26）</td><td><span class="tag t-disp">dispatcher</span></td><td>15 秒</td><td>pending + sent 超过 2 分钟，且满足任一条：<br>① 比我晚发的已有人领（水位线）<br>② 队列就绪 0<br>③ <b>发出超过 30 分钟</b>（兜底）<br>消费者 0 时整个跳过</td><td>outbox 改回 pending 补发；第 4 次判 delivery_lost</td><td><span class="tag t-new">M1.5</span></td></tr>
 <tr><td>11</td><td>硬时限</td><td><span class="tag t-worker">主进程</span></td><td>单个任务 25 分钟</td><td>子进程卡死</td><td>杀掉子进程并 ack → 不再续租 → 交给 #9</td><td>M1</td></tr>
-<tr><td>12</td><td>确认期限调大</td><td><span class="tag t-mq">RabbitMQ</span></td><td>—</td><td>（不是监督）</td><td>默认 30 分钟调到 1 小时，避免误伤正常任务。RabbitMQ 4.3 起经典队列不执行，实际不生效：未确认的消息没有时限，靠 #11 和 #5 收场（Q10、Q19）</td><td><span class="tag t-new">M1.5</span></td></tr>
+<tr><td>12</td><td>确认期限调大<br><span class="tag t-m16">M1.6 已改</span> 配置已删除</td><td><span class="tag t-mq">RabbitMQ</span></td><td>—</td><td>（不是监督）</td><td>默认 30 分钟调到 1 小时，避免误伤正常任务。RabbitMQ 4.3 起经典队列不执行，实际不生效：未确认的消息没有时限，靠 #11 和 #5 收场（Q10、Q19）</td><td><span class="tag t-new">M1.5</span></td></tr>
 <tr><td>13</td><td>compose 自动重启</td><td>Docker</td><td>进程退出时</td><td>dispatcher 连不上 PG 后退出</td><td>重新拉起，重新 LISTEN</td><td>M1</td></tr>
 </table>
 </div>

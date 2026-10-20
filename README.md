@@ -5,7 +5,7 @@
 用户对年报、债券募集说明书、保险条款等长文档提问（跨文档、跨年度、需要计算），
 Agent 自己检索、阅读原文、核对口径、计算，并给每个结论标注原文出处。
 
-> 当前阶段：M2 完成。提交 → RabbitMQ → 后台 worker 执行 → 每一步落库 → SSE 推送的服务闭环已跑通，消息丢失能由巡检对账补回；React 前端能看到思考逐字出现、每一步的工具调用、带原文旁注的回答。下一步 M3（登录与多用户）。进度见 [STATUS.md](STATUS.md)。
+> 当前阶段：M1.6 完成。提交 → RabbitMQ → 后台 worker 执行 → 每一步落库 → SSE 推送的服务闭环已跑通；worker 有空位才投递，消息丢失由巡检按时间重发；React 前端能看到思考逐字出现、每一步的工具调用、带原文旁注的回答。下一步 M3（登录与多用户）。进度见 [STATUS.md](STATUS.md)。
 
 ## 结构
 
@@ -20,7 +20,7 @@ src/margin/
   runs.py       建任务（Outbox + 幂等）、查询、事件
   lease.py      租约 + epoch：领取、带 epoch 提交、续租、巡检
   worker.py     Celery worker：执行 Harness，每一步写库
-  dispatcher.py 把 outbox 投递到 RabbitMQ（LISTEN / NOTIFY 唤醒）；租约巡检、消息丢失对账
+  dispatcher.py worker 有空位才把 outbox 投递到 RabbitMQ（LISTEN / NOTIFY 唤醒）；租约巡检、重发丢失的消息
   models.py     数据库表；结构变更走 migrations/（Alembic）
   settings.py   配置（MARGIN_* 环境变量 / .env）
 tests/          pytest，假模型 FakeLLM 驱动，不调用真实模型；-m integration 连真实 PG
