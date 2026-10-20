@@ -53,6 +53,13 @@ celery_app.conf.update(
     # 每个子进程只预取 1 条：手上只有正在执行的那一条，不会把别的任务压在自己这里排队。
     # 在管理界面里看：4 个子进程，这个 worker 的通道上预取数是 4
     worker_prefetch_multiplier=1,
+    # 和 RabbitMQ 断线重连时，不要临时调低预取数（M1.6 实验 V8 发现）。
+    # Celery 5.6.3 默认会按“还在执行的任务数”把预取数调低（4 → 3），说好执行完再调回来，
+    # 但调回时只改了自己记的数，没有通知 RabbitMQ：日志写“已恢复到 4”，RabbitMQ 一直按 3 给消息，
+    # 直到 worker 重启。dispatcher 按 4 个空位发（有空位才发），多出的那条就在 RabbitMQ 里排队，
+    # 重发也因为“就绪数不为 0”暂停。不调低也不会多拿：发多少条由 dispatcher 按空位决定；
+    # 重连后回到队列的“正在执行的任务”的消息，claim 会在几毫秒内跳过
+    worker_enable_prefetch_count_reduction=False,
     # 硬时限：一个任务超过 25 分钟，Celery 直接杀掉这个子进程（只防整个进程冻住）。
     # 被杀后库里的 attempt 还是 running，但没人续租了，租约过期后由巡检判为失败
     task_time_limit=25 * 60,
