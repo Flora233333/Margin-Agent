@@ -51,6 +51,7 @@ export interface Frame {
   foot: boolean // 账目行
   understand: string // 过程区第一项的文字
   understandH: number
+  label: string // 过程区标题（换文字的动画里新文字那一段）
 }
 
 /**
@@ -77,6 +78,7 @@ export async function recordFrames(page: Page): Promise<void> {
         foot: !!attempt.querySelector('.answer-foot'),
         understand: first?.textContent ?? '',
         understandH: Math.round(first?.getBoundingClientRect().height ?? 0),
+        label: attempt.querySelector('.work-label > span:last-child')?.textContent ?? '',
       }
       const key = JSON.stringify(frame)
       if (key !== last) {

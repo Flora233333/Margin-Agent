@@ -30,7 +30,12 @@ function label(attempt: Attempt): string {
       if (ended(attempt)) {
         return `正在撰写回答 · 已完成 ${n} 步`
       }
-      return attempt.live ? `正在思考 · 已完成 ${n} 步` : `正在执行 · 已完成 ${n} 步`
+      if (attempt.live) {
+        return `正在思考 · 已完成 ${n} 步`
+      }
+      // worker 领取后先加载语料（约 2 秒，索引缓存丢了要重建约 100 秒，M1.6 起挪到领取之后），
+      // 这段时间既没有步骤、也没有思考片段，说“已完成 0 步”像是卡住了
+      return n === 0 ? '正在准备资料…' : `正在执行 · 已完成 ${n} 步`
     case 'completed':
       return `思考与检索 · ${n} 步`
     case 'failed':

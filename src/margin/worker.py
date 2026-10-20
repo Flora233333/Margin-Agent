@@ -72,7 +72,10 @@ def worker_id() -> str:
 
 @cache
 def _components() -> tuple[Corpus, HybridRetriever]:
-    """语料和检索器：每个子进程第一次执行任务时加载一次（约 2 秒），之后复用。"""
+    """语料和检索器：每个子进程第一次执行任务时加载一次（约 2 秒），之后复用。
+
+    加载出错时 @cache 不记结果，下一个任务会再试一次（例如语料路径改对、重启 worker 之后）。
+    """
     return build_retriever(get_settings())
 
 
@@ -169,10 +172,19 @@ def _tools_with_guessed_format(guess: Callable[[], Guess]) -> dict[str, Any]:
     return {**TOOLS, "finalize": (finalize_with_guess, args_model)}
 
 
-def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
+def execute(engine: Engine, load: Callable[[], tuple[Corpus, HybridRetriever]],
             make_llm: Callable[[str], ChatModel], live_redis: redis.Redis, attempt_id: int,
             worker: str) -> None:
-    """执行一个 attempt。拆成普通函数（而不是直接写在 Celery 任务里），测试可以直接调用。"""
+    """执行一个 attempt。拆成普通函数（而不是直接写在 Celery 任务里），测试可以直接调用。
+
+    load 是“加载语料和检索器”的函数（测试里传一个直接返回小语料的函数）。
+    先 claim、再在续租的保护下调用它，顺序不能反（M1.6，D28）：
+    加载第一次要约 2 秒，BM25 缓存丢了要重建约 100 秒。先加载的话，这段时间 PG 里
+    看不出“有人收到了”，attempt 还是 pending，dispatcher 只能靠猜判断消息是不是丢了；
+    子进程在这段时间死掉，attempt 就一直停在 pending。
+    先 claim 之后，“消息发出”到“PG 里变成 running”只有几毫秒；加载多久都有租约保着，
+    加载中死了由租约过期发现，加载出错是一次看得见的失败。
+    """
     held = lease.claim(engine, attempt_id, worker)
     if held is None:
         log.info("attempt %s 已被领取或已结束，跳过（重复投递）", attempt_id)
@@ -195,6 +207,9 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
             tools = _tools_with_guessed_format(understood.result if understood else lambda: stored)
         publish = DeltaPublisher(live_redis, held.run_id, held.attempt_id, held.epoch)
         try:
+            # 理解题目不用语料，已经在另一个线程里和加载同时进行。
+            # 加载出错（语料路径不对等）和模型报错一样走下面的 except：这次执行判失败
+            corpus, retriever = load()
             trace = run_episode(
                 held.task, llm, build_registry(held.task, corpus, retriever, tools),
                 # 走流式调用：思考片段一到就 publish 到 Redis，前端逐字显示（live.py）；
@@ -226,6 +241,5 @@ def execute(engine: Engine, corpus: Corpus, retriever: HybridRetriever,
 
 @celery_app.task(name="margin.execute_attempt")
 def execute_attempt(attempt_id: int) -> None:
-    corpus, retriever = _components()
-    execute(get_engine(), corpus, retriever, lambda model: _llm_for(model, attempt_id),
+    execute(get_engine(), _components, lambda model: _llm_for(model, attempt_id),
             _live_redis(), attempt_id, worker_id())

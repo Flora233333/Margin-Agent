@@ -28,6 +28,19 @@ test('思考流式输出完、这一步的结果到达时，同一个条目原�
   expect(kept).toEqual({ connected: true, replayed: false })
 })
 
+test('worker 领取后、第一步之前：过程区标题是“正在准备资料…”，不是“已完成 0 步”（M1.6-2）', async ({ page }) => {
+  await recordFrames(page)
+  await submit(page, 'num_short')
+  await waitSettled(page)
+  const labels = (await frames(page)).map((f) => f.label)
+  const preparing = labels.indexOf('正在准备资料…')
+  // 领取前是排队中；领取后先显示准备资料，之后才是思考 / 执行的步数
+  expect(preparing).toBeGreaterThan(-1)
+  expect(labels.slice(0, preparing).every((l) => l === '' || l.startsWith('排队中'))).toBe(true)
+  expect(labels).not.toContain('正在执行 · 已完成 0 步')
+  expect(labels.at(-1)).toMatch(/^思考与检索 · \d+ 步$/)
+})
+
 test('理解题目从“正在理解”换成标题，这一项高度不变，下面的条目不被顶一下（M2.5-5 修订四）', async ({ page }) => {
   await recordFrames(page)
   await submit(page, 'num_multi')
