@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from margin import live, runs
 from margin.dispatcher import (
-    MAX_WAIT_SECONDS,
+    TICK_SECONDS,
     dispatch_once,
     listen,
     make_publisher,
@@ -340,7 +340,7 @@ def test_new_submission_wakes_dispatcher_within_one_second(db, listener):
     threading.Timer(0.2, submit, args=[db]).start()  # 0.2 秒后另一个线程提交
     start = time.monotonic()
 
-    assert wait_for_notify(listener, timeout=MAX_WAIT_SECONDS)
+    assert wait_for_notify(listener, timeout=TICK_SECONDS)
     assert time.monotonic() - start < 1
     published = []
     assert dispatch_once(db, published.append) == 1

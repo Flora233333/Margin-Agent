@@ -37,8 +37,10 @@ from .settings import get_settings
 
 log = logging.getLogger(__name__)
 
-MAX_WAIT_SECONDS = 10.0  # 没有通知时最多等这么久也扫一次 outbox（兜底）
-INSPECT_EVERY_SECONDS = 15  # 每 15 秒巡检一次：过期租约 + 消息丢失对账
+# 一轮的节奏：没有通知时最多等 10 秒也扫一次 outbox（兜底）；
+# 巡检（过期租约 + 消息丢失对账）每 10 秒一次。
+# 原来是两个数（兜底 10 秒、巡检 15 秒），合成一个好讲：出了事最多晚 10 秒被发现（M1.6）
+TICK_SECONDS = 10.0
 BATCH = 50  # 一轮最多投递多少条
 MAX_BACKOFF_SECONDS = 60
 CONFIRM_TIMEOUT_SECONDS = 5  # 发出一条消息后最多等 RabbitMQ 的“收到了”（发送确认）多久
@@ -137,7 +139,7 @@ def read_queue_state(broker_url: str) -> QueueState | None:
     """用“被动声明”读任务队列的就绪消息数和消费者数；RabbitMQ 连不上时返回 None。
 
     被动声明（queue_declare passive=True）：只问“这个队列在不在、现在什么状态”，不创建、不修改队列。
-    每次巡检（15 秒）开一条新连接、用完就关，比一直占着一条连接简单，开销可以忽略。
+    每次巡检（10 秒）开一条新连接、用完就关，比一直占着一条连接简单，开销可以忽略。
     max_retries=0：连不上就立刻返回，不在这里重试——下一轮巡检本来就会再试。
     """
     try:
@@ -267,7 +269,7 @@ def wait_for_notify(listener: psycopg.Connection, timeout: float) -> bool:
 
 
 def seconds_until_due(engine: Engine) -> float:
-    """离最早一条 pending 记录可以投递还有几秒（最多 MAX_WAIT_SECONDS）。
+    """离最早一条 pending 记录可以投递还有几秒（最多 TICK_SECONDS）。
 
     通知只负责“有新任务”。投递失败后退避的记录到期时不会有人发通知，所以等待时间不能超过它的到期时间；
     已经到期的（例如一轮超过 BATCH 条没发完）返回 0，马上再扫一轮。
@@ -278,8 +280,8 @@ def seconds_until_due(engine: Engine) -> float:
             .where(Outbox.status == "pending")
         )
     if due is None:
-        return MAX_WAIT_SECONDS
-    return max(0.0, min(float(due), MAX_WAIT_SECONDS))
+        return TICK_SECONDS
+    return max(0.0, min(float(due), TICK_SECONDS))
 
 
 def main() -> None:
@@ -295,7 +297,8 @@ def main() -> None:
         sent = dispatch_once(engine, publish)
         if sent:
             log.info("投递 %s 条", sent)
-        if time.monotonic() - last_inspect >= INSPECT_EVERY_SECONDS:
+        # 巡检按自己的计时器：通知随时会叫醒循环（每提交一道题就醒一次），不能醒一次就巡检一次
+        if time.monotonic() - last_inspect >= TICK_SECONDS:
             expired = lease.expire_leases(engine)
             if expired:
                 log.warning("租约过期，判为失败：attempt %s", expired)
@@ -306,8 +309,8 @@ def main() -> None:
             if failed:
                 log.error("补发 %s 次仍未送达，判为失败：attempt %s", MAX_REDELIVERIES, failed)
             last_inspect = time.monotonic()
-        # 等到：有通知、或最早的退避记录到期、或该巡检了、或 10 秒——哪个先到算哪个
-        until_inspect = INSPECT_EVERY_SECONDS - (time.monotonic() - last_inspect)
+        # 等到：有通知、或最早的退避记录到期、或该巡检了（最多 10 秒）——哪个先到算哪个
+        until_inspect = TICK_SECONDS - (time.monotonic() - last_inspect)
         wait_for_notify(listener, max(0.0, min(seconds_until_due(engine), until_inspect)))
 
 
