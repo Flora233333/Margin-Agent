@@ -103,7 +103,11 @@ figcaption { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .check { display: flex; gap: 10px; align-items: flex-start; }
 .check input { margin-top: 6px; flex: none; width: 16px; height: 16px; }
 .check label { flex: 1; }
-ol.trade > li { margin: 10px 0; }
+.tcard { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin: 12px 0; }
+.tcard .check label { font-size: 15px; }
+.tcard .kv { grid-template-columns: 104px 1fr; margin: 8px 0 0 26px; gap: 4px 12px; }
+.tcard .kv dt:last-of-type, .tcard .kv dd:last-of-type { color: var(--worker); }
+@media (max-width: 640px) { .tcard .kv { grid-template-columns: 1fr; margin-left: 0; } .tcard .kv dd { margin-bottom: 6px; } }
 .small { font-size: 13px; color: var(--muted); }
 .theme { position: fixed; top: 12px; right: 12px; font-size: 13px; border: 1px solid var(--border);
   background: var(--card); color: var(--fg); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
@@ -568,24 +572,177 @@ M1.6 的“有空位才发”要求 worker 实际能拿的数和配置一致，�
 <!-- ============================================================ -->
 <h2 id="trade">八、等你确认的取舍</h2>
 
-<p>计划没写清、执行时我选了一个方案的地方。详细写法（问题 → 选了什么 → 为什么 → 不同意时怎么改）在 STATUS“执行中的取舍”15～27，结论汇总在 D29。
-勾选框只是帮你记 review 进度，存在这个浏览器里。</p>
+<p>这些是方案（PLAN §5.9）没写清、执行时由我先选了一个做法的地方。每条按同一个顺序写：
+<b>这是什么</b>（背景）→ <b>我选了什么</b> → <b>另一种做法</b> → <b>代价</b> → <b>我的建议</b>。
+分成三组：A 组会影响系统行为或页面，需要你拍板；B 组是实现细节，一般直接同意就行；C 组是实验里的处理和看到的现象。
+编号和 STATUS“执行中的取舍”、D29 一致。勾选框只帮你记 review 进度，存在这个浏览器里。</p>
 
-<ol class="trade" id="trades" start="15">
-<li><div class="check"><input type="checkbox" id="t15"><label for="t15"><b>修 Celery 预取数问题（超出 §5.9 范围）</b>：第六节。不同意的话：升级 Celery 到修好这个问题的版本后删掉这行。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t16"><label for="t16"><b>已结束的题，补发没到齐的执行先不显示</b>：§5.9 只要求“过程区不展开”。代价是慢网络下开头空白（V11 12.3 秒）。不同意的话：这期间显示一行“加载中…”。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t17"><label for="t17"><b>还没有执行可显示时，右栏不提示“没有引用”</b>：否则旧代码 7 秒时会先错误地显示“没有引用”。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t18"><label for="t18"><b>一轮里先巡检再投递</b>：容量要用巡检刚读到的消费者数；读不到队列时容量为 0、不投递。没有空位时最多睡 10 秒，空出位子靠结束时的 NOTIFY 叫醒。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t19"><label for="t19"><b>子进程数用一个环境变量 <code>MARGIN_WORKER_CONCURRENCY</code></b>，worker 和 dispatcher 共用（默认 4），没去读 RabbitMQ 里的预取数：V8 那样被调低时，读到的反而是错的。代价：两边要一起改；将来不同 worker 子进程数不同时要另想办法。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t20"><label for="t20"><b>重发是否到期在 Python 里算</b>：候选只有“已发出、还没领取”的那几条，写成 SQL 反而难读。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t21"><label for="t21"><b>积压 warning 每段只记一次</b>：排队数连续 2 分钟不为 0 记一条，回到 0 才重置，避免每 10 秒刷一条。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t22"><label for="t22"><b><code>requeue_lost</code> 改名 <code>resend_lost</code>，<code>ix_outbox_sent_at</code> 索引暂留</b>：索引现在没有查询用到，删它要一个迁移，留到以后清理。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t23"><label for="t23"><b>V4 改了做法</b>：按字面清空队列丢不了消息，改成“冻住 worker → 断开连接 → 清空 → 恢复”。预期没改。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t24"><label for="t24"><b>V5 的 10 秒窗口不改</b>（第七节第 1 行）。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t25"><label for="t25"><b>worker 主进程冻住时多重发一次，不改</b>（第七节第 2 行）。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t26"><label for="t26"><b>告警时“失败”的消息解除后仍送到，不改</b>（第七节第 3 行）。</label></div></li>
-<li><div class="check"><input type="checkbox" id="t27"><label for="t27"><b>执行失败、0 步时提示仍写“已完成的步骤保留在上面”</b>：文案小问题，不在范围内，没改。</label></div></li>
-</ol>
+<div id="trades">
+
+<h3>A 组：需要你拍板（4 条）</h3>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t15"><label for="t15"><b>15. 关掉 Celery 重连时的“临时调低预取数”</b> <span class="tag t-fix">超出 §5.9 范围</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>RabbitMQ 不会把队列里的消息一股脑推给 worker，而是最多推“预取数”条还没做完的。我们设成 4，正好等于子进程数：每个子进程手上一条。
+  Celery 有个默认行为：和 RabbitMQ 断线重连时，如果手上还有任务在执行，就先把预取数临时调低（4 → 3），说好执行完再调回 4。
+  但 5.6.3 版本调回时只改了自己记的数字，没通知 RabbitMQ，结果 worker 一直只能拿 3 条，直到重启（第六节）。
+  在 M1.6 的“有空位才发”下，这会让第 4 条消息卡在队列里没人收。</dd>
+  <dt>我选了</dt><dd>加一行配置 <code>worker_enable_prefetch_count_reduction=False</code>，重连时不调低，预取数始终是 4。加了测试防止被改回去。</dd>
+  <dt>为什么安全</dt><dd>Celery 调低是怕重连后“手上的旧任务 + 新推来的消息”超过子进程数。我们这里发多少条由 dispatcher 按空位决定，不会多发；
+  重连后旧任务的消息回到队列再被收到时，领取失败、几毫秒跳过，不占子进程。</dd>
+  <dt>另一种</dt><dd>① 不改配置，等 Celery 官方修好再升级（现在每次 RabbitMQ 重启都可能卡住一个位子）；② 让 dispatcher 定期读 RabbitMQ 里的实际预取数来算空位（见第 19 条，会把错误当正确）。</dd>
+  <dt>代价</dt><dd>多一行偏底层的配置，要靠注释和测试记住为什么。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b>虽然方案里没有，但不修的话 M1.6 的“有空位才发”在 RabbitMQ 重启后会出问题。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t16"><label for="t16"><b>16. 打开已结束的题时，还没补发完的那次执行先不显示</b> <span class="tag t-web">前端</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>打开一道题，页面要从服务器重新收一遍这道题的全部事件（开始执行、第 1 步、第 2 步……、回答、结束）。网络慢时这要几秒到十几秒。
+  旧代码收到一个显示一个，看起来像把执行过程重放了一遍：过程区展开、转圈“正在执行 · 已完成 n 步”，收到“结束”才收起（V11 旧代码展开了 3.4 秒）。
+  方案 ⑥ 只写了“打开已结束的题，过程区从头到尾不展开”，没说补发过程中显示什么。</dd>
+  <dt>我选了</dt><dd>页面一打开就知道这道题已经结束（<code>run.status</code>），所以补发过程中、还没收到“结束”事件的那次执行<b>整个先藏起来</b>；
+  “结束”事件到了，一次性显示成最终样子：过程区收着、“思考与检索 · 18 步”、正文全文。</dd>
+  <dt>另一种</dt><dd>① 藏起来的同时显示一行“加载中…”；② 不藏，照常边收边显示步骤，只是强制过程区收着（标题里的步数会一路往上涨）。</dd>
+  <dt>代价</dt><dd>慢网络下，内容出现之前是<b>空白</b>（V11 限速到约 Slow 3G 时空白 12.3 秒）。正常网络下补发只要几百毫秒，看不出来。</dd>
+  <dt>我的建议</dt><dd><b>同意，并考虑加上 ① 的“加载中…”</b>：空白 12 秒容易让人以为页面坏了，加一行提示的改动很小。你定。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t19"><label for="t19"><b>19. 每个 worker 有几个子进程，用一个环境变量告诉 dispatcher</b> <span class="tag t-disp">dispatcher</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>dispatcher 算空位要知道总共有几个子进程：<code>空位 = worker 数 × 每个 worker 的子进程数 − 在途数</code>。
+  worker 数可以每 10 秒问 RabbitMQ（消费者数）；“每个 worker 几个子进程”有两种拿法。</dd>
+  <dt>我选了</dt><dd>用配置：一个环境变量 <code>MARGIN_WORKER_CONCURRENCY</code>（默认 4），compose 同时把它传给 worker 的启动参数 <code>--concurrency</code> 和 dispatcher，两边永远一致。</dd>
+  <dt>另一种</dt><dd>实测：问 RabbitMQ 每个 worker 的预取数，当作它的子进程数。</dd>
+  <dt>为什么不选实测</dt><dd>实测读到的是“现在是多少”，不是“应该是多少”。V8 那种 Celery 把预取数降到 3 的情况，实测会读到 3 并当成正常，问题就被掩盖了。</dd>
+  <dt>代价</dt><dd>改子进程数必须改这个变量，不能只改 worker 的启动命令；将来如果不同 worker 容器开不同的子进程数，一个变量表达不了（M6 之前不会出现）。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t18"><label for="t18"><b>18. dispatcher 一轮里先巡检、再投递；没空位时睡到下次巡检</b> <span class="tag t-disp">dispatcher</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>dispatcher 每轮做两件事：<b>巡检</b>（每 10 秒一次：问 RabbitMQ 有几个 worker、判过期租约、判重发）和<b>投递</b>（按空位发消息）。
+  算空位要用巡检读到的 worker 数。方案没写两件事的先后，也没写没空位时睡多久。</dd>
+  <dt>我选了</dt><dd>① 先巡检再投递：投递总是用刚读到的 worker 数；dispatcher 刚启动、或者 RabbitMQ 读不到时，空位算 0，这一轮不发。
+  ② 没有空位时直接睡到下次巡检（最多 10 秒），等“一道题结束”的通知把它叫醒；有空位时才按 outbox 里最早的待发时间醒来。</dd>
+  <dt>另一种</dt><dd>① 先投递再巡检（用的是 10 秒前的 worker 数）；② 没空位也按待发时间频繁醒来查库（反正发不了，白查）。</dd>
+  <dt>代价</dt><dd>几乎没有。dispatcher 刚启动的第一轮，要先等巡检读完 RabbitMQ（几毫秒）才发。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<h3>B 组：实现细节（4 条，一般直接同意）</h3>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t17"><label for="t17"><b>17. 页面还没有执行可显示时，右栏不说“这次执行没有引用原文”</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>右栏列出回答引用的原文；一条引用都没有时，显示“这次执行没有引用原文。”。在第 16 条的空白期间，执行还没显示，引用列表自然是空的，
+  旧逻辑就会误显示这句话（V11 旧代码 7 秒时出现过）。</dd>
+  <dt>我选了</dt><dd>还没有任何执行可显示时，不显示这句话。这是第 16 条的配套。</dd>
+  <dt>代价</dt><dd>无。</dd>
+  <dt>我的建议</dt><dd><b>同意</b>（跟着第 16 条走）。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t20"><label for="t20"><b>20. “该不该重发”在 Python 里算，不写进 SQL</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>判断要用 <code>发出时间 + 1 分钟 × 2^已重发次数</code> 和现在比。可以写在 SQL 的查询条件里，也可以把候选取出来在 Python 里逐条算。</dd>
+  <dt>我选了</dt><dd>Python 里算。候选只有“已发出、还没被领取”的那几条（正常时是 0 条），两种写法性能没区别，Python 的写法一眼能看懂。</dd>
+  <dt>代价</dt><dd>无。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t21"><label for="t21"><b>21. “RabbitMQ 里有积压”的警告，每段积压只记一次</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>有了“有空位才发”，RabbitMQ 里本不该有排队的消息；连续 2 分钟都有，说明出了问题（子进程数配错、worker 卡住等），记一条 warning 日志。
+  巡检每 10 秒一次，如果每次都记，积压期间每 10 秒刷一条。</dd>
+  <dt>我选了</dt><dd>一段积压只记一条；排队数回到 0 之后再出现积压，才再记。</dd>
+  <dt>代价</dt><dd>积压持续很久，日志里也只有一条。M6 接上监控面板后看曲线。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t22"><label for="t22"><b>22. 函数改名 <code>resend_lost</code>；用不上的索引 <code>ix_outbox_sent_at</code> 先留着</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>原来的 <code>requeue_lost</code>（对账补发）做法完全换了，改名叫 <code>resend_lost</code>（重发），名字和做法一致。
+  <code>ix_outbox_sent_at</code> 是 M1.5 为水位线建的数据库索引（按发出时间找“比我晚发的”），水位线删了，现在没有查询用它。</dd>
+  <dt>我选了</dt><dd>索引先留着，注释写明“以后清理”。删索引要写一个数据库迁移，不想在这个阶段为它加迁移。</dd>
+  <dt>另一种</dt><dd>现在就加一个迁移把它删掉。</dd>
+  <dt>代价</dt><dd>每次写 outbox 多维护一个索引。数据量很小，影响可以忽略。</dd>
+  <dt>我的建议</dt><dd><b>同意</b>，下次本来就要加迁移时（例如 M3）顺手删掉。</dd>
+</dl>
+</div>
+
+<h3>C 组：实验里的处理和看到的现象（5 条）</h3>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t23"><label for="t23"><b>23. V4“清空队列”换了做法</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>V4 想测的是“消息在 RabbitMQ 里丢了，1 分钟后会不会重发”，计划的做法是投递后立刻清空队列。
+  但有了“有空位才发”，消息一到 RabbitMQ 就被空闲的 worker 拿走（变成“已推给 worker、还没确认”）；清空命令只清“还在排队”的消息，清不到它。
+  也就是说，<b>这个操作已经丢不了消息了</b>（这本身是好事），按字面做测不到重发。</dd>
+  <dt>我选了</dt><dd>换一种办法真正把消息弄丢：冻住 worker → 断开它和 RabbitMQ 的连接（消息退回排队）→ 清空 → 恢复 worker。
+  预期没改（约 1 分钟后重发、完成、重发 1 次），实际 68 秒重发。</dd>
+  <dt>需要你判断</dt><dd>这个做法测到的就是 V4 想测的“消息丢了 → 按时间重发”，只是制造“丢消息”的方式不同。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t24"><label for="t24"><b>24. worker 刚停的 10 秒内提交的题，仍会被发出去等着</b>（V5）</label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>dispatcher 认为有几个 worker，用的是最近一次巡检的结果，最多是 10 秒前的。worker 刚停下的这 10 秒里提交的题，
+  dispatcher 还以为有空位，会把消息发出去；消息在 RabbitMQ 里排队，worker 回来后照常执行。V5 第一次就是停 worker 后 5 秒提交的。</dd>
+  <dt>结果</dt><dd>不丢、不重复执行、不误判（队列里有排队的消息时不判重发），2 分钟后记一条积压警告。</dd>
+  <dt>另一种</dt><dd>每次投递前都先问一次 RabbitMQ 有几个 worker：每道题多一次网络往返，只为了覆盖“worker 刚好在这 10 秒里停了”这种少见情况。</dd>
+  <dt>我的建议</dt><dd><b>不改。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t25"><label for="t25"><b>25. worker 卡死（不是退出）时，会多重发一次</b>（V4 附带看到）</label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>worker 主进程卡死时，它和 RabbitMQ 的连接还挂着，RabbitMQ 仍认为它在线、消息在它手上。
+  dispatcher 看到“有 worker、队列里没有排队的、发出 1 分钟还没人领取”，就判定丢了、重发一次；重发的消息也推给了这个卡死的 worker。
+  RabbitMQ 靠心跳发现它卡死，要连续几次收不到心跳，实测约 2.6 分钟才断开它。断开后消息回到队列，worker 恢复后只执行一次，多出的那条被领取那一步跳过。</dd>
+  <dt>代价</dt><dd>多一条消息、日志里多一次“重发”。不会重复执行。</dd>
+  <dt>另一种</dt><dd>把第一次重发的时间从 1 分钟改成 3 分钟（比心跳断开慢），就不会多发这一次；代价是真丢消息时晚 2 分钟才发现。</dd>
+  <dt>我的建议</dt><dd><b>不改。</b>worker 卡死本身要靠 M4 的监督者更早发现。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t26"><label for="t26"><b>26. RabbitMQ 内存告警时，报“发送失败”的消息后来其实送到了</b>（V7）</label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>RabbitMQ 内存告警时会停止接收发送方的数据。dispatcher 发出消息后等“存好了”的回复，约 27 秒等不到，记为发送失败，稍后重试。
+  但那条消息其实已经在网络缓冲里，告警解除后 RabbitMQ 照样收下。所以“失败一次 + 重试一次”= 两条消息。V7 里 4 次失败 + 1 次成功 = 5 条，执行 1 次。</dd>
+  <dt>为什么不改</dt><dd>发送方没法知道“等超时的那条到底收没收到”，这是“至少送到一次”这类投递方式的固有现象。整个设计正是靠“领取只认 pending”去掉重复，结果也确实只执行了一次。</dd>
+  <dt>我的建议</dt><dd><b>不改。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t27"><label for="t27"><b>27. 一步没做就失败时，提示里仍写“已完成的步骤保留在上面”</b>（V9）</label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>执行失败时，页面显示“执行出错（…），这次执行没有完成。”，下面一行小字“已完成的步骤保留在上面。可以点右上角‘重新生成’再试一次。”
+  V9 是加载语料就出错，一步都没做，“上面”是空的，这句话不对。</dd>
+  <dt>我选了</dt><dd>没改：属于文案，不在 M1.6 范围。</dd>
+  <dt>另一种</dt><dd>现在顺手改：0 步时只显示“可以点右上角‘重新生成’再试一次。”（前端一行判断）。</dd>
+  <dt>我的建议</dt><dd><b>顺手改掉</b>，你同意的话我单独提交一个小修复。</dd>
+</dl>
+</div>
+
+</div>
 
 <!-- ============================================================ -->
 <h2 id="tests">九、测试和文档</h2>
