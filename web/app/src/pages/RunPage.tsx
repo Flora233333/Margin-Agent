@@ -34,22 +34,30 @@ interface Props {
 }
 
 export function RunPage({ runId, onCreated, onRunsChanged }: Props) {
-  // 记下“这份结果属于哪个 runId”：切换到另一道题时，旧结果不会在新请求返回之前被当成新题显示
-  const [loaded, setLoaded] = useState<{ runId: number } & Loaded>()
+  // App 按 runId 给 RunPage 加了 key：换一道题时整个重建，下面的状态都从头开始，旧题的结果不会被当成新题显示
+  const [loaded, setLoaded] = useState<Loaded>()
+  const [openedAt] = useState(() => performance.now()) // 打开这道题的时刻：“加载中…”从这一刻算起才淡入（Loading）
 
   useEffect(() => {
     let current = true // 请求返回前用户已经切到别的题，就丢弃这次结果
     getRun(runId).then(
-      (run) => current && setLoaded({ runId, run }),
-      (error: ApiError) => current && setLoaded({ runId, error }),
+      (run) => current && setLoaded({ run }),
+      (error: ApiError) => current && setLoaded({ error }),
     )
     return () => {
       current = false
     }
   }, [runId])
 
-  if (loaded?.runId !== runId) {
-    return <main className="main" aria-busy="true" />
+  if (!loaded) {
+    // 题目本身还没取到（GET /runs/{id} 带着全部步骤，慢网络下要好几秒，V11 实测 7 秒）
+    return (
+      <main className="main" aria-busy="true">
+        <div className="thread">
+          <Loading since={openedAt} />
+        </div>
+      </main>
+    )
   }
   if ('error' in loaded) {
     return loaded.error.status === 404 ? (
@@ -62,17 +70,33 @@ export function RunPage({ runId, onCreated, onRunsChanged }: Props) {
       </main>
     )
   }
-  // key：换一道题时 RunView 整个重建，useRunStream 的状态从空开始
-  return <RunView key={runId} run={loaded.run} onCreated={onCreated} onRunsChanged={onRunsChanged} />
+  return <RunView run={loaded.run} openedAt={openedAt} onCreated={onCreated} onRunsChanged={onRunsChanged} />
+}
+
+const LOADING_DELAY_MS = 300
+
+/**
+ * “加载中…”：打开这道题 0.3 秒后才淡入（app.css），网络快时内容几毫秒就到，不闪一下。
+ * 题目取到之前、补发到齐之前各显示一次，是两个不同的元素；延迟从打开的时刻算，
+ * 换成第二个时不会重新等 0.3 秒、消失一下再出现（已经过了 0.3 秒就是负的延迟，直接显示）。
+ */
+function Loading({ since }: { since: number }) {
+  const [delay] = useState(() => LOADING_DELAY_MS - (performance.now() - since))
+  return (
+    <p className="thread-loading" style={{ animationDelay: `${delay}ms` }}>
+      加载中…
+    </p>
+  )
 }
 
 interface ViewProps {
   run: RunDetail
+  openedAt: number // 打开这道题的时刻（performance.now），给“加载中…”算延迟
   onCreated: (runId: number) => void
   onRunsChanged: () => void
 }
 
-function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
+function RunView({ run, openedAt, onCreated, onRunsChanged }: ViewProps) {
   const [actionError, setActionError] = useState('') // 重新生成失败（409 等）的提示
   // 打开页面时题目还在执行：等它结束要刷新左侧列表的状态点。打开时已结束的题不用（列表本来就是对的）
   const watching = useRef(run.status === 'queued' || run.status === 'running')
@@ -129,6 +153,8 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
     () => timeline.attempts.filter((a) => !(settledEarly?.has(a.no) && (a.status === 'queued' || a.status === 'running'))),
     [timeline.attempts, settledEarly],
   )
+  // 有执行被上面藏着（补发还没到它的结束事件）：显示一行“加载中…”，慢网络下不是一片空白（M1.6 收尾，取舍 16）
+  const loading = settledEarly !== null && [...settledEarly].some((no) => !attempts.some((a) => a.no === no))
 
   // 来源只显示最近一次执行的引用；更早的执行只保留过程和结论，不再标引用编号
   const latest = attempts.at(-1)
@@ -183,7 +209,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
                   citeNos={isLatest ? citeNos : NO_CITES}
                   understanding={isLatest && attempt.status === 'running' && !understood && run.title === null}
                 />
-                {attempt.status === 'failed' && <Failure error={attempt.error} />}
+                {attempt.status === 'failed' && <Failure error={attempt.error} steps={attempt.steps.length} />}
                 {/* 撰写完（执行结束）才显示回答：先结论、再逐字出现的正文（Answer.tsx） */}
                 {attempt.status === 'completed' && (
                   <Answer
@@ -204,6 +230,7 @@ function RunView({ run, onCreated, onRunsChanged }: ViewProps) {
               </div>
             )
           })}
+          {loading && <Loading since={openedAt} />}
           {actionError && (
             <p className="form-error" role="alert">
               <Icon name="alert" />

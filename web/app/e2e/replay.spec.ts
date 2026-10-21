@@ -57,8 +57,38 @@ test('打开重新生成过的题：两次执行都在，更早的一次只留�
   expect(errors).toEqual([])
 })
 
-test('打开执行失败的题：显示失败原因和“重新生成”的提示', async ({ page }) => {
+test('打开已结束的题、补发很慢：内容出现前显示“加载中…”，到齐后消失（M1.6 收尾，取舍 16）', async ({ page }) => {
+  // 以前这段时间是一片空白（V11：限速后 12.3 秒），看不出是在加载还是坏了
+  const { id } = await (await page.request.post(`${MOCK_API}/__slow?name=num_short&batches=3&gap_ms=1500`)).json()
+  await page.goto(`/runs/${id}`)
+  await expect(page.locator('.thread-loading')).toHaveText('加载中…')
+  await expect(page.locator('.attempt')).toHaveCount(0)
+  await expect(page.locator('.answer-foot')).toBeVisible()
+  await expect(page.locator('.thread-loading')).toHaveCount(0)
+})
+
+test('打开重新生成过的题、补发很慢：第 1 次执行先出现，“加载中…”留到第 2 次执行到齐', async ({ page }) => {
+  const { id } = await (await page.request.post(`${MOCK_API}/__slow?name=regenerated&batches=6&gap_ms=800`)).json()
+  await page.goto(`/runs/${id}`)
+  await expect(page.locator('.attempt')).toHaveCount(1)
+  await expect(page.locator('.thread-loading')).toBeVisible()
+  await expect(page.locator('.attempt:last-child .answer-foot')).toBeVisible()
+  await expect(page.locator('.attempt')).toHaveCount(2)
+  await expect(page.locator('.thread-loading')).toHaveCount(0)
+})
+
+test('打开执行失败的题（一步都没做）：显示失败原因，提示只说“重新生成”，不说“步骤保留在上面”', async ({ page }) => {
   await page.goto(`/runs/${await replayId(page, 'failed')}`)
   await expect(page.locator('.failure')).toContainText('模型网关返回错误（HTTP 500）')
+  await expect(page.locator('.failure-hint')).toHaveText('可以点右上角“重新生成”再试一次。')
+  await expect(page.locator('.answer')).toHaveCount(0)
+  await expect(page.locator('.thread-loading')).toHaveCount(0)
+})
+
+test('打开执行失败的题（做了几步后失败）：步骤留着，提示“已完成的步骤保留在上面”', async ({ page }) => {
+  await page.goto(`/runs/${await replayId(page, 'failed_midway')}`)
+  await expect(page.locator('.failure')).toContainText('模型网关返回错误（HTTP 429）')
+  await expect(page.locator('.failure-hint')).toHaveText('已完成的步骤保留在上面。可以点右上角“重新生成”再试一次。')
+  await expect(page.locator('.steps > .step')).toHaveCount(itemCount('failed_midway'))
   await expect(page.locator('.answer')).toHaveCount(0)
 })

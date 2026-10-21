@@ -53,7 +53,8 @@ export function App() {
       <Sidebar runs={runs} activeId={route.page === 'run' ? route.runId : null} />
       {route.page === 'new' && <NewRunPage onCreated={onCreated} />}
       {route.page === 'run' && (
-        <RunPage runId={route.runId} onCreated={onCreated} onRunsChanged={reloadRuns} />
+        // key：换一道题时 RunPage 整个重建，题目、事件流（useRunStream）、“加载中…”的计时都从头开始
+        <RunPage key={route.runId} runId={route.runId} onCreated={onCreated} onRunsChanged={reloadRuns} />
       )}
       {route.page === 'not-found' && <NotFound />}
     </div>

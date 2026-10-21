@@ -22,13 +22,16 @@ function failureMessage(error: string | null): string {
   return `执行出错（${error}），这次执行没有完成。`
 }
 
-export function Failure({ error }: { error: string | null }) {
+/** steps：这次执行完成了几步。0 步时（加载出错、第一次调模型就失败）上面没有步骤，不提“保留在上面” */
+export function Failure({ error, steps }: { error: string | null; steps: number }) {
   return (
     <div className="failure" role="alert">
       <Icon name="alert" />
       <div>
         <p>{failureMessage(error)}</p>
-        <p className="failure-hint">已完成的步骤保留在上面。可以点右上角“重新生成”再试一次。</p>
+        <p className="failure-hint">
+          {steps > 0 && '已完成的步骤保留在上面。'}可以点右上角“重新生成”再试一次。
+        </p>
       </div>
     </div>
   )

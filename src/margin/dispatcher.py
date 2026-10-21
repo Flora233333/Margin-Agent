@@ -255,7 +255,8 @@ def _fail_undelivered(session: Session, attempt_id: int) -> bool:
     session.execute(update(Run).where(Run.id == run_id).values(status="failed"))
     add_event(session, run_id, "attempt_failed",
               {"attempt_id": attempt_id, "error": "delivery_lost"})
-    # 它原来算在“在途”里（已发出、没 claim），判失败后空出一个位子：叫醒投递循环去补位
+    # 它原来算在“在途”里（已发出、没 claim），判失败后空出一个位子。和 lease.expire_leases 一样，
+    # 巡检完同一轮就投递，这次通知用不着，留着是让“空出位子就通知”不依赖调用方的顺序
     notify_outbox(session)
     return True
 

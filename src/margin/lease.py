@@ -200,7 +200,10 @@ def expire_leases(engine: Engine) -> list[int]:
             add_event(session, run_id, "attempt_failed",
                       {"attempt_id": attempt_id, "error": "lease_expired"})
         if rows:
-            notify_outbox(session)  # 同 finish：空出位子
+            # 空出了位子。现在只有 dispatcher 的巡检调用这里，判完同一轮接着就投递
+            # （dispatcher.main），用不着这次通知，只是让 dispatcher 多醒一次、发现没东西可发；
+            # 留着是让“空出位子就通知”不依赖调用方的顺序（和 finish、fail 一致，PLAN §5.9）
+            notify_outbox(session)
         return [attempt_id for attempt_id, _ in rows]
 
 

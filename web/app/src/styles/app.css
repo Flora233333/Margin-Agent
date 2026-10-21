@@ -88,6 +88,15 @@
 /* 简洁风：和卡片、“其他文档”的文字左对齐（它们都有 --space-2 的内边距），并和下面的分组隔开 */
 :root[data-style="clean"] .sources-empty { padding: 0 var(--space-2); margin-bottom: var(--space-4); }
 
+/* 打开一道题、内容还没到时的一行提示。淡入的延迟（打开 0.3 秒后）由 RunPage 的 Loading 按打开的时刻算 */
+.thread-loading {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-faint);
+  animation: thread-loading-in 0.2s ease both;
+}
+@keyframes thread-loading-in { from { opacity: 0; } }
+
 /* 执行失败的说明 */
 .failure {
   display: flex;

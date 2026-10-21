@@ -84,6 +84,9 @@ class Attempt(Base):
         # 巡检要找“running 且租约已过期”的 attempt；部分索引只收录 running 的行，又小又快
         Index("ix_attempts_running_lease", "lease_until",
               postgresql_where=text("status = 'running'")),
+        # 算空位、找重发要找“已发出、还没被领取”的 attempt（dispatcher.free_slots / resend_lost）：
+        # 只收录 pending 的行，正常时只有刚提交的几条，查询不随历史变慢（迁移 0007）
+        Index("ix_attempts_pending", "id", postgresql_where=text("status = 'pending'")),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -143,9 +146,9 @@ class Outbox(Base):
         # 以后巡检给“消息丢了”的 attempt 补投递时，重复补也只会有一条生效
         Index("ux_outbox_pending_attempt", "attempt_id", unique=True,
               postgresql_where=text("status = 'pending'")),
-        # 只索引已发送的行（迁移 0002）。原来给对账的水位线查询用；M1.6 删掉了水位线，
-        # 索引暂时保留（删它要多一个迁移），以后清理
-        Index("ix_outbox_sent_at", "sent_at", postgresql_where=text("status = 'sent'")),
+        # 从 pending 的 attempt 找它那一行 outbox（上面的部分唯一索引只收录 pending 的行，
+        # 找 sent 的用不上）。迁移 0007 加上，同时删掉了 M1.6 后没有查询用到的 ix_outbox_sent_at
+        Index("ix_outbox_attempt_id", "attempt_id"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
