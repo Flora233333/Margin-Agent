@@ -226,6 +226,9 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && path === '/health') {
     return sendJson(response, 200, { ok: true })
   }
+  if (request.method === 'GET' && path === '/auth/me') {
+    return sendJson(response, 200, { username: 'dev' }) // 先当作一直登录着（M3a-6 换成真的登录）
+  }
   if (request.method === 'GET' && path === '/__ids') {
     const ids = {}
     for (const run of runs.values()) {

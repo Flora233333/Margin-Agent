@@ -8,6 +8,8 @@
  *      然后服务端又立刻关闭……所以一旦最近一次执行已经结束（isSettled），就主动 close()。
  *   2. 放弃重连：重连时如果收到的不是 200 的事件流（例如 API 重启期间，Vite 代理返回 502），
  *      EventSource 会永久放弃（readyState 变成 CLOSED）。这时自己隔 2 秒新建一个，用 ?after=lastSeq 从断点接上。
+ *      登录过期时事件流也是这样被放弃的（401），但 EventSource 拿不到状态码，分不清是 401 还是 502：
+ *      所以放弃时问一次 GET /auth/me，是 401 就由 api.ts 的统一处理跳登录页（M3a），不是就照常重连。
  *   3. 半死的连接：API 进程被杀时，中间的代理不一定把浏览器这一侧的连接关掉（M2 联调时 Vite 代理就是这样），
  *      浏览器以为连接还在，永远等下去，也不会触发重连。服务端空闲时每 10 秒发一个心跳（event: ping），
  *      所以超过 25 秒什么都没收到，就认定连接已断，关掉重建。
@@ -17,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { eventsUrl } from './api'
+import { eventsUrl, getMe } from './api'
 import { applyEvent, EMPTY_TIMELINE, isSettled, type StreamEvent, type Timeline } from './timeline'
 
 const PERSISTENT = [
@@ -94,6 +96,9 @@ export function useRunStream(runId: number, onSettled: () => void) {
           clearTimeout(silenceTimer)
           setConnection('retrying') // 第 2 件事：浏览器放弃了，自己重建
           retryTimer = setTimeout(open, RETRY_MS)
+          // 是不是登录过期了：401 时 getMe 会触发跳登录页（这个组件随之卸载、重连取消）；
+          // 其他错误（API 还没起来）不用管，2 秒后照常重连
+          getMe().catch(() => {})
         } else {
           setConnection('retrying') // 浏览器正在自动重连（带 Last-Event-ID）；挂住的话由心跳计时兜底
         }

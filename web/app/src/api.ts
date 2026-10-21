@@ -3,6 +3,9 @@
  * 组件里不直接写 fetch，出错统一变成 ApiError（带 HTTP 状态码和一句能给用户看的中文说明）。
  *
  * 地址都以 /api 开头：开发时由 Vite 转发到 API（见 vite.config.ts），上线后由 Nginx 转发。
+ *
+ * 登录（M3a）：登录状态在 HttpOnly cookie 里，这里的代码读不到、也不用管——同源请求浏览器自动带上。
+ * 任何接口返回 401（没登录 / 登录过期）都交给 App 设置的处理函数（跳登录页），见 setUnauthorizedHandler。
  */
 
 export type AnswerFormat = 'num' | 'pct' | 'tf' | 'mcq' | 'multi' | 'date' | 'rank' | 'text'
@@ -60,12 +63,18 @@ export interface RunDetail {
   attempts: AttemptOut[]
 }
 
+export interface Me {
+  username: string
+}
+
 export class ApiError extends Error {
   status: number
+  retryAfter: number // 429 时还要等几秒（响应头 Retry-After），其余为 0
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, retryAfter = 0) {
     super(message)
     this.status = status
+    this.retryAfter = retryAfter
   }
 }
 
@@ -77,6 +86,8 @@ interface FieldError {
 }
 
 const FIELD_NAMES: Record<string, string> = {
+  username: '用户名',
+  password: '密码',
   question: '问题',
   options: '选项',
   answer_format: '答案格式',
@@ -112,6 +123,13 @@ export function describeError(status: number, detail: unknown): string {
   return `请求失败（HTTP ${status}）`
 }
 
+let onUnauthorized = () => {}
+
+/** App 启动时设置：任何接口返回 401 时调用它（清掉当前用户、跳登录页） */
+export function setUnauthorizedHandler(handler: () => void): void {
+  onUnauthorized = handler
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response
   try {
@@ -123,7 +141,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     // Vite 转发失败（API 没启动）时返回的 502/504 不是 JSON，读不出 detail 就用通用说明
     const body = await response.json().catch(() => null)
-    throw new ApiError(response.status, describeError(response.status, body?.detail))
+    // 登录接口自己的 401 是“用户名或密码不对”，由登录页显示，不算“登录过期”
+    if (response.status === 401 && path !== '/auth/login') {
+      onUnauthorized()
+    }
+    const retryAfter = Number(response.headers.get('Retry-After') ?? 0)
+    throw new ApiError(response.status, describeError(response.status, body?.detail), retryAfter)
+  }
+  if (response.status === 204) {
+    return undefined as T // 退出接口没有响应体
   }
   return response.json() as Promise<T>
 }
@@ -138,6 +164,22 @@ export function createRun(body: RunCreate, idempotencyKey: string): Promise<{ ru
     headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
     body: JSON.stringify(body),
   })
+}
+
+export function login(username: string, password: string): Promise<Me> {
+  return request('/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+}
+
+export function logout(): Promise<void> {
+  return request('/auth/logout', { method: 'POST' })
+}
+
+export function getMe(): Promise<Me> {
+  return request('/auth/me')
 }
 
 export function listRuns(): Promise<RunSummary[]> {

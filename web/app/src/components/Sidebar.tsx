@@ -1,5 +1,5 @@
 /*
- * 左侧栏：新提问按钮 + 历史提问（GET /runs）。
+ * 左侧栏：新提问按钮 + 历史提问（GET /runs）+ 底部的账号和“退出”（M3a）。
  * 简洁风下平时收成 56px 的图标栏，鼠标移上去展开（纯 CSS，见 styles/clean.css）。
  * 鼠标在历史条目之间移动时，一块底色滑到当前条目（.history-indicator），而不是每条各自变色。
  */
@@ -49,7 +49,14 @@ function RunLink({ run, active, onHover }: LinkProps) {
   )
 }
 
-export function Sidebar({ runs, activeId }: { runs: RunSummary[]; activeId: number | null }) {
+interface Props {
+  runs: RunSummary[]
+  activeId: number | null
+  username: string // 空串 = 还不知道是谁（打开页面时 API 连不上），不显示账号
+  onLogout: () => void
+}
+
+export function Sidebar({ runs, activeId, username, onLogout }: Props) {
   const today = runs.filter((r) => isToday(r.created_at))
   const earlier = runs.filter((r) => !isToday(r.created_at))
   const indicator = useRef<HTMLDivElement>(null)
@@ -94,6 +101,17 @@ export function Sidebar({ runs, activeId }: { runs: RunSummary[]; activeId: numb
           <RunLink key={run.id} run={run} active={run.id === activeId} onHover={slideTo} />
         ))}
       </div>
+      {username && (
+        <div className="account">
+          <span className="account-name">
+            <span className="avatar" aria-hidden="true">{username[0].toUpperCase()}</span>
+            <span className="label">{username}</span>
+          </span>
+          <button className="icon-btn account-logout label" type="button" onClick={onLogout}>
+            退出
+          </button>
+        </div>
+      )}
     </nav>
   )
 }

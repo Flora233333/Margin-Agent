@@ -338,3 +338,63 @@ curl 不加 Origin：→ 403；加 -H 'Origin: http://localhost:5173' 并带上 
 - Lua 脚本里 `TIME` 返回的是 `{秒, 微秒}` 两个字符串，拼成毫秒；`PEXPIRE` 让一个不再有人试的键自己消失，不用清理。
 - `register_script` 的 EVALSHA：第一次把脚本发给 Redis，之后只发 40 个字符的 SHA1；Redis 重启后丢了缓存，redis-py 自动重发。
 - `request.client.host` 在开发环境是什么（Vite / Docker 网关的地址），为什么键里必须带用户名（取舍 36）。
+
+### M3a-5：前端——登录页、401 跳转、侧栏账号和退出
+
+**改了什么**
+
+- 新页面 [pages/LoginPage.tsx](../../web/app/src/pages/LoginPage.tsx) + 样式 [styles/login.css](../../web/app/src/styles/login.css)：
+  设计稿方案 A（取舍 28），五种状态照设计稿做：登录中（转圈、只读）、密码不对（标红清空、焦点回密码框）、
+  尝试太多（按 `Retry-After` 倒计时，取舍 41）、登录过期（地址里 `expired=1` 时顶上一条通知）、其他错误（连不上、503）。
+- 新文件 [auth.ts](../../web/app/src/auth.ts)（纯函数）：`loginPath`（拼 `/login?next=…&expired=1`）、`safeNext`（登录后只回本站路径）、
+  `lockedMessage`；单元测试 [auth.test.ts](../../web/app/src/auth.test.ts) 4 个。
+- [api.ts](../../web/app/src/api.ts)：
+  - [setUnauthorizedHandler](../../web/app/src/api.ts#L129)：App 注册一个处理函数，任何接口 401（登录接口自己的除外）都调用它（[第 146 行](../../web/app/src/api.ts#L146)）；
+  - `ApiError` 多一个 `retryAfter`（429 的响应头）；204 没有响应体；
+  - 新函数 `login`、`logout`、`getMe`。
+- [App.tsx](../../web/app/src/App.tsx)：
+  - 当前用户 `who`：`undefined`（正在问）/ `null`（没登录）/ 用户名（空串 = API 连不上、不知道是谁，取舍 38）；
+  - 启动时注册 401 处理函数（[第 59 行](../../web/app/src/App.tsx#L59)）：之前知道用户名 → 是“过期”，带 `expired=1`；清空历史列表；跳登录页（替换历史记录，取舍 39）；
+  - 启动时 `getMe()`（[第 68 行](../../web/app/src/App.tsx#L68)），问到前什么都不画；
+  - `/login` 只画登录页（没有侧栏）；登录成功回 `next`；退出回登录页。
+- [router.ts](../../web/app/src/router.ts)：多一个 `login` 页面；`navigate` 可以带查询参数、可以 `replace`。
+- [Sidebar.tsx](../../web/app/src/components/Sidebar.tsx#L105)：底部账号——头像（用户名首字母）+ 用户名 +“退出”。
+  图标栏收起时只露出头像（沿用设计稿 `preview.html` 的 `.account`）。
+- [useRunStream.ts](../../web/app/src/useRunStream.ts#L101)：事件流被浏览器放弃（`readyState` 变成 CLOSED）时问一次 `getMe()`。
+- 假 API [e2e/mock-api.mjs](../../web/app/e2e/mock-api.mjs)：先加一个总是返回 `dev` 的 `/auth/me`，现有 e2e 照常通过；真正的登录在 M3a-6。
+
+**为什么**
+
+- **401 统一在 api.ts 处理**：页面上发请求的地方有好几处（历史列表、题目详情、提交、重新生成、事件流），每处都写“401 就跳登录页”会漏。
+  放在唯一的 `request()` 里，谁收到 401 都一样处理。
+- **怎么分“没登录”和“登录过期”**：后端两种都是 401。前端记着“刚才知道当前用户是谁”——知道，说明之前登录着，现在是过期；
+  一打开页面就 401，就是还没登录，不提示“过期”。（第一版用字符串 `'checking'` 表示“正在问”，`typeof === 'string'` 把它也当成了登录过，
+  从没登录的人也看到“登录已过期”，浏览器里自查时发现，改成 `undefined`。）
+- **`next` 为什么要检查**：地址栏谁都能改。不检查的话，别人发你一个 `…/login?next=https://钓鱼网站`，你登录后就被带过去了（开放重定向）。
+- **事件流为什么要问 `/auth/me`**：EventSource 收到 401 只会触发 `error`、拿不到状态码，和 API 重启时的 502 长得一样。
+  问一次 `/auth/me`：是 401 就由统一处理跳登录页（RunPage 卸载，重连随之取消），不是就照常 2 秒后重连。
+- **退出请求失败也回登录页**：用户点了“退出”，就该看到退出了；cookie 还在的话，下次退出或 7 天后过期时清掉。
+
+**一个具体例子**（compose 全套服务 + Vite，浏览器实测）
+
+```text
+打开 http://localhost:5173/runs/3（没登录）
+  → GET /api/auth/me 401 → 统一处理：之前不知道是谁 → 不算过期 → 替换成 /login?next=%2Fruns%2F3
+输入 test_a + 错密码 → POST /api/auth/login 401 → “用户名或密码不对。”，密码框清空、标红、焦点在密码框
+输入正确密码 → 200，Set-Cookie: margin_session=…; HttpOnly → 替换成 /runs/3
+  → run 3 是 dev 的题 → GET /api/runs/3 404 →“这道题不存在，或者不属于当前账号。”
+页面里执行 document.cookie → ""（HttpOnly，脚本读不到）
+鼠标移到侧栏 → 底部“T test_a 退出” → 点退出 → POST /api/auth/logout 204 → /login
+```
+
+**怎么验证的**
+
+- 单元测试 `auth.test.ts`（4 个）：登录页地址带上原页面和过期标记、在登录页时不再带 next、外站地址一律回首页、分钟数向上取整。
+- 浏览器实测（Playwright CLI，compose + Vite）：上面的例子逐步截图；手机宽度 390px 下登录页 `scrollWidth` = 390（没有横向滚动）。
+- `npm run lint`、`npm test`（23）、`npm run build`（类型检查）、`npm run e2e`（28）全部通过。登录相关的端到端测试在 M3a-6。
+
+**建议重点看**
+
+- `App.tsx` 里 `whoRef`：401 处理函数只在启动时注册一次，函数里读的 state 会停在注册那一刻（闭包），所以“当前用户”另存一份在 ref 里。
+- `LoginPage` 的 `submit` 里三种失败各改了哪些状态；`finally` 里恢复 `submitting`。
+- `safeNext` 为什么连 `//evil.example` 也要拦（浏览器把 `//` 开头当成“同协议的另一个网站”）。
