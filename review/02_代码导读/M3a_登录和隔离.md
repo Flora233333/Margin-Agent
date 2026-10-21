@@ -138,3 +138,83 @@
 
 - `set_password` 里先 `UPDATE ... RETURNING id`、没更新到再 `INSERT`：一条 UPDATE 就知道用户在不在，不用先查一次。
 - 为什么 `password_hash` 可以为空、空的时候意味着什么（M3a-2 的 `authenticate` 会处理）。
+
+### M3a-2：登录、退出和当前用户
+
+**改了什么**
+
+- [auth.py](../../src/margin/auth.py)（开头的 docstring 讲了 session 是什么、和 JWT 的区别）新增：
+  - [authenticate](../../src/margin/auth.py#L98)：查用户、验密码；用户不存在或还没设密码时也拿假哈希
+    [_dummy_hash](../../src/margin/auth.py#L94) 空算一次（取舍 29）；
+  - [create_session](../../src/margin/auth.py#L119)：`secrets.token_urlsafe(32)` 生成令牌，存它的 SHA-256，过期时间 = 数据库 `now()` + 7 天；
+    同一事务删掉这个用户已过期的 session（取舍 31）；
+  - [resolve_session](../../src/margin/auth.py#L135)：令牌 → 当前用户；剩余有效期不到 6 天才顺延（取舍 30），
+    返回值里带“这次顺延了没有”；
+  - [delete_session](../../src/margin/auth.py#L161)：退出。
+- [api.py](../../src/margin/api.py)：
+  - 删掉 `DEV_USER_ID`；新依赖 [current_user](../../src/margin/api.py#L86)：从 cookie `margin_session` 取令牌 → `resolve_session`，
+    查不到就 `HTTPException(401, "请先登录")`；顺延了就用 [set_session_cookie](../../src/margin/api.py#L79) 重发 cookie；
+  - `User` 类型从 `int` 变成 `CurrentUser`（id + 用户名），各路由改传 `user.id`；
+  - 新路由 [POST /auth/login](../../src/margin/api.py#L209)、[POST /auth/logout](../../src/margin/api.py#L220)、
+    [GET /auth/me](../../src/margin/api.py#L229)。
+- 测试：
+  - [conftest.py](../../tests/conftest.py#L137) 新夹具 `make_client(用户名)`：建账号、真的调 `/auth/login`，返回带 cookie 的 TestClient；
+    `client` = 已登录的 dev。原来测“别人的题”靠 `dependency_overrides[current_user] = lambda: 999` 假装换人，
+    现在换成第二个真登录的客户端 `make_client("test_b")`。
+  - 新文件 [test_auth_api_pg.py](../../tests/test_auth_api_pg.py)：7 个测试函数（参数化后 19 个用例），见下面“怎么验证的”。
+
+**为什么**
+
+- **为什么用服务端 session 而不是 JWT**（PLAN §5.5）：浏览器的 EventSource（SSE）不能带自定义请求头，只能靠 cookie；
+  JWT 签出去就收不回来，退出、改密码要另做黑名单；session 删一行就失效。
+- **为什么 401 而不是跳转**：接口只返回状态码，跳不跳登录页是前端的事（M3a-5）。
+- **别人的题仍然 404**：查询本来都带 `owner_id`（`runs.py`），只是 owner 从写死的 1 变成了 cookie 里查出来的人，所以这里不用改查询。
+- **顺延为什么要重发 cookie**：cookie 自己有 `Max-Age=604800`（7 天），从下发那一刻算。服务端把 session 续到第 14 天，
+  浏览器第 7 天还是会把 cookie 删掉，用户照样被登出。
+- **FastAPI 的“临时响应”**：依赖函数声明一个 `response: Response` 参数，在上面 `set_cookie`，FastAPI 会把它的头合并进路由最后的响应。
+  但路由自己 `return StreamingResponse(...)` 时不合并（FastAPI 的规则），所以 SSE 那一路顺延了也不会重发 cookie，见取舍 30。
+
+**一个具体例子**
+
+```text
+POST /auth/login {"username":"test_a","password":"…"}
+  → authenticate：argon2 验证通过（约 30 毫秒）
+  → create_session：令牌 Qm9…（43 个字符），库里 INSERT sessions(user_id=2, token_hash=sha256(令牌), expires_at=now()+7天)
+  ← 200 {"username":"test_a"}
+     Set-Cookie: margin_session=Qm9…; HttpOnly; Max-Age=604800; Path=/; SameSite=lax
+
+GET /runs（浏览器自动带上 Cookie: margin_session=Qm9…）
+  → current_user：sha256(Qm9…) 查 sessions → (user_id=2, 剩 6 天 23 小时) → 不顺延
+  ← 200 [...只有 test_a 的题]
+
+（5 天后）GET /runs → 剩 2 天 < 6 天 → UPDATE expires_at = now()+7天 → 响应里重发 Set-Cookie
+
+POST /auth/logout → DELETE 这一行 → Set-Cookie: margin_session=""; Max-Age=0
+之后拿旧令牌 → 查不到 → 401 {"detail":"请先登录"}
+```
+
+**怎么验证的**
+
+[test_auth_api_pg.py](../../tests/test_auth_api_pg.py)：
+
+| 测试 | 防的事故 |
+|---|---|
+| `test_login_sets_httponly_cookie_and_stores_only_its_hash` | cookie 没加 HttpOnly 被脚本偷走；库里存了令牌原文 |
+| `test_failed_login_gets_the_same_401_and_no_cookie`（密码错 / 没这个人 / dev 没设密码） | 提示语不同让人试出用户名；失败也下发了 cookie |
+| `test_requests_without_a_valid_session_get_401`（6 个接口 × 不带 / 编造 cookie） | 漏了某个接口没加登录检查 |
+| `test_logout_makes_the_old_cookie_useless` | 退出只删了浏览器的 cookie、服务端没删，抄下来的 cookie 还能用（实验 A2 的自动化版） |
+| `test_logout_without_session_still_succeeds` | 重复退出报错 |
+| `test_expired_session_gets_401_and_next_login_cleans_it_up` | 过期了还能用；过期记录越积越多 |
+| `test_session_is_renewed_at_most_once_a_day` | 在用的人 7 天后被登出；每个请求都写库 |
+
+[test_api_pg.py](../../tests/test_api_pg.py) 里原有的两个“别人的题”测试改成两个真实账号。
+`pytest`（71）、`pytest -m integration`（77）、ruff 全部通过。
+
+前端这时还没有登录页（M3a-5 才做），compose 上打开网页会因为 401 什么都看不到，这是中间状态。
+
+**建议重点看**
+
+- `resolve_session` 为什么用数据库的 `now()` 而不是 Python 的 `datetime.now()`：API 容器和 PG 容器的时钟可能差几秒，
+  “过期了没有”只认一个时钟。
+- `current_user` 在 SSE 路由里怎么生效：它是同步函数，FastAPI 放到线程池里跑，不会卡住异步的事件流。
+- `authenticate` 里 `_dummy_hash()` 带 `@cache`：进程里第一次用到时算一次（30 毫秒），之后复用。

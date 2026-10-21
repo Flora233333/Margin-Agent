@@ -14,9 +14,12 @@ import psycopg
 import pytest
 from alembic import command
 from alembic.config import Config
+from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
+from margin.api import app, get_db, get_hub
+from margin.auth import set_password
 from margin.db import make_engine
 from margin.event_hub import EventHub
 from margin.harness import build_registry
@@ -125,6 +128,37 @@ def db(engine):
         conn.execute(text("DELETE FROM users WHERE id <> 1"))
         conn.execute(text("UPDATE users SET password_hash = NULL"))
     return engine
+
+
+PASSWORD = "test password"  # 接口测试里所有账号用同一个密码
+
+
+@pytest.fixture
+def make_client(db, hub):
+    """接口测试：返回一个函数 make(用户名)，建好账号、登录，得到带着这个用户 cookie 的 TestClient。
+
+    每个用户一个客户端、cookie 各存各的，像两个人各用各的浏览器。login=False 得到没登录的客户端。
+    接口改用测试库，事件通知也监听测试库。TestClient 在进程内直接调用 app，不用真的起服务器。
+    """
+    app.dependency_overrides[get_db] = lambda: db
+    app.dependency_overrides[get_hub] = lambda: hub
+
+    def make(username: str = "dev", login: bool = True) -> TestClient:
+        client = TestClient(app)
+        if login:
+            set_password(db, username, PASSWORD)
+            response = client.post("/auth/login", json={"username": username, "password": PASSWORD})
+            assert response.status_code == 200
+        return client
+
+    yield make
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(make_client) -> TestClient:
+    """已登录的开发用户 dev（id=1）。"""
+    return make_client()
 
 
 @pytest.fixture(scope="session")

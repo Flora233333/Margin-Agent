@@ -5,6 +5,11 @@
     GET  /runs/{run_id}             题目、状态、每次执行及其每一步
     POST /runs/{run_id}/regenerate  重新生成：新建一次执行
     GET  /runs/{run_id}/events      SSE 事件流，断线重连带 Last-Event-ID（或 ?after=）从断点补发
+    POST /auth/login                登录：用户名 + 密码，成功后下发 session cookie
+    POST /auth/logout               退出：删掉这个 session，清掉 cookie
+    GET  /auth/me                   当前登录的用户（前端判断“是否已登录”）
+
+除了登录、退出和 /health，所有接口都要先登录（带着有效的 session cookie），否则 401。
 
 运行（开发）：conda run -n margin --no-capture-output uvicorn margin.api:app --reload
 接口文档：启动后打开 http://127.0.0.1:8000/docs（FastAPI 按下面的类型自动生成）
@@ -19,19 +24,20 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, FastAPI, Header, Query, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import Engine
 
-from . import live, runs
+from . import auth, live, runs
+from .auth import CurrentUser
 from .db import get_engine
 from .event_hub import NEW_EVENTS, EventHub
 from .runs import IdempotencyConflict, RunBusy, RunNotFound
 from .settings import get_settings
 
-DEV_USER_ID = 1  # 迁移预置的开发用户；M3 改成从登录 cookie 解析
+SESSION_COOKIE = "margin_session"  # 放 session 令牌的 cookie 名
 # SSE 平时等“有新事件”的通知（event_hub.py）；最多等 10 秒也查一次库（兜底：通知不持久，
 # LISTEN 连接重连期间会丢），同时发一个心跳事件（见 stream_events 里 event: ping 的说明）
 SSE_FALLBACK_SECONDS = 10.0
@@ -58,8 +64,7 @@ def get_db() -> Engine:
     return get_engine()
 
 
-def current_user() -> int:
-    return DEV_USER_ID
+DB = Annotated[Engine, Depends(get_db)]
 
 
 def get_hub(request: Request) -> EventHub:
@@ -71,8 +76,32 @@ def get_redis_url() -> str:
     return get_settings().redis_url
 
 
-DB = Annotated[Engine, Depends(get_db)]
-User = Annotated[int, Depends(current_user)]
+def set_session_cookie(response: Response, token: str) -> None:
+    """下发 session cookie。httponly：页面里的 JavaScript 读不到它（document.cookie 里看不见），
+    就算页面被注入了恶意脚本（XSS），也偷不走登录状态。max_age 和 session 的有效期一样是 7 天。"""
+    response.set_cookie(SESSION_COOKIE, token, max_age=int(auth.SESSION_TTL.total_seconds()),
+                        httponly=True)
+
+
+def current_user(request: Request, response: Response, db: DB) -> CurrentUser:
+    """从 cookie 查出当前用户：没带 cookie、令牌不对或已过期都是 401（前端收到就跳登录页）。
+
+    这次顺延了有效期，就把 cookie 重新下发一遍（浏览器那边的 7 天也从现在重新算）。
+    response 是 FastAPI 给依赖准备的“临时响应”，在它上面设的 cookie 会合并进路由返回的响应。
+    注意：路由自己返回 Response 对象时（SSE 的 StreamingResponse）不合并，
+    那里顺延了也不重发 cookie——打开一道题总是先 GET /runs/{id} 再连事件流，前一个请求已经重发过了。
+    """
+    token = request.cookies.get(SESSION_COOKIE)
+    resolved = auth.resolve_session(db, token) if token else None
+    if resolved is None:
+        raise HTTPException(401, "请先登录")
+    user, renewed = resolved
+    if renewed:
+        set_session_cookie(response, token)
+    return user
+
+
+User = Annotated[CurrentUser, Depends(current_user)]
 Hub = Annotated[EventHub, Depends(get_hub)]
 RedisURL = Annotated[str, Depends(get_redis_url)]
 
@@ -88,6 +117,16 @@ class RunCreate(BaseModel):
     answer_format: Literal["num", "pct", "tf", "mcq", "multi", "date", "rank", "text"] | None = None
     # 没有引用就交答案时提醒一次（PLAN §5.8 ②）；评测回放、自训模型对照实验传 false，规则和以前一样
     require_citation: bool = True
+
+
+class LoginBody(BaseModel):
+    # 上限防止有人发几 MB 的“密码”让 argon2 白算；用户名的格式在建账号时检查过，这里不重复
+    username: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class Me(BaseModel):
+    username: str
 
 
 class RunAccepted(BaseModel):
@@ -166,6 +205,31 @@ def health() -> dict[str, bool]:
     return {"ok": True}
 
 
+@app.post("/auth/login")
+def login(body: LoginBody, db: DB, response: Response) -> Me:
+    """用户名或密码不对一律同一句话、同一个 401：不告诉对方是哪一个不对
+    （否则能试出哪些用户名存在）。"""
+    user = auth.authenticate(db, body.username, body.password)
+    if user is None:
+        raise HTTPException(401, "用户名或密码不对")
+    set_session_cookie(response, auth.create_session(db, user.id))
+    return Me(username=user.username)
+
+
+@app.post("/auth/logout", status_code=204)
+def logout(request: Request, response: Response, db: DB) -> None:
+    """没登录也返回 204：退出是“确保之后是未登录状态”，重复点、cookie 已过期都算成功。"""
+    token = request.cookies.get(SESSION_COOKIE)
+    if token:
+        auth.delete_session(db, token)
+    response.delete_cookie(SESSION_COOKIE, httponly=True)
+
+
+@app.get("/auth/me")
+def me(user: User) -> Me:
+    return Me(username=user.username)
+
+
 @app.post("/runs", status_code=202)
 def create_run(
     body: RunCreate, db: DB, user: User,
@@ -175,7 +239,7 @@ def create_run(
 
     请求头写作 Idempotency-Key，FastAPI 会把参数名 idempotency_key 自动对应过去。
     """
-    run_id, _ = runs.create_run(db, user, idempotency_key, body.question, body.options,
+    run_id, _ = runs.create_run(db, user.id, idempotency_key, body.question, body.options,
                                 body.answer_format, get_settings().llm_model,
                                 require_citation=body.require_citation)
     return RunAccepted(run_id=run_id)
@@ -183,18 +247,18 @@ def create_run(
 
 @app.get("/runs")
 def list_runs(db: DB, user: User) -> list[RunSummary]:
-    """最近 50 道题，前端左侧的历史列表。只返回自己的（M3 加登录后按真实用户过滤）。"""
-    return [RunSummary.model_validate(r) for r in runs.list_runs(db, user, RECENT_RUNS)]
+    """最近 50 道题，前端左侧的历史列表。只返回当前用户自己的。"""
+    return [RunSummary.model_validate(r) for r in runs.list_runs(db, user.id, RECENT_RUNS)]
 
 
 @app.get("/runs/{run_id}")
 def get_run(run_id: int, db: DB, user: User) -> RunDetail:
-    return RunDetail.model_validate(runs.get_run(db, user, run_id))
+    return RunDetail.model_validate(runs.get_run(db, user.id, run_id))
 
 
 @app.post("/runs/{run_id}/regenerate", status_code=202)
 def regenerate(run_id: int, db: DB, user: User) -> RegenerateAccepted:
-    return RegenerateAccepted(attempt_no=runs.regenerate(db, user, run_id))
+    return RegenerateAccepted(attempt_no=runs.regenerate(db, user.id, run_id))
 
 
 @app.get("/runs/{run_id}/events")
@@ -228,7 +292,7 @@ async def stream_events(
     """
     start = max(last_event_id, after)
     # 先查一次：run 不存在或不属于这个用户时，在开始推流之前就返回 404
-    first = await run_in_threadpool(runs.events_after, db, user, run_id, start)
+    first = await run_in_threadpool(runs.events_after, db, user.id, run_id, start)
 
     async def generate() -> AsyncIterator[str]:
         events, status = first
@@ -264,8 +328,8 @@ async def stream_events(
                         item = NEW_EVENTS  # 兜底：10 秒没动静也查一次库
                     if item == NEW_EVENTS:
                         # 查库期间到达的通知会再放一个标记进收件箱，下一轮立刻再查，不会漏
-                        events, status = await run_in_threadpool(runs.events_after, db, user,
-                                                                 run_id, last_seq)
+                        events, status = await run_in_threadpool(runs.events_after, db,
+                                                                 user.id, run_id, last_seq)
                     else:
                         # 实时片段不带 id：浏览器重连时的 Last-Event-ID 只跟着持久事件走
                         yield f"event: delta\ndata: {item}\n\n"

@@ -1,7 +1,7 @@
 """接口测试：通过 HTTP 调 FastAPI，背后连真实 PostgreSQL。
 
 默认不跑；运行：conda run -n margin pytest -m integration
-TestClient 在进程内直接调用 app，不用真的起服务器。
+client 是已登录的开发用户（conftest 的 make_client），登录本身的测试在 test_auth_api_pg.py。
 """
 
 import json
@@ -9,23 +9,14 @@ import threading
 import time
 
 import pytest
-from fastapi.testclient import TestClient
 
 from margin import api, lease, live
-from margin.api import app, current_user, get_db, get_hub, get_redis_url
+from margin.api import app, get_redis_url
 from margin.harness import Step
 
 pytestmark = pytest.mark.integration
 
 QUESTION = {"question": "甲公司2023年营业收入是多少亿元？", "answer_format": "num"}
-
-
-@pytest.fixture
-def client(db, hub):
-    app.dependency_overrides[get_db] = lambda: db  # 接口改用测试库
-    app.dependency_overrides[get_hub] = lambda: hub  # 事件通知也监听测试库
-    yield TestClient(app)
-    app.dependency_overrides.clear()
 
 
 def submit(client, key="k1", body=QUESTION):
@@ -69,12 +60,14 @@ def test_submission_without_answer_format_is_accepted(client):
     assert (detail["answer_format"], detail["title"]) == (None, None)
 
 
-def test_other_users_run_returns_404(client):
+def test_other_users_run_returns_404(client, make_client):
+    """B 登录后访问 A 的题：详情、事件流、重新生成都是 404，
+    和题不存在一样（不暴露“这道题存在”）。"""
     submit(client)
-    app.dependency_overrides[current_user] = lambda: 999
-    assert client.get("/runs/1").status_code == 404
-    assert client.get("/runs/1/events").status_code == 404
-    assert client.post("/runs/1/regenerate").status_code == 404
+    other = make_client("test_b")
+    assert other.get("/runs/1").status_code == 404
+    assert other.get("/runs/1/events").status_code == 404
+    assert other.post("/runs/1/regenerate").status_code == 404
 
 
 def test_regenerate_while_attempt_is_pending_returns_409(client):
@@ -192,13 +185,11 @@ def test_new_event_source_resumes_with_after_param(client, db):
     assert ids(client.get("/runs/1/events?after=1", headers={"Last-Event-ID": "2"})) == ["id: 3"]
 
 
-def test_run_list_shows_only_my_runs_newest_first(client):
-    """左侧历史列表：最新的在前；别人的题不出现（M3 加登录后这一条更关键）。"""
+def test_run_list_shows_only_my_runs_newest_first(client, make_client):
+    """左侧历史列表：最新的在前；别人的题不出现。"""
     submit(client, key="k1")
     submit(client, key="k2", body={**QUESTION, "question": "乙公司的票面利率是多少？"})
-    app.dependency_overrides[current_user] = lambda: 999
-    assert client.get("/runs").json() == []
-    app.dependency_overrides.pop(current_user)
+    assert make_client("test_b").get("/runs").json() == []
 
     listed = client.get("/runs").json()
     assert [(r["id"], r["question"], r["status"]) for r in listed] == [
