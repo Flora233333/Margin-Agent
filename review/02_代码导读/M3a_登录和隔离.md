@@ -218,3 +218,64 @@ POST /auth/logout → DELETE 这一行 → Set-Cookie: margin_session=""; Max-Ag
   “过期了没有”只认一个时钟。
 - `current_user` 在 SSE 路由里怎么生效：它是同步函数，FastAPI 放到线程池里跑，不会卡住异步的事件流。
 - `authenticate` 里 `_dummy_hash()` 带 `@cache`：进程里第一次用到时算一次（30 毫秒），之后复用。
+
+### M3a-3：检查 Origin 头；cookie 属性
+
+**改了什么**
+
+- [api.py:61-83](../../src/margin/api.py#L61-L83)：`check_origin` 依赖——请求方法不是 GET / HEAD / OPTIONS 时，
+  `Origin` 头必须在配置 `allowed_origins` 里，否则 `403 请求来源不在允许列表里`；没有 Origin 头也是 403（取舍 33）。
+  挂在 `FastAPI(dependencies=[Depends(check_origin)])` 上，每个路由都先跑它（取舍 34）。
+- [set_session_cookie](../../src/margin/api.py#L104)：cookie 属性写全并逐个注释——`HttpOnly`、`SameSite=Lax`、`Path=/`、
+  `Max-Age=604800`、`Secure`（由配置 `cookie_secure` 决定）。退出时 [delete_cookie](../../src/margin/api.py#L253) 用同样的属性。
+- [settings.py:56-62](../../src/margin/settings.py#L56-L62)：`allowed_origins`（默认 `["http://localhost:5173"]`）、
+  `cookie_secure`（默认 false）；`.env.example` 加说明。
+- 测试：conftest 的 `make_client` 像浏览器一样给每个请求带 `Origin: http://localhost:5173`；
+  新文件 [test_csrf_pg.py](../../tests/test_csrf_pg.py) 4 个测试函数（参数化后 6 个用例）。
+
+**为什么**
+
+跨站伪造请求（CSRF）：你登录着 Margin，又打开了一个坏网站，它的页面里藏一个自动提交的表单，向 Margin 发 POST。
+浏览器发请求会自动带上 Margin 的 cookie——服务端只看 cookie 的话，分不出是你点的还是坏网站发的。两道防线：
+
+| 防线 | 原理 | 挡不住的情况 |
+|---|---|---|
+| `SameSite=Lax` | 请求的发起页面和目标不是同一个“站点”时，浏览器不带这个 cookie（点链接跳转的 GET 除外） | 老浏览器不认这个属性；同一站点的其他子域名（如 `evil.margin.example` 发给 `margin.example`）算“同站” |
+| 检查 `Origin` | 浏览器给 POST 加的 `Origin` 头写着发起页面的来源（协议 + 域名 + 端口），页面里的脚本改不了 | 只认浏览器；所以没有 Origin 的一律拒绝（取舍 33） |
+
+为什么 GET 不检查：GET 按约定不改数据；坏网站即使让浏览器发了 GET，也读不到响应（同源策略），Lax 下也不带 cookie。
+
+`Secure` 为什么做成配置：`Secure` 的 cookie 浏览器只在 HTTPS 上发，开发时是 `http://localhost`，打开了就谁都登录不了；
+M6 上 HTTPS 后把 `MARGIN_COOKIE_SECURE=true` 打开。
+
+为什么来源列表是配置项：网页从哪个地址打开，Origin 就是什么。开发时是 Vite 的 `http://localhost:5173`
+（Vite 转发 `/api` 时原样保留 Origin 头）；M6 换成 Nginx 后的域名。端口不同也算不同来源（`localhost:5174` 会被拒）。
+
+**一个具体例子**
+
+```text
+坏网站 https://evil.example 的页面：
+  <form action="http://localhost:5173/api/runs" method="post"> … 自动提交
+浏览器发出：POST /api/runs   Origin: https://evil.example   （Cookie：SameSite=Lax，跨站 POST 不带）
+→ Vite 转发给 API → check_origin：https://evil.example 不在 ["http://localhost:5173"] 里 → 403，路由函数根本不执行，库里不多一道题
+
+自己的网页：POST /api/runs   Origin: http://localhost:5173   Cookie: margin_session=… → 通过 → current_user → 202
+curl 不加 Origin：→ 403；加 -H 'Origin: http://localhost:5173' 并带上 cookie → 202
+```
+
+**怎么验证的**
+
+| 测试 | 防的事故 |
+|---|---|
+| `test_post_from_another_site_is_rejected_and_creates_nothing`（evil.example / 端口 5174 / 没有 Origin） | 跨站提交建了题（实验 A4 的自动化版） |
+| `test_every_kind_of_post_is_checked` | 只给 `/runs` 加了检查，重新生成、登录、退出漏了 |
+| `test_reads_are_not_checked` | 检查太宽，GET 也被拦（页面打不开） |
+| `test_session_cookie_is_samesite_lax_and_secure_only_when_configured` | cookie 少了 SameSite；开发环境误开 Secure 导致登录不了 |
+
+去掉 `check_origin` 后前两个测试失败（POST 返回 202）。`pytest`（71）、`pytest -m integration`（83）、ruff 全部通过。
+
+**建议重点看**
+
+- 全局依赖和路由依赖的执行顺序：全局的先执行，所以跨站请求在 `current_user` 查库之前就被拒了，返回 403 而不是 401。
+- `check_origin` 的比较是整串相等：`http://localhost:5173` 和 `http://localhost:5173/`、`http://127.0.0.1:5173` 都不相等。
+  浏览器发的 Origin 没有结尾的 `/`，所以配置里也不要写。

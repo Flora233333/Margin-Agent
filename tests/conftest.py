@@ -131,6 +131,7 @@ def db(engine):
 
 
 PASSWORD = "test password"  # 接口测试里所有账号用同一个密码
+ORIGIN = "http://localhost:5173"  # 网页的地址，默认配置的允许列表里只有它
 
 
 @pytest.fixture
@@ -144,7 +145,8 @@ def make_client(db, hub):
     app.dependency_overrides[get_hub] = lambda: hub
 
     def make(username: str = "dev", login: bool = True) -> TestClient:
-        client = TestClient(app)
+        # 像浏览器一样每个请求都带 Origin（改数据的请求要检查它，api.check_origin）
+        client = TestClient(app, headers={"Origin": ORIGIN})
         if login:
             set_password(db, username, PASSWORD)
             response = client.post("/auth/login", json={"username": username, "password": PASSWORD})

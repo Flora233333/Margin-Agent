@@ -603,6 +603,14 @@ M1.5 / M2 执行时遇到、计划里没写清的取舍。每条写“问题 →
     几行过期记录，查询按令牌哈希的唯一索引走，不受影响。代价：一个再也不登录的用户，过期记录永远留着。
     不同意的话：dispatcher 每轮巡检加一句 `DELETE FROM sessions WHERE expires_at < now()`。
 32. **退出不要求已登录，总是 204**（M3a-2）：退出的意思是“之后是未登录状态”，cookie 已过期、重复点都算成功，前端不用处理错误。
+33. **没有 Origin 头的改数据请求也拒绝（403）**（M3a-3，`api.check_origin`）：计划只说“检查 Origin 在允许列表里”。
+    现在的浏览器发 POST 一定带 Origin，不带的只会是 curl、脚本，它们拿不到别人的 cookie，放行也不构成跨站伪造；
+    但“缺了就放行”等于给检查留了一个口子（例如将来某个老客户端、或代理把头去掉），选了更严的。
+    代价：用 curl 调改数据的接口要自己加 `-H 'Origin: http://localhost:5173'`；M5 评测回放的脚本也要加。
+    不同意的话：`check_origin` 里没有 Origin 头时直接 return。
+34. **检查用全局依赖 `FastAPI(dependencies=[...])`，不用中间件**（M3a-3）：以后新加的接口自动带上；
+    Starlette 的 `BaseHTTPMiddleware` 包着流式响应（SSE）有已知问题，依赖没有。GET / HEAD / OPTIONS 不检查。
+    登录和退出也检查（防止别的网站把你悄悄登进它的账号——“登录 CSRF”）。
 
 ## 未决问题
 

@@ -53,6 +53,14 @@ class Settings(BaseSettings):
     embedding_base_url: str = ""  # 留空 = 不开向量检索，只用 BM25 + 别名两路
     embedding_model: str = "rc6-local-qwen3emb06b-q8_0-v2"
 
+    # ---- 登录（M3a）----
+    # 改数据的请求只接受这些来源（Origin 头，api.check_origin）：网页从哪个地址打开就填哪个。
+    # 开发时是 Vite 的地址；环境变量写 JSON，例如 MARGIN_ALLOWED_ORIGINS=["https://margin.example.com"]
+    allowed_origins: list[str] = ["http://localhost:5173"]
+    # session cookie 只走 HTTPS（Secure 属性）。开发是 http，打开了浏览器就不发 cookie；
+    # M6 上 HTTPS 后设 true
+    cookie_secure: bool = False
+
 
 @cache
 def get_settings() -> Settings:

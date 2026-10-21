@@ -55,7 +55,32 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     hub.stop()
 
 
-app = FastAPI(title="Margin", lifespan=lifespan)
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}  # 只读的请求，不改数据
+
+
+def check_origin(request: Request) -> None:
+    """防跨站伪造请求（CSRF）：改数据的请求，Origin 头必须在允许列表里，否则 403。
+
+    CSRF 是什么：你登录着 Margin，又打开了一个坏网站，它的页面里偷偷向 Margin 发一个 POST
+    （比如提交一道题）。浏览器会自动带上 Margin 的 cookie，服务端看到 cookie 就以为是你本人操作。
+    两道防线：
+      1. cookie 设 SameSite=Lax（set_session_cookie）：别的网站发起的 POST，浏览器不带这个 cookie；
+      2. 这里：浏览器发 POST 时总会带 Origin 头，写明“请求是从哪个网站的页面发出的”，
+         页面里的脚本改不了它。不在允许列表里（例如 https://evil.example）就拒绝。
+         只靠第 1 道的话，老浏览器、或者同一个站点下的其他子域名（SameSite 只看站点）还是能发过来。
+    没有 Origin 头的也拒绝：现在的浏览器发 POST 一定带；不带的是 curl、脚本之类，
+    它们本来也拿不到别人的 cookie，让它们自己加上这个头就行（取舍 33）。
+    GET 不检查：GET 不改数据；别的网站即使发了 GET 也读不到响应内容（同源策略），
+    Lax 下也不带 cookie。
+    """
+    if request.method in SAFE_METHODS:
+        return
+    if request.headers.get("origin") not in get_settings().allowed_origins:
+        raise HTTPException(403, "请求来源不在允许列表里")
+
+
+# dependencies：对每个路由都先执行一遍 check_origin（以后新加的接口也自动带上，不会漏）
+app = FastAPI(title="Margin", lifespan=lifespan, dependencies=[Depends(check_origin)])
 
 
 # ---- 依赖：路由函数通过参数声明“我需要什么”，FastAPI 负责提供；测试里可以整体替换 ----
@@ -77,10 +102,18 @@ def get_redis_url() -> str:
 
 
 def set_session_cookie(response: Response, token: str) -> None:
-    """下发 session cookie。httponly：页面里的 JavaScript 读不到它（document.cookie 里看不见），
-    就算页面被注入了恶意脚本（XSS），也偷不走登录状态。max_age 和 session 的有效期一样是 7 天。"""
+    """下发 session cookie。几个属性各防一件事：
+      httponly  页面里的 JavaScript 读不到它（document.cookie 里看不见），
+                就算页面被注入了恶意脚本（XSS），也偷不走登录状态；
+      samesite  lax：别的网站发起的 POST、别的网站页面里嵌的图片 / 脚本请求，浏览器不带这个 cookie
+                （防 CSRF）；从别的网站点链接跳过来（顶层导航的 GET）仍然带，不用重新登录；
+      secure    只在 HTTPS 连接上发送。开发是 http://localhost，打开了浏览器就不发了，
+                所以由配置决定，M6 上 HTTPS 后打开；
+      max_age   和 session 的有效期一样是 7 天；path=/ 整个网站都带。
+    """
     response.set_cookie(SESSION_COOKIE, token, max_age=int(auth.SESSION_TTL.total_seconds()),
-                        httponly=True)
+                        path="/", httponly=True, samesite="lax",
+                        secure=get_settings().cookie_secure)
 
 
 def current_user(request: Request, response: Response, db: DB) -> CurrentUser:
@@ -222,7 +255,9 @@ def logout(request: Request, response: Response, db: DB) -> None:
     token = request.cookies.get(SESSION_COOKIE)
     if token:
         auth.delete_session(db, token)
-    response.delete_cookie(SESSION_COOKIE, httponly=True)
+    # 删除 = 下发一个同名、已过期的 cookie；属性要和下发时一致，浏览器才认为是同一个
+    response.delete_cookie(SESSION_COOKIE, path="/", httponly=True, samesite="lax",
+                           secure=get_settings().cookie_secure)
 
 
 @app.get("/auth/me")
