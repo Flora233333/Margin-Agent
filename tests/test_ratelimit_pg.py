@@ -54,7 +54,11 @@ def test_concurrent_attempts_never_get_past_the_limit(redis_client):
 
 def test_window_slides_instead_of_resetting_all_at_once(redis_client):
     """滑动窗口：窗口 2 秒、上限 2 次。第 0 秒和第 1 秒各试一次，第 1.2 秒被拦；
-    到第 2.1 秒，只有第 0 秒那次滑出去了，放行一次，紧接着又被拦（第 1 秒那次还在窗口里）。"""
+    到第 2.5 秒，只有第 0 秒那次滑出去了，放行一次，紧接着又被拦
+    （第 1 秒那次还在窗口里，到第 3 秒才出去）。
+    每个判断离边界都留 0.4 秒以上：这里用本机时钟睡，窗口按 Redis 的时钟算，两个时钟走得不一样快——
+    本机 Redis 在 WSL 虚拟机里，实测比 Windows 慢约 4%（睡 2.1 秒 Redis 只过 2.015 秒），
+    原来只留 0.1 秒时偶尔失败。"""
     limiter = SlidingWindowLimiter(redis_client, limit=2, window_seconds=2)
     key = "test:ratelimit:slide"
 
@@ -63,7 +67,7 @@ def test_window_slides_instead_of_resetting_all_at_once(redis_client):
     assert limiter.hit(key) == 0
     time.sleep(0.2)
     assert limiter.hit(key) == 1  # 还要等约 0.8 秒，向上取整为 1
-    time.sleep(0.9)
+    time.sleep(1.3)
     assert limiter.hit(key) == 0
     assert limiter.hit(key) > 0
 
