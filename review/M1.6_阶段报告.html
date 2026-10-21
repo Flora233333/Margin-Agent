@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M1.6 阶段报告</title>
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #1f2328; --muted: #656d76; --card: #ffffff; --border: #d8dee4;
+  --code-bg: #f3f2ee; --hl: #fff1b8;
+  --disp: #2563eb; --disp-bg: #e8effd;
+  --worker: #15803d; --worker-bg: #e6f4ea;
+  --mq: #c2410c; --mq-bg: #fdeee5;
+  --pg: #7c3aed; --pg-bg: #f1eafd;
+  --web: #0e7490; --web-bg: #e0f4f8;
+  --warn: #b91c1c; --warn-bg: #fdecec;
+  --old: #8a8f98; --old-bg: #f0f1f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+    --code-bg: #23272e; --hl: #4a4020;
+    --disp: #7aa7ff; --disp-bg: #1d2a44; --worker: #5fd08a; --worker-bg: #183224;
+    --mq: #ff9a63; --mq-bg: #3a2418; --pg: #b79cff; --pg-bg: #2a2140;
+    --web: #5cc8dc; --web-bg: #173238; --warn: #ff7b7b; --warn-bg: #3d1e1e;
+    --old: #9aa3ad; --old-bg: #262a30;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+  --code-bg: #23272e; --hl: #4a4020;
+  --disp: #7aa7ff; --disp-bg: #1d2a44; --worker: #5fd08a; --worker-bg: #183224;
+  --mq: #ff9a63; --mq-bg: #3a2418; --pg: #b79cff; --pg-bg: #2a2140;
+  --web: #5cc8dc; --web-bg: #173238; --warn: #ff7b7b; --warn-bg: #3d1e1e;
+  --old: #9aa3ad; --old-bg: #262a30;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.75 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 21px; margin: 52px 0 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+h3 { font-size: 17px; margin: 28px 0 8px; }
+p { margin: 8px 0; }
+.sub { color: var(--muted); margin: 0 0 16px; }
+a { color: var(--disp); }
+code { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+  background: var(--code-bg); padding: 1px 5px; border-radius: 4px; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; font: 13px/1.6 "Cascadia Code", Consolas, monospace; margin: 8px 0; }
+pre .c { color: var(--muted); }
+pre .hl { background: var(--hl); }
+.src { font-size: 12px; color: var(--muted); margin: 12px 0 -4px; }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; }
+.wrap { overflow-x: auto; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 14px 0; }
+.lead { border-left: 4px solid var(--disp); font-size: 16px; }
+.note { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+.good { background: var(--worker-bg); border-left: 4px solid var(--worker); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+.tag { display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 10px; font-weight: 600; white-space: nowrap; line-height: 20px; }
+.t-disp { color: var(--disp); background: var(--disp-bg); }
+.t-worker { color: var(--worker); background: var(--worker-bg); }
+.t-mq { color: var(--mq); background: var(--mq-bg); }
+.t-pg { color: var(--pg); background: var(--pg-bg); }
+.t-web { color: var(--web); background: var(--web-bg); }
+.t-pass { color: var(--worker); background: var(--worker-bg); }
+.t-fix { color: var(--warn); background: var(--warn-bg); }
+.t-old { color: var(--old); background: var(--old-bg); }
+.toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 18px; font-size: 14px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+.stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+.stat b { display: block; font-size: 24px; line-height: 1.3; }
+.stat span { color: var(--muted); font-size: 13px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+.cols .card { margin: 0; }
+.cols h4 { margin: 0 0 6px; font-size: 15px; }
+.flow { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.flow .s { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--card); }
+.flow .s.bad { border-color: var(--warn); background: var(--warn-bg); }
+.flow .s.ok { border-color: var(--worker); background: var(--worker-bg); }
+.flow .arrow { color: var(--muted); text-align: center; line-height: 1; }
+.commit { display: grid; grid-template-columns: 92px 1fr; gap: 4px 14px; }
+.commit .id { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; color: var(--muted); }
+details { border: 1px solid var(--border); border-radius: 10px; background: var(--card); margin: 10px 0; }
+details > summary { cursor: pointer; padding: 10px 16px; font-weight: 600; list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "▸"; display: inline-block; width: 16px; color: var(--muted); transition: transform .15s; }
+details[open] > summary::before { transform: rotate(90deg); }
+details .body { padding: 0 18px 12px; }
+.kv { display: grid; grid-template-columns: 64px 1fr; gap: 2px 12px; font-size: 14px; }
+.kv dt { color: var(--muted); font-weight: 600; }
+.kv dd { margin: 0; }
+figure { margin: 10px 0; }
+figure img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; display: block; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.chart { width: 100%; height: auto; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.check { display: flex; gap: 10px; align-items: flex-start; }
+.check input { margin-top: 6px; flex: none; width: 16px; height: 16px; }
+.check label { flex: 1; }
+ol.trade > li { margin: 10px 0; }
+.small { font-size: 13px; color: var(--muted); }
+.theme { position: fixed; top: 12px; right: 12px; font-size: 13px; border: 1px solid var(--border);
+  background: var(--card); color: var(--fg); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<button class="theme" id="theme" type="button">深色 / 浅色</button>
+<main>
+
+<h1>M1.6 阶段报告：投递与对账改造</h1>
+<p class="sub">2026-10-21 完成，待作者 review。提交 <code>c8979c0</code> … <code>8eb82d1</code>（9 个）。方案见 PLAN §5.9、D28；实现时的取舍见 D29。
+逐个提交的代码说明在 <a href="02_代码导读/M1.6_投递与对账改造.md">代码导读 M1.6</a>，现在的监督和超时一览在 <a href="M1.6_监督与超时总表.md">M1.6 监督与超时总表</a>。</p>
+
+<div class="card lead">
+<b>一句话：</b>M1.5 判断“消息丢了没有”要靠水位线、队列为空、30 分钟兜底这些证据去猜。M1.6 让 worker <b>收到消息先领取</b>、dispatcher
+<b>只在 worker 有空位时才发</b>，于是“发出去 1 分钟还没人领取”只可能是丢了，判断只看时间就够。
+实验 V1～V11 在全套服务 + 真实模型上全部通过，途中发现并修掉一个 Celery 的问题。
+</div>
+
+<div class="stats">
+  <div class="stat"><b>9</b><span>个提交（6 项改动 + 1 个修复 + 实验记录 + 收尾）</span></div>
+  <div class="stat"><b>11 / 11</b><span>个实验通过（V8 修复后重做）</span></div>
+  <div class="stat"><b>68 秒</b><span>消息丢了到重发（原来 2～30 分钟）</span></div>
+  <div class="stat"><b>0</b><span>V3 一次提交 20 道题时 RabbitMQ 里排队的消息数（199 次采样）</span></div>
+  <div class="stat"><b>1</b><span>个实验中发现并修掉的问题（预取数卡在 3）</span></div>
+  <div class="stat"><b>13</b><span>条执行中的取舍等你确认</span></div>
+</div>
+
+<div class="card toc">
+  <div><a href="#why">一、为什么要改</a></div>
+  <div><a href="#what">二、改了什么（按提交）</a></div>
+  <div><a href="#flow">三、一道题现在怎么走</a></div>
+  <div><a href="#resend">四、只看时间的重发</a></div>
+  <div><a href="#exp">五、实验 V1～V11</a></div>
+  <div><a href="#bug">六、发现并修掉的问题</a></div>
+  <div><a href="#seen">七、看到了但按设计不改的</a></div>
+  <div><a href="#trade">八、等你确认的取舍</a></div>
+  <div><a href="#tests">九、测试和文档</a></div>
+  <div><a href="#next">十、下一步</a></div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="why">一、为什么要改</h2>
+
+<p>M1.5 review 时（Q17～Q26）发现，M1.5 的对账有三个根上的问题：</p>
+
+<div class="cols">
+<div class="card">
+<h4><span class="tag t-old">M1.5</span> 改之前</h4>
+<div class="flow">
+  <div class="s">dispatcher：outbox 有记录就发，<b>不管 worker 忙不忙</b></div>
+  <div class="arrow">↓</div>
+  <div class="s bad">积压排在 RabbitMQ 队列里。排得久的题，看起来和“丢了”一样</div>
+  <div class="arrow">↓</div>
+  <div class="s">worker 收到消息：<b>先加载语料</b>（2 秒；缓存丢了约 100 秒），再领取</div>
+  <div class="arrow">↓</div>
+  <div class="s bad">加载期间 PG 里看不出“有人收到了”；这时子进程死了，题停在 pending</div>
+  <div class="arrow">↓</div>
+  <div class="s bad">对账靠猜：宽限期 2 分钟 + 水位线 / 队列为空 / 30 分钟，三选一。排队超过 30 分钟会误补发，约 2 小时会误判失败</div>
+</div>
+</div>
+<div class="card">
+<h4><span class="tag t-pass">M1.6</span> 改之后</h4>
+<div class="flow">
+  <div class="s">dispatcher：<b>worker 有空位才发</b>，一次只发空位那么多条</div>
+  <div class="arrow">↓</div>
+  <div class="s ok">积压留在 PG 的 outbox 里（按提交顺序），RabbitMQ 里几乎没有排队的消息</div>
+  <div class="arrow">↓</div>
+  <div class="s">worker 收到消息：<b>先领取</b>（几毫秒），再在续租保护下加载语料</div>
+  <div class="arrow">↓</div>
+  <div class="s ok">加载多久都有租约保着；加载中死了由租约过期发现；加载出错是一次看得见的失败</div>
+  <div class="arrow">↓</div>
+  <div class="s ok">判断只看时间：发出 1 分钟没人领取就重发，间隔翻倍，3 次后判失败。积压多久都不会误判</div>
+</div>
+</div>
+</div>
+
+<p>另外两件小事一起做了：dispatcher 原来有两个时间（10 秒兜底扫描、15 秒巡检），合成一个 10 秒；
+RabbitMQ 的确认期限 <code>consumer_timeout</code> 在我们用的经典队列上根本不生效（4.3 起只有 quorum 队列检查），删掉配置、改正注释。
+还有一个前端问题：打开一道已结束的题，网络慢时过程区会先展开转圈、再收起（作者 2026-10-21 加进 M1.6）。</p>
+
+<!-- ============================================================ -->
+<h2 id="what">二、改了什么（按提交）</h2>
+
+<div class="card commit">
+  <div class="id">c8979c0<br>M1.6-1</div>
+  <div><b>注释和文档更正，删不生效的 <code>consumer_timeout</code></b> <span class="tag t-mq">RabbitMQ</span><br>
+  删 <code>deploy/rabbitmq/margin.conf</code> 和 compose 里的挂载。改正两个说法：确认期限只有 quorum 队列检查；
+  “进程被杀消息回队列”只对 worker <b>主进程</b>成立，子进程被杀时主进程照样确认，消息不回队列。</div>
+
+  <div class="id">02d33a1<br>M1.6-2</div>
+  <div><b>先领取再加载语料 + 前端“正在准备资料…”</b> <span class="tag t-worker">worker</span> <span class="tag t-web">前端</span><br>
+  <code>execute</code> 多一个 <code>load</code> 参数：先 <code>claim</code>，再在续租线程的保护下调用 <code>load()</code>；加载出错走和模型报错同一条失败路径。
+  理解题目的线程在加载之前就开始，两者并行。前端：执行中、0 步、还没有思考片段时，过程区标题是“正在准备资料…”，而不是“已完成 0 步”。</div>
+
+  <div class="id">3ea81e6<br>M1.6-3</div>
+  <div><b>两个时间合成 <code>TICK_SECONDS = 10</code></b> <span class="tag t-disp">dispatcher</span><br>
+  兜底扫描和巡检都是 10 秒：通知丢了最多晚 10 秒投递，出事最多晚 10 秒发现。</div>
+
+  <div class="id">d7a30fd<br>M1.6-4</div>
+  <div><b>有空位才发 + 结束时叫醒 dispatcher</b> <span class="tag t-disp">dispatcher</span> <span class="tag t-pg">PG</span><br>
+  <code>空位 = 消费者数 × MARGIN_WORKER_CONCURRENCY − 执行中 − 已发出没人领</code>，一条 SQL 算出来。
+  一道题结束（<code>finish</code> / <code>fail</code> / 租约过期 / 判 <code>delivery_lost</code>）时，同一事务里 <code>NOTIFY outbox</code>，dispatcher 马上醒来补位。
+  子进程数用一个环境变量，compose 同时传给 worker 的 <code>--concurrency</code> 和 dispatcher。</div>
+
+  <div class="id">759f688<br>M1.6-5</div>
+  <div><b>只看时间的重发 <code>resend_lost</code>，删水位线和 30 分钟兜底</b> <span class="tag t-disp">dispatcher</span><br>
+  见第四节。原来的 <code>requeue_lost</code> 和三条规则都删了；集成测试重写成 5 个场景。</div>
+
+  <div class="id">4864e49<br>M1.6-6</div>
+  <div><b>打开已结束的题按 <code>run.status</code> 判断</b> <span class="tag t-web">前端</span><br>
+  打开时这道题已经结束，补发的历史里还没到齐（看起来还是排队中 / 执行中）的那次执行先不显示，等它的结束事件到了再整段出现；
+  这期间右栏也不提示“没有引用原文”。e2e 里加了“补发分几批慢慢到”的假数据来测。</div>
+
+  <div class="id">bf385dd<br>M1.6-7a</div>
+  <div><b>关掉 Celery 重连时的“临时调低预取数”</b> <span class="tag t-fix">实验发现</span><br>
+  V8 发现的问题，见第六节。一行配置 + 一个测试。</div>
+
+  <div class="id">5395bc1<br>M1.6-7</div>
+  <div><b>实验 V1～V11 的记录</b>（写在代码导读里）。</div>
+
+  <div class="id">8eb82d1<br>M1.6-8</div>
+  <div><b>收尾</b>：导读总览、STATUS“M1.6 记录”、PLAN 打勾、D29、监督总表改成现状、M1.5 梳理页标注“M1.6 已改”。</div>
+</div>
+
+<h3>两段最关键的代码</h3>
+
+<p class="src">src/margin/dispatcher.py:55 · 空位怎么算</p>
+<pre><span class="c"># 在途 = 执行中的 + 已发出但还没被领取的；两个数在一条 SQL 里算，看到的是同一时刻</span>
+running   = select(count).where(Attempt.status == "running")
+unclaimed = select(count).join(Attempt).where(Outbox.status == "sent", Attempt.status == "pending")
+<span class="hl">return capacity - (running + unclaimed)</span>          <span class="c"># capacity = 消费者数 × 子进程数</span></pre>
+
+<p class="src">src/margin/worker.py:195 · 先领取，再加载</p>
+<pre><span class="hl">held = lease.claim(engine, attempt_id, worker)</span>     <span class="c"># 几毫秒：PG 里 attempt 变成 running</span>
+if held is None:
+    return                                       <span class="c"># 重复的消息：已被领取或已结束，跳过</span>
+with lease.LeaseKeeper(engine, held), ThreadPoolExecutor(1) as pool:
+    understood = pool.submit(_understand, ...)    <span class="c"># 理解题目不用语料，和加载并行</span>
+    try:
+        <span class="hl">corpus, retriever = load()</span>               <span class="c"># 2 秒～100 秒，期间每 15 秒续租</span>
+        trace = run_episode(...)
+    except Exception:
+        lease.fail(...)                          <span class="c"># 加载出错和模型报错一样：这次执行判失败</span></pre>
+
+<!-- ============================================================ -->
+<h2 id="flow">三、一道题现在怎么走</h2>
+
+<p>以 V1 的实测时间为例（run 138，UTC 时间）：</p>
+
+<svg class="chart" viewBox="0 0 1000 210" role="img" aria-label="一道题的时间线">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>
+  </defs>
+  <g font-size="13" fill="var(--fg)">
+    <text x="10" y="40" fill="var(--muted)">API</text>
+    <text x="10" y="90" fill="var(--muted)">dispatcher</text>
+    <text x="10" y="140" fill="var(--muted)">worker</text>
+    <text x="10" y="190" fill="var(--muted)">页面标题</text>
+  </g>
+  <line x1="100" y1="196" x2="990" y2="196" stroke="var(--border)"/>
+  <!-- api -->
+  <rect x="110" y="24" width="120" height="26" rx="6" fill="var(--web-bg)" stroke="var(--web)"/>
+  <text x="170" y="42" font-size="12" text-anchor="middle" fill="var(--web)">写 outbox .341</text>
+  <!-- dispatcher -->
+  <line x1="230" y1="40" x2="250" y2="74" stroke="var(--muted)" marker-end="url(#ah)"/>
+  <rect x="250" y="74" width="140" height="26" rx="6" fill="var(--disp-bg)" stroke="var(--disp)"/>
+  <text x="320" y="92" font-size="12" text-anchor="middle" fill="var(--disp)">有空位 → 发出 .376</text>
+  <!-- worker -->
+  <line x1="390" y1="90" x2="410" y2="124" stroke="var(--muted)" marker-end="url(#ah)"/>
+  <rect x="410" y="124" width="110" height="26" rx="6" fill="var(--worker-bg)" stroke="var(--worker)"/>
+  <text x="465" y="142" font-size="12" text-anchor="middle" fill="var(--worker)">领取 .428</text>
+  <rect x="520" y="124" width="150" height="26" rx="6" fill="var(--card)" stroke="var(--worker)" stroke-dasharray="4 3"/>
+  <text x="595" y="142" font-size="12" text-anchor="middle" fill="var(--worker)">加载语料 + 理解题目</text>
+  <rect x="670" y="124" width="200" height="26" rx="6" fill="var(--worker-bg)" stroke="var(--worker)"/>
+  <text x="770" y="142" font-size="12" text-anchor="middle" fill="var(--worker)">Harness 4 步 → 撰写回答</text>
+  <rect x="870" y="124" width="70" height="26" rx="6" fill="var(--pg-bg)" stroke="var(--pg)"/>
+  <text x="905" y="142" font-size="12" text-anchor="middle" fill="var(--pg)">finish</text>
+  <path d="M905,124 L905,112 L345,112 L345,102" fill="none" stroke="var(--pg)" stroke-dasharray="3 3" marker-end="url(#ah)"/>
+  <text x="700" y="92" font-size="12" text-anchor="middle" fill="var(--pg)">finish 时 NOTIFY outbox：空出位子，叫醒 dispatcher 发下一道</text>
+  <!-- labels -->
+  <text x="110" y="186" font-size="12" fill="var(--muted)">排队中</text>
+  <text x="430" y="186" font-size="12" fill="var(--worker)">正在准备资料…（4.9 秒）</text>
+  <text x="670" y="186" font-size="12" fill="var(--muted)">正在思考 → 思考与检索 · 4 步</text>
+</svg>
+<p class="small">发出到领取 52 毫秒（M1.5 时这段要等加载完，约 2 秒，缓存丢了约 100 秒）。V3 里热的子进程是 0～1 毫秒。</p>
+
+<p><b>dispatcher 一轮做什么</b>（被 NOTIFY 叫醒，或者最多睡 10 秒）：</p>
+<pre>if 距上次巡检 >= 10 秒:
+    queue = read_queue_state()        <span class="c"># 问 RabbitMQ：排队几条、几个消费者（读不到就是 None）</span>
+    expire_leases()                   <span class="c"># 执行中、90 秒没续租 → lease_expired</span>
+    resend_lost(queue)                <span class="c"># 发出太久没人领 → 重发（第四节）</span>
+<span class="hl">dispatch_once(capacity = queue.consumers × 子进程数)</span>   <span class="c"># 有空位才发；读不到队列时容量为 0，不发</span>
+睡到：有 NOTIFY / 下一条到期 / 该巡检了（没有空位就直接睡到巡检）</pre>
+
+<!-- ============================================================ -->
+<h2 id="resend">四、只看时间的重发</h2>
+
+<p>有了“先领取”和“有空位才发”，正常时“发出 → 领取”只有几毫秒，RabbitMQ 里也没有排队的消息。所以规则可以非常简单：</p>
+
+<svg class="chart" viewBox="0 0 1000 120" role="img" aria-label="重发时间线">
+  <line x1="40" y1="60" x2="970" y2="60" stroke="var(--border)" stroke-width="2"/>
+  <g font-size="12" text-anchor="middle">
+    <circle cx="40" cy="60" r="7" fill="var(--disp)"/><text x="40" y="38" fill="var(--disp)">第一次发出</text><text x="40" y="88" fill="var(--muted)">0</text>
+    <circle cx="102" cy="60" r="7" fill="var(--mq)"/><text x="102" y="38" fill="var(--mq)">重发 1</text><text x="102" y="88" fill="var(--muted)">1 分钟</text>
+    <circle cx="226" cy="60" r="7" fill="var(--mq)"/><text x="226" y="38" fill="var(--mq)">重发 2</text><text x="226" y="88" fill="var(--muted)">+2 → 3 分钟</text>
+    <circle cx="474" cy="60" r="7" fill="var(--mq)"/><text x="474" y="38" fill="var(--mq)">重发 3</text><text x="474" y="88" fill="var(--muted)">+4 → 7 分钟</text>
+    <circle cx="970" cy="60" r="7" fill="var(--warn)"/><text x="940" y="38" fill="var(--warn)">判 delivery_lost</text><text x="940" y="88" fill="var(--muted)">+8 → 约 15 分钟</text>
+  </g>
+  <text x="500" y="112" font-size="12" text-anchor="middle" fill="var(--muted)">间隔 = 1 分钟 × 2^已重发次数；巡检每 10 秒一次，所以每个点最多晚 10 秒</text>
+</svg>
+
+<div class="cols">
+<div class="card">
+<h4>什么时候<b>不</b>判（这一轮跳过，10 秒后再看）</h4>
+<ul>
+  <li><b>读不到队列状态</b>（RabbitMQ 停了）：不知道 worker 在不在；</li>
+  <li><b>消费者数为 0</b>（worker 全下线）：发了也没人收，交给告警；</li>
+  <li><b>队列里有排队的消息</b>：本不该有，说明子进程数配错、RabbitMQ 刚重启或者 worker 卡住。消息其实还在排着，这时按时间判会把排队的当成丢了。
+  连续 2 分钟不为 0 记一条 warning（每段只记一次）。</li>
+</ul>
+</div>
+<div class="card">
+<h4>重发怎么做</h4>
+<ul>
+  <li>把同一行 outbox <b>改回 pending</b>、重发次数 + 1，由投递去发。不在巡检里直接发：RabbitMQ 告警时一次发送要约 27 秒才报错，会卡住巡检；</li>
+  <li>重发 3 次后再等 8 分钟仍没人领取：attempt 判 <code>delivery_lost</code>，用户可以重新生成；</li>
+  <li>猜错的代价只是多一条消息：worker 领取时只认 pending，重复的消息几毫秒就跳过。</li>
+</ul>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="exp">五、实验 V1～V11</h2>
+
+<p>在 compose 全套 8 个服务（postgres、rabbitmq、redis、embedding、migrate、api、worker、dispatcher）+ 学校网关 DeepSeek 上做，worker 4 个子进程。
+观察：PG 的 <code>attempts</code> / <code>outbox</code>，<code>rabbitmqctl list_queues</code>，dispatcher / worker 日志，页面逐帧记录和截图。时间都是 UTC。</p>
+
+<div class="wrap">
+<table>
+<tr><th>#</th><th>实验</th><th>预期</th><th>实际</th><th>结论</th></tr>
+<tr><td>V1</td><td>正常提交 1 道</td><td>发出到领取 ≤ 1 秒；先显示“正在准备资料…”；0 次重发</td><td>52 毫秒；“正在准备资料…”持续 4.9 秒；0 次</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V2</td><td>BM25 缓存丢失，重建约 100 秒</td><td>立刻领取，续租正常，不重发</td><td>54 毫秒领取；重建期间租约剩 76～89 秒；0 次重发</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V3</td><td>一次提交 20 道</td><td>RabbitMQ 排队数≈0；积压在 outbox；先进先出；全部完成；0 次重发</td><td>199 次采样全是 0；outbox 最多 16；按提交顺序；20 道完成；0 次</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V4</td><td>清空队列</td><td>约 1 分钟后重发并完成，重发 1 次</td><td>发出后 68 秒重发，1 毫秒领取，完成，重发 1 次</td><td><span class="tag t-pass">通过</span> 做法调整</td></tr>
+<tr><td>V5</td><td>停 worker 3 分钟</td><td>停的期间不投递、不重发；启动后完成</td><td>停后 15 秒提交：不投递、不重发；启动后 4 秒发出、完成</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V6</td><td>停 RabbitMQ 约 2 分钟</td><td>不判重发；发送失败只算退避；恢复后不丢不重</td><td>各失败 1 次；每 10 秒“读不到…不判重发”；全部完成，没有重复执行</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V7</td><td>RabbitMQ 内存告警 2 分钟</td><td>每次约 27 秒报错、退避、不卡死、不重发</td><td>26.6 / 27.0 / 27.0 / 26.8 秒；退避 2/4/8/16 秒；0 次重发；恢复后完成</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V8</td><td>执行中 kill worker</td><td>约 100 秒判 <code>lease_expired</code>；之后排队的正常投递</td><td>第一次只领取了 3 道 → 修好（M1.6-7a）后重做：96.6 秒判失败，排队的 2 道同一秒发出</td><td><span class="tag t-fix">修复后通过</span></td></tr>
+<tr><td>V9</td><td>语料路径改错</td><td>判失败、页面显示原因；改回后重新生成能完成</td><td>54 毫秒领取后 <code>FileNotFoundError</code>；页面“执行出错”；重新生成 15 秒完成</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V10</td><td>重新生成</td><td>完成的题能重新生成；执行中返回 409</td><td>第 3 次执行正常完成；执行中再点，页面提示、接口 409</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>V11</td><td>慢网络打开已结束的题</td><td>过程区从头到尾不展开，正文整段显示</td><td>新代码一帧都没展开；旧代码对照展开了 3.4 秒</td><td><span class="tag t-pass">通过</span></td></tr>
+</table>
+</div>
+
+<h3>V3：一次提交 20 道题，积压在哪</h3>
+<p>每 2 秒采样一次。M1.5 时这 16 道会排在 RabbitMQ 里；现在它们留在 outbox，worker 每结束一道，dispatcher 才发下一道。
+RabbitMQ 里排队的消息数（红线）199 次采样全是 0，执行中的从没超过 4。</p>
+<svg class="chart" id="v3" viewBox="0 0 1000 300" role="img" aria-label="V3 采样图"></svg>
+<div class="legend">
+  <span><i style="background:var(--old)"></i>排在 outbox（还没发）</span>
+  <span><i style="background:var(--worker)"></i>执行中</span>
+  <span><i style="background:var(--pg)"></i>已完成</span>
+  <span><i style="background:var(--warn)"></i>RabbitMQ 里排队的消息</span>
+</div>
+
+<h3>每个实验的过程</h3>
+
+<details>
+<summary>V1 正常提交（run 138）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd>浏览器打开首页，输入“比亚迪 2024 年研发投入多少，占营业收入的比例是多少？”，发送；页面里装逐帧记录器记过程区标题。</dd>
+  <dt>实际</dt><dd>写 outbox 18:06:15.341 → 发出 15.376 → 领取 15.428（52 毫秒）。标题：排队中 → 正在准备资料…（15.009）
+  → 正在思考 · 已完成 0 步（19.874）→ … → 思考与检索 · 4 步（29.281）。重发 0 次，发送失败 0 次。</dd>
+  <dt>说明</dt><dd>“正在准备资料…”换成正常标题的时刻是第一段思考片段到达（比第一步早），这本来就是正常标题。</dd>
+</dl>
+<div class="shots">
+  <figure><img src="../.cache/m16-experiments/v1_preparing.png" alt="V1 正在准备资料" loading="lazy"><figcaption>领取后、第一段思考到达前</figcaption></figure>
+  <figure><img src="../.cache/m16-experiments/v1_done.png" alt="V1 完成" loading="lazy"><figcaption>完成</figcaption></figure>
+</div>
+</div>
+</details>
+
+<details>
+<summary>V2 加载很慢：BM25 缓存丢失（run 139）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd>停 worker → <code>.cache/bm25</code> 改名为 <code>bm25.m16-bak</code> → 启动 worker（挂进去的是空目录）→ 提交 1 道，每 10 秒查一次状态和剩余租约。</dd>
+  <dt>实际</dt><dd>发出 18:09:06.013，领取 06.068（54 毫秒）；索引重建约 100 秒，第一步 18:10:47。这期间 attempt 一直是 running，
+  租约剩余 76～89 秒（每 15 秒续一次），0 次重发。18 步、255 秒完成。</dd>
+  <dt>对比</dt><dd>M1.5 时这 100 秒里 attempt 是 pending、PG 看不出有人收到了，只能靠宽限期 2 分钟兜着。</dd>
+  <dt>还原</dt><dd>停 worker → 删掉重建的目录 → 改回原名 → 启动（文件时间仍是 10-03 的原件）。</dd>
+</dl>
+</div>
+</details>
+
+<details>
+<summary>V3 一次提交 20 道（run 140～159）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd>脚本 1 秒内连续提交 20 道，每 2 秒采样“队列 + outbox + attempts”，另外 3 次用 <code>rabbitmqctl</code> 核对。</dd>
+  <dt>实际</dt><dd>18:14:16～18:21:06 共 199 次采样，排队数全部是 0；开始时 outbox 待发 16 条、执行中 4 条；
+  <code>rabbitmqctl</code> 三次都是“排队 0、未确认 4、消费者 1”。发出时间按 run id 严格递增。20 道约 6 分 50 秒全部完成，重发和发送失败全是 0。</dd>
+</dl>
+</div>
+</details>
+
+<details>
+<summary>V4 清空队列（run 160～163）：做法调整了</summary>
+<div class="body">
+<dl class="kv">
+  <dt>按字面</dt><dd>提交后 1 秒内 <code>rabbitmqctl purge_queue celery</code>：什么都没清掉。消息早已被 worker 拿走、处于“未确认”，
+  而清空只清排队的消息。<b>有空位才发以后，只要有空闲的子进程，消息不会在队列里停留，清空队列丢不了消息。</b></dd>
+  <dt>附带</dt><dd>冻住 worker（<code>docker compose pause</code>）后提交：消息停在冻住的 worker 手里。发出 1 分钟后符合重发条件（排队 0、消费者 1），多重发了一次；
+  RabbitMQ 约 2.6 分钟才因心跳超时断开它。见第七节。</dd>
+  <dt>干净做法</dt><dd>冻住 worker → 提交（发出 18:30:20.63）→ <code>rabbitmqctl close_connection</code> 断开 worker 的连接，消息回到排队 →
+  清空（这时消息真丢了）→ 恢复 worker。</dd>
+  <dt>实际</dt><dd>18:31:28.515 日志“发出 1 分钟以上仍没有 worker 领取，重发”（发出后 68 秒 = 1 分钟 + 最多一个巡检间隔），1 毫秒后领取，49 秒完成，重发 1 次。</dd>
+</dl>
+</div>
+</details>
+
+<details>
+<summary>V5 停 worker（run 164～167）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>第一次</dt><dd>停 worker 后 5 秒提交：两条都被发出了，在 RabbitMQ 里排了 3 分钟。原因：投递用的消费者数来自最近一次巡检（最多 10 秒前），那时 worker 还在。
+  之后都按设计：排队数不为 0，不重发；满 2 分钟记 warning；启动 worker 后马上被领取、完成，0 次重发。</dd>
+  <dt>第二次</dt><dd>停 worker 后等 15 秒（过一次巡检）再提交：3.5 分钟里 outbox 一直待发、队列为空，不投递、不重发；
+  18:41:51 启动 worker，18:41:55 发出两条，49 毫秒领取，完成。</dd>
+</dl>
+</div>
+</details>
+
+<details>
+<summary>V6 停 RabbitMQ 约 2 分钟（run 168～170）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd>提交 run 168，执行中 <code>docker compose stop rabbitmq</code>（18:43:33），马上再提交 2 道；约 2 分钟后启动。</dd>
+  <dt>实际</dt><dd>169、170 各发送失败 1 次（停的那一刻上次巡检还看到消费者 1）；之后每 10 秒日志“读不到 RabbitMQ 队列状态：这一轮不投递、不判重发”。
+  168 在停机期间照常执行完（租约在 PG，和 RabbitMQ 无关）；它没来得及确认的消息在 RabbitMQ 重启后回来，被领取那一步跳过，没有重复执行。
+  18:45:28 RabbitMQ 起来，18:46:01 发出 169、170，都完成，0 次重发。</dd>
+  <dt>埋下</dt><dd>worker 这次重连时预取数被 Celery 调低到 3、没真正调回去，V8 才暴露（第六节）。</dd>
+</dl>
+</div>
+</details>
+
+<details>
+<summary>V7 RabbitMQ 内存告警（run 171）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd><code>rabbitmqctl set_vm_memory_high_watermark absolute 1MB</code> 触发告警，提交 1 道；2 分钟后恢复成默认的 0.6。</dd>
+  <dt>实际</dt><dd>“投递失败”第 1～4 次分别在发出后 26.6、27.0、27.0、26.8 秒报错，中间按 2、4、8、16 秒退避；队列状态照常读得到，巡检照常，0 次重发。恢复后完成。</dd>
+  <dt>附带</dt><dd>告警期间“失败”的 4 次发送其实都送到了：解除的一瞬间 worker 收到 4 条，一条执行，其余和第 5 次成功发送的那条都被跳过。
+  5 条消息、执行 1 次。见第七节。</dd>
+</dl>
+</div>
+</details>
+
+<details>
+<summary>V8 执行中 kill worker（第一次 run 172～177；修好后重做 run 188～193）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd>提交 6 道（4 道执行、2 道在 outbox 等），约 15 秒后 <code>docker compose kill worker</code>，马上启动。</dd>
+  <dt>第一次</dt><dd>只有 3 道被领取，第 4 道已发出却 20 秒没人收。查出预取数问题，复现、修好（第六节）。</dd>
+  <dt>重做</dt><dd>kill 前“排队 0、未确认 4、消费者 1”→ kill 后“排队 4”（未确认的消息立刻回到队列）；新 worker 收到这 4 条，领取全部失败、几毫秒跳过。
+  死掉的 4 个仍算在途，排队的 2 道先不发（§5.9 写明的代价）。19:16:55.469 判 4 道 <code>lease_expired</code>（kill 后 96.6 秒），
+  19:16:55.476 同一圈发出排队的 2 道，都完成，0 次重发。</dd>
+</dl>
+</div>
+</details>
+
+<details>
+<summary>V9 加载出错：语料路径改错（run 194 第 1、2 次执行）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd>用临时的 compose 覆盖文件（不改仓库）把 worker 的 <code>MARGIN_BLOCKS_PATH</code> 改成不存在的文件，重建 worker，在页面上提交。</dd>
+  <dt>实际</dt><dd>领取 54 毫秒后 <code>FileNotFoundError</code>，判失败、0 步。页面“执行出错（FileNotFoundError），这次执行没有完成。”
+  去掉覆盖文件重建 worker，点“重新生成”：15 秒完成。M1.5 时这种情况 attempt 会停在 pending、靠对账补发，补 3 次后才失败。</dd>
+</dl>
+<div class="shots">
+  <figure><img src="../.cache/m16-experiments/v9_failed.png" alt="V9 失败" loading="lazy"><figcaption>加载出错，页面显示原因</figcaption></figure>
+  <figure><img src="../.cache/m16-experiments/v9_regenerated.png" alt="V9 重新生成" loading="lazy"><figcaption>改回后重新生成完成</figcaption></figure>
+</div>
+</div>
+</details>
+
+<details>
+<summary>V10 重新生成（run 194 第 3 次执行）</summary>
+<div class="body">
+<p>已完成的题点“重新生成”：第 3 次执行排队、1 毫秒领取、14 秒完成。执行中再点：页面提示“这道题还在执行中”，接口 409；脚本直接 POST 也是 409。</p>
+<figure><img src="../.cache/m16-experiments/v10_409.png" alt="V10 409" loading="lazy" style="max-width:520px"><figcaption>执行中点重新生成</figcaption></figure>
+</div>
+</details>
+
+<details>
+<summary>V11 慢网络打开已结束的题（run 139，18 步）</summary>
+<div class="body">
+<dl class="kv">
+  <dt>操作</dt><dd>先不限速打开首页，再用浏览器开发者工具协议限速（延迟 400 毫秒、下行 400 kbit/s，约等于 Slow 3G），跳到 <code>/runs/139</code>，逐帧记录。补发的数据约 700 KB。</dd>
+  <dt>新代码</dt><dd>前 12.3 秒什么都不显示（右栏也不提示“没有引用”），之后这次执行整个出现：过程区收着、“思考与检索 · 18 步”、正文全文。没有一帧展开。</dd>
+  <dt>旧代码</dt><dd>临时换回 M1.6-6 之前的两个文件对照：7.0 秒右栏先显示“这次执行没有引用原文。”，7.4 秒起过程区展开、转圈“正在执行 · 已完成 n 步”一路涨到 17 步，10.8 秒才收起。跑完立刻还原。</dd>
+</dl>
+<div class="shots">
+  <figure><img src="../.cache/m16-experiments/v11_run139_new.png" alt="V11 新代码" loading="lazy"><figcaption>新代码：整段出现</figcaption></figure>
+  <figure><img src="../.cache/m16-experiments/v11_run139_old.png" alt="V11 旧代码" loading="lazy"><figcaption>旧代码对照：过程区展开转圈</figcaption></figure>
+</div>
+</div>
+</details>
+
+<p class="small">截图在本机 <code>margin-agent/.cache/m16-experiments/</code>，不进仓库；换台电脑打开这页时图片不显示。
+动过的环境都已还原：BM25 缓存原件、语料路径、内存水位线 0.6、停过的服务都已启动；最后核对 8 个服务都在跑、没有告警、预取 4。</p>
+
+<!-- ============================================================ -->
+<h2 id="bug">六、发现并修掉的问题：重连后预取数卡在 3</h2>
+
+<p>“预取数”是 RabbitMQ 一次最多推给这个 worker 多少条还没确认的消息。我们设成和子进程数一样（4），每个子进程手上只有正在执行的那一条。</p>
+
+<div class="flow">
+  <div class="s">① V6 停 RabbitMQ 时，worker 手上有 1 道正在执行</div>
+  <div class="arrow">↓</div>
+  <div class="s">② 重连时 Celery 5.6.3 默认按“还在执行的任务数”把预取数<b>临时调低</b>：4 → 3，日志 “Temporarily reducing the prefetch count to 3”</div>
+  <div class="arrow">↓</div>
+  <div class="s bad">③ 那道执行完，Celery 日志写 “restored to 4”，但<b>只改了自己记的数，没通知 RabbitMQ</b>；RabbitMQ 一直按 3 推，直到 worker 重启</div>
+  <div class="arrow">↓</div>
+  <div class="s bad">④ dispatcher 按 4 个空位发 4 条：第 4 条在 RabbitMQ 里排队，没人收；排队数不为 0，重发也被暂停</div>
+  <div class="arrow">↓</div>
+  <div class="s">⑤ V8 提交 6 道，只有 3 道被领取 → 查日志、<code>rabbitmqctl list_consumers</code> 看到预取是 3</div>
+</div>
+
+<div class="cols" style="margin-top:14px">
+<div class="card">
+<h4>复现</h4>
+<p>run 178 执行中重启 RabbitMQ 20 秒：日志说已恢复到 4，<code>list_consumers</code> 是 3；再提交 4 道，RabbitMQ 里“排队 1、未确认 3”，第 4 道多等了 15 秒。</p>
+</div>
+<div class="card">
+<h4>修复（M1.6-7a）</h4>
+<p><code>worker_enable_prefetch_count_reduction=False</code>：重连时不调低。不会多拿：发多少条由 dispatcher 按空位决定；
+重连后回到队列的“正在执行的那道”的消息，领取时几毫秒就跳过。同样的复现：预取 4，“排队 0、未确认 4”。V8 重做通过。
+加了测试 <code>test_prefetch_is_not_lowered_after_broker_reconnect</code> 防止被改回去。</p>
+</div>
+</div>
+
+<div class="note">为什么 M1.5 没发现：M1.5 时消息不管 worker 忙不忙都发，少拿一条只是多排一会儿，看不出来。
+M1.6 的“有空位才发”要求 worker 实际能拿的数和配置一致，所以这个问题才会卡住题目。这也是这次实验最有价值的发现。</div>
+
+<!-- ============================================================ -->
+<h2 id="seen">七、看到了但按设计不改的</h2>
+
+<p>下面三种情况都会多出消息，但都被“领取只认 pending”挡住，<b>没有重复执行</b>。</p>
+
+<div class="wrap">
+<table>
+<tr><th>现象</th><th>在哪看到</th><th>原因</th><th>为什么不改</th></tr>
+<tr><td>停 worker 后 10 秒内提交的题，仍会被发出、在 RabbitMQ 里等</td><td>V5</td><td>投递用的消费者数是最近一次巡检读的，最多旧 10 秒</td><td>消息不丢、不重发，worker 回来正常完成；要消掉得每次投递前读一次队列，不值得</td></tr>
+<tr><td>worker 主进程冻住时，会多重发一次</td><td>V4</td><td>冻住的 worker 连接还在（消费者 1、排队 0），1 分钟后符合重发条件；RabbitMQ 约 2.6 分钟才因心跳超时断开它</td><td>多出的消息被领取跳过；M4 的监督者会更早发现卡死</td></tr>
+<tr><td>内存告警时“发送失败”的消息，解除后仍被 RabbitMQ 收下</td><td>V7</td><td>告警时 RabbitMQ 停止读发送方的连接，dispatcher 等确认超时，但已写进网络缓冲的消息解除后仍被收下</td><td>至少一次投递 + 领取去重本来就是为这种情况准备的</td></tr>
+</table>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="trade">八、等你确认的取舍</h2>
+
+<p>计划没写清、执行时我选了一个方案的地方。详细写法（问题 → 选了什么 → 为什么 → 不同意时怎么改）在 STATUS“执行中的取舍”15～27，结论汇总在 D29。
+勾选框只是帮你记 review 进度，存在这个浏览器里。</p>
+
+<ol class="trade" id="trades" start="15">
+<li><div class="check"><input type="checkbox" id="t15"><label for="t15"><b>修 Celery 预取数问题（超出 §5.9 范围）</b>：第六节。不同意的话：升级 Celery 到修好这个问题的版本后删掉这行。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t16"><label for="t16"><b>已结束的题，补发没到齐的执行先不显示</b>：§5.9 只要求“过程区不展开”。代价是慢网络下开头空白（V11 12.3 秒）。不同意的话：这期间显示一行“加载中…”。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t17"><label for="t17"><b>还没有执行可显示时，右栏不提示“没有引用”</b>：否则旧代码 7 秒时会先错误地显示“没有引用”。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t18"><label for="t18"><b>一轮里先巡检再投递</b>：容量要用巡检刚读到的消费者数；读不到队列时容量为 0、不投递。没有空位时最多睡 10 秒，空出位子靠结束时的 NOTIFY 叫醒。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t19"><label for="t19"><b>子进程数用一个环境变量 <code>MARGIN_WORKER_CONCURRENCY</code></b>，worker 和 dispatcher 共用（默认 4），没去读 RabbitMQ 里的预取数：V8 那样被调低时，读到的反而是错的。代价：两边要一起改；将来不同 worker 子进程数不同时要另想办法。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t20"><label for="t20"><b>重发是否到期在 Python 里算</b>：候选只有“已发出、还没领取”的那几条，写成 SQL 反而难读。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t21"><label for="t21"><b>积压 warning 每段只记一次</b>：排队数连续 2 分钟不为 0 记一条，回到 0 才重置，避免每 10 秒刷一条。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t22"><label for="t22"><b><code>requeue_lost</code> 改名 <code>resend_lost</code>，<code>ix_outbox_sent_at</code> 索引暂留</b>：索引现在没有查询用到，删它要一个迁移，留到以后清理。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t23"><label for="t23"><b>V4 改了做法</b>：按字面清空队列丢不了消息，改成“冻住 worker → 断开连接 → 清空 → 恢复”。预期没改。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t24"><label for="t24"><b>V5 的 10 秒窗口不改</b>（第七节第 1 行）。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t25"><label for="t25"><b>worker 主进程冻住时多重发一次，不改</b>（第七节第 2 行）。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t26"><label for="t26"><b>告警时“失败”的消息解除后仍送到，不改</b>（第七节第 3 行）。</label></div></li>
+<li><div class="check"><input type="checkbox" id="t27"><label for="t27"><b>执行失败、0 步时提示仍写“已完成的步骤保留在上面”</b>：文案小问题，不在范围内，没改。</label></div></li>
+</ol>
+
+<!-- ============================================================ -->
+<h2 id="tests">九、测试和文档</h2>
+
+<div class="wrap">
+<table>
+<tr><th>场景</th><th>测试</th></tr>
+<tr><td>先领取再加载；加载出错时判失败而不是停在 pending</td><td><code>test_worker_pg.py</code> · <code>test_corpus_is_loaded_after_claim_and_load_error_fails_the_attempt</code></td></tr>
+<tr><td>没有空位时积压留在 outbox；一道结束后 1 秒内发出下一条</td><td><code>test_worker_pg.py</code> · <code>test_backlog_waits_in_outbox_until_a_slot_frees_up</code></td></tr>
+<tr><td>发出 1 分钟没领取就重发</td><td><code>test_reconcile_pg.py</code> · <code>test_unclaimed_one_minute_after_sending_is_resent</code></td></tr>
+<tr><td>重发过的要再等 2 倍时间</td><td><code>test_reconcile_pg.py</code> · <code>test_resent_message_waits_twice_as_long_before_next_resend</code></td></tr>
+<tr><td>队列里有排队的消息时不重发</td><td><code>test_reconcile_pg.py</code> · <code>test_messages_waiting_in_queue_pause_resending</code></td></tr>
+<tr><td>读不到队列状态 / 没有消费者时不重发</td><td><code>test_reconcile_pg.py</code> · <code>test_no_resend_when_workers_cannot_be_seen</code></td></tr>
+<tr><td>第 3 次重发后再过 8 分钟判 <code>delivery_lost</code>，之后能重新生成</td><td><code>test_reconcile_pg.py</code> · <code>test_gives_up_eight_minutes_after_third_resend_and_allows_regenerate</code></td></tr>
+<tr><td>broker 重连后预取数不被调低</td><td><code>test_worker_celery.py</code> · <code>test_prefetch_is_not_lowered_after_broker_reconnect</code></td></tr>
+<tr><td>前端：执行中 0 步标题是“正在准备资料…”</td><td><code>e2e/stream.spec.ts:31</code></td></tr>
+<tr><td>前端：已结束的题分批慢慢补发，过程区始终不展开</td><td><code>e2e/replay.spec.ts:29</code></td></tr>
+</table>
+</div>
+
+<p>全部通过：后端单元 64、集成 54，ruff 没有报错；前端单元 19、端到端 25，lint 没有报错。</p>
+
+<p><b>文档</b>：PLAN §7 M1.6 打勾、架构图和 §5.7 标注已改；DECISIONS 新增 D29；STATUS 写了“M1.6 记录”和取舍 15～27；
+README、<a href="01_运行链路.md">运行链路</a> 改成现状；<a href="M1.6_监督与超时总表.md">M1.6 监督与超时总表</a> 去掉〔M1.6〕标记、补实测数字；
+<a href="M1.5_监督机制梳理.html">M1.5 监督机制梳理</a> 的 14 个问答和第四节 3 行标了“M1.6 已改”。</p>
+
+<!-- ============================================================ -->
+<h2 id="next">十、下一步</h2>
+
+<ol>
+  <li><b>你 review M1.6</b>：建议顺序是这页 → <a href="02_代码导读/M1.6_投递与对账改造.md">代码导读</a>开头的总览和阅读顺序 → 第八节的取舍逐条确认。确认后 D29 定稿。</li>
+  <li><b>M3 多用户与治理</b>：登录、owner 隔离、配额、模型并发上限等。M3 的配额要建在这次的“积压留在 outbox”上：排队的题在 PG 里，按用户限额只要改投递时取哪几条。开工前先和你细化方案。</li>
+  <li>留到以后：加载中子进程死了要等租约过期、手动重新生成（M4 接管解决）；多用户持续提交时排队数是否一直接近 0、重发是否只在真丢消息时出现（M6 压测）。</li>
+</ol>
+
+</main>
+
+<script>
+// V3 采样：[秒, RabbitMQ 排队数, outbox 待发, 执行中, 已发出未领取, 已完成]
+const V3 = [[0,0,16,4,0,0],[2,0,16,4,0,0],[4,0,16,4,0,0],[6,0,16,4,0,0],[9,0,16,4,0,0],[11,0,16,4,0,0],[13,0,16,4,0,0],[15,0,16,4,0,0],[17,0,16,4,0,0],[19,0,15,4,0,1],[21,0,15,4,0,1],[23,0,15,4,0,1],[25,0,15,4,0,1],[27,0,15,4,0,1],[29,0,15,4,0,1],[31,0,15,4,0,1],[33,0,15,4,0,1],[35,0,14,4,0,2],[38,0,14,4,0,2],[40,0,14,4,0,2],[42,0,14,4,0,2],[44,0,14,4,0,2],[46,0,13,4,0,3],[48,0,13,4,0,3],[50,0,12,4,0,4],[52,0,12,4,0,4],[54,0,12,4,0,4],[56,0,12,4,0,4],[58,0,12,4,0,4],[60,0,11,4,0,5],[62,0,11,4,0,5],[64,0,11,4,0,5],[66,0,11,4,0,5],[69,0,11,4,0,5],[71,0,11,4,0,5],[73,0,11,4,0,5],[75,0,10,4,0,6],[77,0,10,4,0,6],[79,0,10,4,0,6],[81,0,10,4,0,6],[83,0,9,4,0,7],[85,0,9,4,0,7],[87,0,9,4,0,7],[89,0,9,4,0,7],[91,0,9,4,0,7],[93,0,9,4,0,7],[95,0,8,4,0,8],[97,0,8,4,0,8],[100,0,8,4,0,8],[102,0,8,4,0,8],[104,0,8,4,0,8],[106,0,7,4,0,9],[108,0,7,4,0,9],[110,0,7,4,0,9],[112,0,7,4,0,9],[114,0,7,4,0,9],[116,0,7,4,0,9],[118,0,7,4,0,9],[120,0,7,4,0,9],[122,0,7,4,0,9],[124,0,7,4,0,9],[126,0,7,4,0,9],[128,0,7,4,0,9],[130,0,7,4,0,9],[133,0,7,4,0,9],[135,0,7,4,0,9],[137,0,7,4,0,9],[139,0,7,4,0,9],[141,0,7,4,0,9],[143,0,7,4,0,9],[145,0,7,4,0,9],[147,0,7,4,0,9],[149,0,7,4,0,9],[151,0,7,4,0,9],[153,0,7,4,0,9],[155,0,7,4,0,9],[157,0,7,4,0,9],[159,0,6,4,0,10],[161,0,6,4,0,10],[164,0,6,4,0,10],[166,0,6,4,0,10],[168,0,6,4,0,10],[170,0,6,4,0,10],[172,0,6,4,0,10],[174,0,6,4,0,10],[176,0,6,4,0,10],[178,0,5,4,0,11],[180,0,5,4,0,11],[182,0,4,4,0,12],[184,0,4,4,0,12],[186,0,4,4,0,12],[188,0,4,4,0,12],[190,0,4,4,0,12],[193,0,4,4,0,12],[195,0,4,4,0,12],[197,0,4,4,0,12],[199,0,3,4,0,13],[201,0,3,4,0,13],[203,0,3,4,0,13],[205,0,3,4,0,13],[207,0,3,4,0,13],[209,0,3,4,0,13],[211,0,3,4,0,13],[213,0,3,4,0,13],[215,0,3,4,0,13],[217,0,3,4,0,13],[219,0,2,4,0,14],[221,0,2,4,0,14],[224,0,2,4,0,14],[226,0,2,4,0,14],[228,0,2,4,0,14],[230,0,2,4,0,14],[232,0,2,4,0,14],[234,0,2,4,0,14],[236,0,2,4,0,14],[238,0,2,4,0,14],[240,0,1,4,0,15],[242,0,1,4,0,15],[244,0,1,4,0,15],[246,0,1,4,0,15],[248,0,1,4,0,15],[250,0,1,4,0,15],[253,0,1,4,0,15],[255,0,1,4,0,15],[257,0,1,4,0,15],[259,0,1,4,0,15],[261,0,0,4,0,16],[263,0,0,4,0,16],[265,0,0,4,0,16],[267,0,0,4,0,16],[269,0,0,4,0,16],[271,0,0,4,0,16],[273,0,0,4,0,16],[275,0,0,4,0,16],[277,0,0,3,0,17],[279,0,0,3,0,17],[281,0,0,3,0,17],[284,0,0,2,0,18],[286,0,0,2,0,18],[288,0,0,2,0,18],[290,0,0,2,0,18],[292,0,0,2,0,18],[294,0,0,2,0,18],[296,0,0,2,0,18],[298,0,0,2,0,18],[300,0,0,2,0,18],[302,0,0,2,0,18],[304,0,0,2,0,18],[306,0,0,1,0,19],[308,0,0,1,0,19],[310,0,0,1,0,19],[312,0,0,1,0,19],[315,0,0,1,0,19],[317,0,0,1,0,19],[319,0,0,1,0,19],[321,0,0,1,0,19],[323,0,0,1,0,19],[325,0,0,1,0,19],[327,0,0,1,0,19],[329,0,0,1,0,19],[331,0,0,1,0,19],[333,0,0,1,0,19],[335,0,0,1,0,19],[337,0,0,1,0,19],[339,0,0,1,0,19],[341,0,0,1,0,19],[344,0,0,1,0,19],[346,0,0,1,0,19],[348,0,0,1,0,19],[350,0,0,1,0,19],[352,0,0,1,0,19],[354,0,0,1,0,19],[356,0,0,1,0,19],[358,0,0,1,0,19],[360,0,0,1,0,19],[362,0,0,1,0,19],[364,0,0,1,0,19],[366,0,0,1,0,19],[368,0,0,1,0,19],[370,0,0,1,0,19],[372,0,0,1,0,19],[375,0,0,1,0,19],[377,0,0,1,0,19],[379,0,0,1,0,19],[381,0,0,1,0,19],[383,0,0,1,0,19],[385,0,0,1,0,19],[387,0,0,1,0,19],[389,0,0,1,0,19],[391,0,0,1,0,19],[393,0,0,1,0,19],[395,0,0,1,0,19],[397,0,0,1,0,19],[399,0,0,0,0,20],[401,0,0,0,0,20],[403,0,0,0,0,20],[406,0,0,0,0,20],[408,0,0,0,0,20],[410,0,0,0,0,20]];
+
+(function drawV3() {
+  const svg = document.getElementById('v3');
+  const W = 1000, H = 300, L = 46, R = 16, T = 14, B = 34;
+  const maxT = V3[V3.length - 1][0];
+  const x = (t) => L + (t / maxT) * (W - L - R);
+  const y = (v) => H - B - (v / 20) * (H - T - B);
+  const ns = 'http://www.w3.org/2000/svg';
+  const el = (name, attrs, text) => {
+    const e = document.createElementNS(ns, name);
+    for (const k in attrs) e.setAttribute(k, attrs[k]);
+    if (text !== undefined) e.textContent = text;
+    svg.appendChild(e);
+    return e;
+  };
+  for (let v = 0; v <= 20; v += 4) {
+    el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), stroke: 'var(--border)' });
+    el('text', { x: L - 8, y: y(v) + 4, 'font-size': 11, 'text-anchor': 'end', fill: 'var(--muted)' }, v);
+  }
+  for (let t = 0; t <= maxT; t += 60) {
+    el('text', { x: x(t), y: H - B + 18, 'font-size': 11, 'text-anchor': 'middle', fill: 'var(--muted)' }, (t / 60) + ' 分');
+  }
+  // 堆叠：已完成在下，执行中（含已发出未领取）在中，outbox 待发在上
+  const layers = [
+    { get: (r) => r[5], color: 'var(--pg)' },
+    { get: (r) => r[3] + r[4], color: 'var(--worker)' },
+    { get: (r) => r[2], color: 'var(--old)' },
+  ];
+  const base = V3.map(() => 0);
+  for (const layer of layers) {
+    const top = V3.map((r, i) => base[i] + layer.get(r));
+    let d = '';
+    V3.forEach((r, i) => { d += (i ? 'L' : 'M') + x(r[0]).toFixed(1) + ',' + y(top[i]).toFixed(1); });
+    for (let i = V3.length - 1; i >= 0; i--) d += 'L' + x(V3[i][0]).toFixed(1) + ',' + y(base[i]).toFixed(1);
+    el('path', { d: d + 'Z', fill: layer.color, 'fill-opacity': 0.55, stroke: 'none' });
+    top.forEach((v, i) => { base[i] = v; });
+  }
+  let d = '';
+  V3.forEach((r, i) => { d += (i ? 'L' : 'M') + x(r[0]).toFixed(1) + ',' + y(r[1]).toFixed(1); });
+  el('path', { d, fill: 'none', stroke: 'var(--warn)', 'stroke-width': 2.5 });
+  el('text', { x: W - R, y: y(0) - 6, 'font-size': 12, 'text-anchor': 'end', fill: 'var(--warn)' }, 'RabbitMQ 排队数：199 次采样全是 0');
+})();
+
+// review 进度：只存在这个浏览器里，读写失败就当没有
+(function trades() {
+  const KEY = 'm16-report-trades';
+  let done = {};
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { done = {}; }
+  document.querySelectorAll('#trades input').forEach((box) => {
+    box.checked = !!done[box.id];
+    box.addEventListener('change', () => {
+      done[box.id] = box.checked;
+      try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) { /* 存不了就不存 */ }
+    });
+  });
+})();
+
+// 深色 / 浅色切换
+(function theme() {
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('m16-report-theme'); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById('theme').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('m16-report-theme', root.dataset.theme); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>
