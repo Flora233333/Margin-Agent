@@ -60,6 +60,10 @@ class Settings(BaseSettings):
     # session cookie 只走 HTTPS（Secure 属性）。开发是 http，打开了浏览器就不发 cookie；
     # M6 上 HTTPS 后设 true
     cookie_secure: bool = False
+    # 防暴力猜密码：同一个“用户名 + IP”在任意 login_window_seconds 秒内
+    # 最多尝试 login_max_attempts 次
+    login_max_attempts: int = 10
+    login_window_seconds: int = 600
 
 
 @cache

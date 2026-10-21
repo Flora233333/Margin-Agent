@@ -19,11 +19,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
+from functools import cache
 from typing import Annotated, Any, Literal
 
+import redis
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -34,6 +37,7 @@ from . import auth, live, runs
 from .auth import CurrentUser
 from .db import get_engine
 from .event_hub import NEW_EVENTS, EventHub
+from .ratelimit import SlidingWindowLimiter
 from .runs import IdempotencyConflict, RunBusy, RunNotFound
 from .settings import get_settings
 
@@ -134,9 +138,18 @@ def current_user(request: Request, response: Response, db: DB) -> CurrentUser:
     return user
 
 
+@cache
+def get_login_limiter() -> SlidingWindowLimiter:
+    """登录限流器，整个进程共用一个（里面的 Redis 客户端自带连接池，多线程同时用没问题）。"""
+    settings = get_settings()
+    return SlidingWindowLimiter(live.make_redis(settings.redis_url), settings.login_max_attempts,
+                                settings.login_window_seconds)
+
+
 User = Annotated[CurrentUser, Depends(current_user)]
 Hub = Annotated[EventHub, Depends(get_hub)]
 RedisURL = Annotated[str, Depends(get_redis_url)]
+LoginLimiter = Annotated[SlidingWindowLimiter, Depends(get_login_limiter)]
 
 
 # ---- 请求 / 响应的数据格式（Pydantic 校验用户输入，不合格自动返回 422）----
@@ -239,12 +252,32 @@ def health() -> dict[str, bool]:
 
 
 @app.post("/auth/login")
-def login(body: LoginBody, db: DB, response: Response) -> Me:
+def login(body: LoginBody, request: Request, db: DB, response: Response,
+          limiter: LoginLimiter) -> Me:
     """用户名或密码不对一律同一句话、同一个 401：不告诉对方是哪一个不对
-    （否则能试出哪些用户名存在）。"""
+    （否则能试出哪些用户名存在）。
+
+    防暴力猜密码：同一个“用户名 + IP”10 分钟最多试 10 次，第 11 次起 429，
+    Retry-After 头给出还要等几秒。
+    先计数、再验密码：超了就不再花 30 毫秒算 argon2。登录成功清零：输错几次后登录上的人，
+    不会被之前的次数拖累（取舍 35）。
+    IP 取直接连过来的那一端（request.client）：开发时都经 Vite 转发，大家是同一个 IP，
+    所以键里还带用户名；M6 放到 Nginx 后面时要让 uvicorn 认 X-Forwarded-For（取舍 36）。
+    Redis 连不上时不放行，返回 503（取舍 37）：防线失效时宁可暂时登不上；
+    已登录的人不受影响（session 在 PG）。
+    """
+    key = f"login:{body.username}:{request.client.host}"
+    try:
+        wait = limiter.hit(key)
+    except redis.RedisError as exc:
+        raise HTTPException(503, "暂时无法登录，请稍后再试") from exc
+    if wait:
+        raise HTTPException(429, f"尝试次数太多，请 {math.ceil(wait / 60)} 分钟后再试",
+                            headers={"Retry-After": str(wait)})
     user = auth.authenticate(db, body.username, body.password)
     if user is None:
         raise HTTPException(401, "用户名或密码不对")
+    limiter.reset(key)
     set_session_cookie(response, auth.create_session(db, user.id))
     return Me(username=user.username)
 

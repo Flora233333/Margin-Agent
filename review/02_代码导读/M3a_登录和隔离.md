@@ -279,3 +279,62 @@ curl 不加 Origin：→ 403；加 -H 'Origin: http://localhost:5173' 并带上 
 - 全局依赖和路由依赖的执行顺序：全局的先执行，所以跨站请求在 `current_user` 查库之前就被拒了，返回 403 而不是 401。
 - `check_origin` 的比较是整串相等：`http://localhost:5173` 和 `http://localhost:5173/`、`http://127.0.0.1:5173` 都不相等。
   浏览器发的 Origin 没有结尾的 `/`，所以配置里也不要写。
+
+### M3a-4：登录限流（Redis 滑动窗口 + Lua）
+
+**改了什么**
+
+- 新文件 [ratelimit.py](../../src/margin/ratelimit.py)：开头的 docstring 讲了滑动窗口和为什么要 Lua。
+  - [SLIDING_WINDOW](../../src/margin/ratelimit.py#L28)：一段 Lua 脚本——取 Redis 的时间 → 删掉窗口外的记录 → 数一数 →
+    没超就记一次并返回 0，超了返回“最早那次还要多久滑出窗口”（毫秒）；
+  - [SlidingWindowLimiter](../../src/margin/ratelimit.py#L43)：`hit(key)` 返回还要等几秒（0 = 放行），`reset(key)` 清零。
+- [api.py](../../src/margin/api.py)：
+  - [get_login_limiter](../../src/margin/api.py#L142)：每个进程一个限流器（`@cache`），参数来自配置；
+  - [login](../../src/margin/api.py#L255)：键 `login:<用户名>:<IP>`；先 `hit` 再验密码；超了 429 +
+    `Retry-After` 头 + “请 n 分钟后再试”；成功后 `reset`；Redis 出错 503。
+- [settings.py](../../src/margin/settings.py#L63-L66)：`login_max_attempts=10`、`login_window_seconds=600`。
+- 测试：conftest 的 `make_client` 每个测试前清掉 Redis 里的 `login:*`；新文件 [test_ratelimit_pg.py](../../tests/test_ratelimit_pg.py) 6 个测试。
+
+**为什么**
+
+- **为什么要限流**：没有限流的话，攻击者可以每秒试几十个密码（每次只要 30 毫秒）。10 分钟 10 次，一天最多 1440 次，弱密码也要猜很久。
+- **为什么按“用户名 + IP”**：只按 IP——同一个办公室出口 IP 的人互相连累；只按用户名——攻击者故意输错就能把别人锁住 10 分钟
+  （拒绝服务）。两个一起，锁住的只是“这个 IP 上的这个用户名”，本人换个网络还能登。
+- **为什么滑动窗口**：固定窗口（每整 10 分钟清零）在 9:59 和 10:01 各试 10 次，2 分钟里 20 次也不拦。
+- **为什么用有序集合**：成员是每次尝试（随机名），分数是时刻。“删掉 10 分钟前的”就是 `ZREMRANGEBYSCORE`，“数一数”就是 `ZCARD`，
+  最早一次的时刻用 `ZRANGE 0 0 WITHSCORES` 取，“还要等多久”= 它 + 10 分钟 − 现在，给前端显示“请 n 分钟后再试”。
+- **为什么要 Lua**：见 ratelimit.py 开头。实测对照（见下面“怎么验证的”）：把三步拆成三条 Python 命令，30 个线程同时抢 10 个名额，
+  5 次里有 4 次放进来 21～25 个。
+- **时间为什么用 Redis 的 `TIME`**：以后 API 多开几个进程 / 机器，各自的时钟可能差几百毫秒，窗口边界会乱；只认 Redis 一个时钟。
+- **为什么先计数再验密码**：被拦下的请求不再花 30 毫秒、64MB 内存算 argon2，攻击者没法靠狂发登录请求拖垮服务器。
+  代价：输对密码的那一次也计数——所以成功后清零（取舍 35）。
+- **Redis 挂了为什么 503**：见取舍 37。
+
+**一个具体例子**
+
+```text
+（窗口 10 分钟、上限 10 次；Redis 里键 login:test_a:127.0.0.1）
+12:00:00 起连续输错 10 次      → 每次脚本：删过期（无）→ ZCARD = 0…9 < 10 → ZADD → 返回 0 → 验密码失败 → 401
+12:00:05 第 11 次（密码是对的） → ZCARD = 10 ≥ 10 → 最早一次 12:00:00.1 + 600 秒 − 12:00:05 = 595.1 秒
+                                → 429  Retry-After: 596  {"detail":"尝试次数太多，请 10 分钟后再试"}
+12:10:01 再试                  → 12:00:00.1 那次已经滑出窗口被删掉，ZCARD = 9 → 放行 → 密码对 → 200，DEL 这个键
+```
+
+**怎么验证的**
+
+| 测试 | 防的事故 |
+|---|---|
+| `test_concurrent_attempts_never_get_past_the_limit` | 30 个请求同时到，三步不是原子的，放进来超过 10 个（对照实验：拆成三条命令时 5 次里 4 次放进 21～25 个） |
+| `test_window_slides_instead_of_resetting_all_at_once` | 写成了固定窗口；或者窗口过了还一直锁着 |
+| `test_eleventh_login_attempt_gets_429_even_with_the_right_password` | 被锁后密码对了就放行（等于没锁）；Retry-After 不对，前端显示的等待时间错（实验 A5 的自动化版） |
+| `test_limit_counts_each_username_and_ip_separately` | 一个人输错把别人锁住；换个网络也登不上 |
+| `test_successful_login_clears_earlier_failures` | 输错几次后登录上的人，之后很快被锁 |
+| `test_login_is_refused_when_redis_is_down` | Redis 挂了时限流失效、可以无限猜；或者已登录的人也被连累 |
+
+`pytest`（71）、`pytest -m integration`（89）、ruff 全部通过。
+
+**建议重点看**
+
+- Lua 脚本里 `TIME` 返回的是 `{秒, 微秒}` 两个字符串，拼成毫秒；`PEXPIRE` 让一个不再有人试的键自己消失，不用清理。
+- `register_script` 的 EVALSHA：第一次把脚本发给 Redis，之后只发 40 个字符的 SHA1；Redis 重启后丢了缓存，redis-py 自动重发。
+- `request.client.host` 在开发环境是什么（Vite / Docker 网关的地址），为什么键里必须带用户名（取舍 36）。

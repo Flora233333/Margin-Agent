@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
 
-from margin.api import app, get_db, get_hub
+from margin.api import app, get_db, get_hub, get_login_limiter
 from margin.auth import set_password
 from margin.db import make_engine
 from margin.event_hub import EventHub
@@ -143,6 +143,10 @@ def make_client(db, hub):
     """
     app.dependency_overrides[get_db] = lambda: db
     app.dependency_overrides[get_hub] = lambda: hub
+    # 登录限流记在 Redis 里，不随测试库清空：清掉上一个测试留下的尝试次数
+    limiter_redis = get_login_limiter().client
+    for key in limiter_redis.scan_iter("login:*"):
+        limiter_redis.delete(key)
 
     def make(username: str = "dev", login: bool = True) -> TestClient:
         # 像浏览器一样每个请求都带 Origin（改数据的请求要检查它，api.check_origin）
