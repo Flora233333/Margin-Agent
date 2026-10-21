@@ -1,0 +1,416 @@
+<!doctype html>
+<!--
+  Margin 登录页设计稿（M3a-0，本地预览，直接用浏览器打开）。
+  设计变量直接引用前端正式的 ../app/src/styles/tokens.css（简洁风 + 衬线 + 石墨，D14），
+  登录页自己的样式写在下面的 <style> 里。
+
+  三个方向：
+    A 居中卡片    一张和输入框同样材质（表面色 + 细边框 + 大圆角）的卡片，页面中间，最常见、最稳
+    B 左右两栏    左边示意产品“带引用的回答”（结论大字 + 带 [n] 的正文 + 页边旁注），右边表单；窄屏只留表单
+    C 页边批注    没有卡片：表单像研究稿正文，提示写在右侧页边，像朱批；窄屏时批注落到对应那一行下面
+
+  每个方案都画了五种状态：正常、登录中、用户名或密码不对、尝试太多、登录已过期（从别的页面跳来）。
+  右下角“设计评审”面板切换方案 / 状态 / 深浅色 / 手机宽度，不属于产品界面。
+  也可以用地址参数直接打开，例如 login.html?variant=c&state=wrong&theme=dark&width=phone
+  “手机宽度”把舞台限制在 390px：布局用容器查询（@container），所以和真的在手机上打开效果相同。
+-->
+<html lang="zh-CN" data-style="clean" data-palette="graphite" data-font="serif" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Margin 登录页设计稿</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600&family=Source+Serif+4:opsz,wght@8..60,400..700&display=swap">
+  <link rel="stylesheet" href="../app/src/styles/tokens.css">
+  <style>
+    /* clean.css 里简洁风的两处设定，登录页也用：衬线阅读字体、朱批红 */
+    :root[data-font="serif"] { --font-reading: var(--font-serif); }
+    :root { --cite: #b5381f; --cite-wash: #f8e2da; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --cite: #f08a70; --cite-wash: #3d2420; }
+    }
+    :root[data-theme="dark"] { --cite: #f08a70; --cite-wash: #3d2420; }
+
+    /* 舞台：三个方案共用。container-type 让下面的 @container 按舞台宽度切换窄屏布局 */
+    .stage { container-type: inline-size; min-height: 100vh; margin: 0 auto; background: var(--paper); }
+    .stage.is-phone { max-width: 390px; box-shadow: 0 0 0 1px var(--rule); }
+    .login { display: none; }
+    .stage[data-variant="a"] .login-a,
+    .stage[data-variant="b"] .login-b,
+    .stage[data-variant="c"] .login-c { display: grid; }
+
+    /* ---------------- 三个方案共用的部件 ---------------- */
+    .brand { font-family: var(--font-body); font-weight: 600; font-size: var(--text-xl); letter-spacing: 0.01em; }
+    .brand-mark { color: var(--accent); }
+
+    .field { display: grid; gap: 6px; }
+    .field-label { font-size: var(--text-sm); color: var(--ink-soft); }
+    .input {
+      width: 100%;
+      height: 42px;
+      padding: 0 14px;
+      font: inherit;
+      color: var(--ink);
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius);
+      outline: 0;
+      transition: border-color 0.2s var(--ease), box-shadow 0.3s var(--ease);
+    }
+    /* 聚焦和网页里的输入框（.composer 展开时）一样：主色边框 + 一圈主色浅底 */
+    .input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-wash); }
+    .input[aria-invalid="true"] { border-color: var(--danger); }
+    .input[aria-invalid="true"]:focus { box-shadow: 0 0 0 4px color-mix(in srgb, var(--danger) 16%, transparent); }
+    .input:read-only { color: var(--ink-soft); }
+
+    .submit {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      height: 42px;
+      font: inherit;
+      font-weight: 500;
+      color: var(--paper);
+      background: var(--accent);
+      border: 0;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: opacity 0.2s var(--ease), transform 0.1s var(--ease);
+    }
+    .submit:active:not(:disabled) { transform: translateY(1px); }
+    .submit:disabled { opacity: 0.45; cursor: default; }
+    .submit[aria-busy="true"] { opacity: 0.8; }
+    .spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid color-mix(in srgb, var(--paper) 35%, transparent);
+      border-top-color: var(--paper);
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 提示：登录过期是“通知”（主色浅底），密码不对 / 尝试太多是“错误”（红字） */
+    .notice, .error {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--space-2);
+      margin: 0;
+      font-size: var(--text-sm);
+      line-height: 1.6;
+      animation: msg-in 0.3s var(--ease) both;
+    }
+    .notice { padding: 10px 12px; border-radius: var(--radius); background: var(--accent-wash); color: var(--ink); }
+    .error { color: var(--danger); }
+    .notice svg, .error svg { flex: none; width: 16px; height: 16px; margin-top: 3px; }
+    @keyframes msg-in { from { opacity: 0; transform: translateY(-4px); } }
+    .foot { margin: 0; font-size: var(--text-xs); color: var(--ink-faint); }
+
+    /* ================= 方案 A：居中卡片 ================= */
+    .login-a { min-height: 100vh; place-items: center; align-content: center; gap: var(--space-4); padding: var(--space-7) var(--space-4); }
+    .login-a .card {
+      width: min(100%, 384px);
+      display: grid;
+      gap: var(--space-4);
+      padding: var(--space-6) 28px 28px;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 5%, transparent),
+        0 12px 32px color-mix(in srgb, var(--ink) 6%, transparent);
+    }
+    .login-a .head { display: grid; gap: var(--space-1); margin-bottom: var(--space-1); }
+    .login-a h1 { margin: var(--space-3) 0 0; font-family: var(--font-reading); font-size: 1.625rem; line-height: 1.3; font-weight: 600; }
+    .login-a .sub { margin: 0; font-size: var(--text-sm); color: var(--ink-soft); }
+    .login-a .input { background: var(--paper); }
+    .login-a .submit { width: 100%; margin-top: var(--space-1); }
+    @container (max-width: 480px) {
+      .login-a { align-content: start; padding-top: var(--space-6); }
+      .login-a .card { padding: var(--space-5) var(--space-4) var(--space-5); border-radius: var(--radius); }
+    }
+
+    /* ================= 方案 B：左右两栏 ================= */
+    .login-b { min-height: 100vh; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); }
+    .login-b .showcase {
+      display: grid;
+      align-content: space-between;
+      gap: var(--space-6);
+      padding: var(--space-6) clamp(24px, 5vw, 64px);
+      background: var(--sidebar);
+      border-right: 1px solid var(--rule);
+    }
+    .login-b .sample { display: grid; gap: var(--space-4); max-width: 520px; }
+    .login-b .sample-meta { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--ink-faint); }
+    .login-b .sample-q { margin: 0; font-family: var(--font-reading); font-size: 1.375rem; line-height: 1.4; font-weight: 600; }
+    .login-b .sample-q::after { content: ""; display: block; width: 48px; height: 3px; margin-top: var(--space-3); border-radius: 2px; background: var(--accent); }
+    .login-b .figure { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding-bottom: var(--space-3); border-bottom: 1px solid var(--rule); }
+    .login-b .figure b { font-family: var(--font-serif); font-size: 2.25rem; line-height: 1; font-weight: 600; color: var(--accent); font-variant-numeric: lining-nums tabular-nums; }
+    .login-b .figure span { font-size: var(--text-sm); color: var(--ink-soft); }
+    .login-b .sample-a { margin: 0; font-family: var(--font-reading); font-size: 1.0625rem; line-height: 1.9; }
+    .login-b .cite { font-family: var(--font-mono); font-size: 0.7em; vertical-align: super; line-height: 0; color: var(--cite); padding: 0 2px; border-radius: 3px; background: var(--cite-wash); }
+    .login-b .note { display: grid; gap: 2px; padding: 10px 12px; border-top: 1px solid var(--cite); background: var(--paper); font-size: var(--text-sm); }
+    .login-b .note-title { color: var(--ink-soft); }
+    .login-b .note-title b { color: var(--cite); font-family: var(--font-mono); margin-right: 6px; }
+    .login-b .note mark { background: var(--cite-wash); color: var(--ink); padding: 0 2px; }
+    .login-b .tagline { margin: 0; font-size: var(--text-sm); color: var(--ink-soft); }
+    .login-b .form-side { display: grid; place-items: center; padding: var(--space-6) var(--space-5); }
+    .login-b form { width: min(100%, 340px); display: grid; gap: var(--space-4); }
+    .login-b h1 { margin: 0; font-family: var(--font-reading); font-size: 1.625rem; font-weight: 600; line-height: 1.3; }
+    .login-b .submit { width: 100%; }
+    .login-b .form-brand { display: none; }
+    /* 窄屏：示意区整个不显示（放不下，挤在上面只会把表单推到屏幕外），品牌移到表单上方 */
+    @container (max-width: 760px) {
+      .login-b { grid-template-columns: minmax(0, 1fr); }
+      .login-b .showcase { display: none; }
+      .login-b .form-side { place-items: start center; padding: var(--space-6) var(--space-4); }
+      .login-b .form-brand { display: block; }
+    }
+
+    /* ================= 方案 C：页边批注 ================= */
+    .login-c {
+      min-height: 100vh;
+      align-content: center;
+      padding: var(--space-7) var(--space-5);
+      grid-template-columns: minmax(0, 1fr) minmax(0, 440px) 220px minmax(0, 1fr);
+      column-gap: 56px;
+    }
+    .login-c .row { grid-column: 2 / 4; }
+    /* 每一行两格：左边正文（标题 / 输入框 / 按钮），右边页边批注，批注天然和它说的那一行对齐 */
+    .login-c .row { display: grid; grid-template-columns: subgrid; align-items: end; }
+    .login-c .row + .row { margin-top: var(--space-5); }
+    .login-c .margin { align-self: center; min-height: 1px; }
+    .login-c h1 {
+      margin: var(--space-4) 0 0;
+      font-family: var(--font-reading);
+      font-size: clamp(1.75rem, 1.3rem + 1vw, 2.25rem);
+      line-height: 1.3;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+    .login-c h1::after { content: ""; display: block; width: 56px; height: 3px; margin-top: var(--space-4); border-radius: 2px; background: var(--accent); }
+    /* 输入框只留一条下划线，像在稿纸上填写 */
+    .login-c .input { height: 40px; padding: 0 2px; background: transparent; border: 0; border-bottom: 1px solid var(--rule); border-radius: 0; }
+    .login-c .input:focus { box-shadow: none; border-bottom: 2px solid var(--accent); }
+    .login-c .input[aria-invalid="true"] { border-bottom: 2px solid var(--cite); }
+    .login-c .submit { justify-self: start; padding: 0 28px; }
+    /* 批注：朱批红的竖线 + 小字。通知类（登录过期）用主色 */
+    .login-c .marginal { margin: 0; padding-left: 12px; border-left: 2px solid var(--cite); font-size: var(--text-sm); line-height: 1.6; color: var(--cite); animation: note-in 0.35s var(--ease) both; }
+    .login-c .marginal.is-info { border-left-color: var(--accent); color: var(--ink-soft); }
+    .login-c .marginal.is-quiet { border-left-color: var(--rule); color: var(--ink-faint); }
+    @keyframes note-in { from { opacity: 0; transform: translateX(-8px); } }
+    @container (max-width: 760px) {
+      .login-c { grid-template-columns: minmax(0, 1fr); padding: var(--space-6) var(--space-4); align-content: start; }
+      .login-c .row { grid-column: 1; }
+      .login-c .row { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+      .login-c .margin:empty { display: none; }
+    }
+
+    /* ================= 设计评审面板（不属于产品，同 preview.html） ================= */
+    body { margin: 0; }
+    [hidden] { display: none !important; }   /* .notice / .error 自己设了 display，hidden 属性要压过它 */
+    .review {
+      position: fixed; right: var(--space-4); bottom: var(--space-4); z-index: 10; width: 300px;
+      background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+      box-shadow: 0 8px 24px color-mix(in srgb, var(--ink) 14%, transparent);
+      padding: var(--space-3); display: grid; gap: var(--space-3);
+      font-size: 0.75rem; color: var(--ink-soft); font-family: "Noto Sans SC", "Microsoft YaHei", sans-serif;
+    }
+    .review-title { display: flex; justify-content: space-between; align-items: center; color: var(--ink); font-size: 0.8125rem; }
+    .review-note { color: var(--ink-faint); }
+    .seg { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+    .seg button {
+      flex: 1; font: inherit; color: var(--ink-soft); background: var(--paper);
+      border: 1px solid var(--rule); border-radius: 6px; padding: 4px 6px; cursor: pointer; white-space: nowrap;
+    }
+    .seg button[aria-pressed="true"] { color: var(--ink); border-color: var(--accent); background: var(--accent-wash); }
+    .minimize { font: inherit; color: var(--ink-soft); background: none; border: 0; cursor: pointer; }
+    .review.is-min > :not(.review-title) { display: none; }
+    @media (max-width: 760px) { .review { left: var(--space-4); width: auto; } }
+  </style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-alert" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 4.8v3.6M8 10.9v.1"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3l2 1.5"/></symbol>
+</svg>
+
+<div class="stage" data-variant="a" data-state="normal">
+
+  <!-- ============================== 方案 A：居中卡片 ============================== -->
+  <main class="login login-a">
+    <form class="card" novalidate>
+      <div class="head">
+        <div class="brand"><span class="brand-mark">M</span>argin</div>
+        <h1>登录</h1>
+        <p class="sub">登录后查看你提交过的问题和回答。</p>
+      </div>
+      <p class="notice" data-msg="expired"><svg><use href="#i-clock"/></svg><span>登录已过期，请重新登录。登录后会回到刚才打开的页面。</span></p>
+      <label class="field"><span class="field-label">用户名</span><input class="input" name="username" autocomplete="username" value="dev"></label>
+      <label class="field"><span class="field-label">密码</span><input class="input" name="password" type="password" autocomplete="current-password" value="12345678"></label>
+      <p class="error" role="alert" data-msg="wrong"><svg><use href="#i-alert"/></svg><span>用户名或密码不对。</span></p>
+      <p class="error" role="alert" data-msg="locked"><svg><use href="#i-alert"/></svg><span>尝试次数太多，请 <span class="num">9</span> 分钟后再试。</span></p>
+      <button class="submit" type="submit">登录</button>
+    </form>
+    <p class="foot">账号由管理员创建</p>
+  </main>
+
+  <!-- ============================== 方案 B：左右两栏 ============================== -->
+  <main class="login login-b">
+    <section class="showcase" aria-hidden="true">
+      <div class="brand"><span class="brand-mark">M</span>argin</div>
+      <div class="sample">
+        <span class="sample-meta">示例 · 一道已经回答的问题</span>
+        <p class="sample-q">甲公司 2023 年营业收入是多少？</p>
+        <div class="figure"><b>120.50</b><span>甲公司 · 2023 年营业收入（亿元）</span></div>
+        <p class="sample-a">2023 年甲公司实现营业收入 120.5 亿元<span class="cite">1</span>，同比增长 12.4%<span class="cite">1</span>；上年为 107.2 亿元<span class="cite">2</span>。</p>
+        <div class="note">
+          <span class="note-title"><b>1</b>甲公司 2023 年年度报告 · 管理层讨论与分析</span>
+          <span>2023年，甲公司<mark>实现营业收入120.5亿元，同比增长12.4%</mark>。</span>
+        </div>
+      </div>
+      <p class="tagline">每个数字都能点回原文。</p>
+    </section>
+    <div class="form-side">
+      <form novalidate>
+        <div class="brand form-brand"><span class="brand-mark">M</span>argin</div>
+        <h1>登录</h1>
+        <p class="notice" data-msg="expired"><svg><use href="#i-clock"/></svg><span>登录已过期，请重新登录。登录后会回到刚才打开的页面。</span></p>
+        <label class="field"><span class="field-label">用户名</span><input class="input" name="username" autocomplete="username" value="dev"></label>
+        <label class="field"><span class="field-label">密码</span><input class="input" name="password" type="password" autocomplete="current-password" value="12345678"></label>
+        <p class="error" role="alert" data-msg="wrong"><svg><use href="#i-alert"/></svg><span>用户名或密码不对。</span></p>
+        <p class="error" role="alert" data-msg="locked"><svg><use href="#i-alert"/></svg><span>尝试次数太多，请 <span class="num">9</span> 分钟后再试。</span></p>
+        <button class="submit" type="submit">登录</button>
+        <p class="foot">账号由管理员创建</p>
+      </form>
+    </div>
+  </main>
+
+  <!-- ============================== 方案 C：页边批注 ============================== -->
+  <main class="login login-c">
+    <form novalidate style="display: contents">
+      <div class="row">
+        <div><div class="brand"><span class="brand-mark">M</span>argin</div><h1>登录</h1></div>
+        <div class="margin"><p class="marginal is-info" data-msg="expired">登录已过期，请重新登录。登录后会回到刚才打开的页面。</p></div>
+      </div>
+      <div class="row">
+        <label class="field"><span class="field-label">用户名</span><input class="input" name="username" autocomplete="username" value="dev"></label>
+        <div class="margin"></div>
+      </div>
+      <div class="row">
+        <label class="field"><span class="field-label">密码</span><input class="input" name="password" type="password" autocomplete="current-password" value="12345678"></label>
+        <div class="margin"><p class="marginal" role="alert" data-msg="wrong">用户名或密码不对。</p></div>
+      </div>
+      <div class="row">
+        <button class="submit" type="submit">登录</button>
+        <div class="margin">
+          <p class="marginal" role="alert" data-msg="locked">尝试次数太多，请 <span class="num">9</span> 分钟后再试。</p>
+          <p class="marginal is-quiet" data-msg="normal wrong submitting expired">账号由管理员创建，没有账号请联系管理员。</p>
+        </div>
+      </div>
+    </form>
+  </main>
+</div>
+
+<!-- ============================== 设计评审面板（不属于产品） ============================== -->
+<div class="review" role="region" aria-label="设计评审">
+  <div class="review-title"><span>设计评审 · 登录页</span><button class="minimize" type="button">收起</button></div>
+  <div>方案
+    <div class="seg" data-group="variant">
+      <button type="button" data-set="variant" data-value="a">A 居中卡片</button>
+      <button type="button" data-set="variant" data-value="b">B 左右两栏</button>
+      <button type="button" data-set="variant" data-value="c">C 页边批注</button>
+    </div>
+  </div>
+  <div>状态
+    <div class="seg" data-group="state">
+      <button type="button" data-set="state" data-value="normal">正常</button>
+      <button type="button" data-set="state" data-value="submitting">登录中</button>
+      <button type="button" data-set="state" data-value="wrong">密码不对</button>
+      <button type="button" data-set="state" data-value="locked">尝试太多</button>
+      <button type="button" data-set="state" data-value="expired">登录过期</button>
+    </div>
+  </div>
+  <div>深浅
+    <div class="seg" data-group="theme">
+      <button type="button" data-set="theme" data-value="auto">跟随系统</button>
+      <button type="button" data-set="theme" data-value="light">浅</button>
+      <button type="button" data-set="theme" data-value="dark">深</button>
+    </div>
+  </div>
+  <div>宽度 <span class="review-note">（手机 = 390px）</span>
+    <div class="seg" data-group="width">
+      <button type="button" data-set="width" data-value="full">整个窗口</button>
+      <button type="button" data-set="width" data-value="phone">手机</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // 当前选择：默认方案 A、正常、浅色、整个窗口；地址参数优先（login.html?variant=c&state=wrong）
+  const prefs = { variant: "a", state: "normal", theme: "light", width: "full" };
+  for (const [key, value] of new URLSearchParams(location.search)) {
+    if (key in prefs) prefs[key] = value;
+  }
+  const root = document.documentElement;
+  const stage = document.querySelector(".stage");
+
+  /** 把一个状态画到一个方案的表单上：哪条提示出现、按钮文字、输入框能不能改 */
+  function paint(form, state) {
+    for (const msg of form.querySelectorAll("[data-msg]")) {
+      msg.hidden = !msg.dataset.msg.split(" ").includes(state);
+    }
+    const button = form.querySelector(".submit");
+    const busy = state === "submitting";
+    button.innerHTML = busy ? '<span class="spinner" aria-hidden="true"></span>登录中…' : "登录";
+    button.setAttribute("aria-busy", String(busy));
+    // 尝试太多：按钮不能点，直到等待时间过去（网页里倒计时到 0 再恢复）
+    button.disabled = busy || state === "locked";
+    for (const input of form.querySelectorAll(".input")) {
+      input.readOnly = busy;
+    }
+    // 密码不对：密码框标红并清空，焦点回到密码框；不说是用户名错还是密码错
+    const password = form.querySelector('[name="password"]');
+    password.setAttribute("aria-invalid", String(state === "wrong"));
+    password.value = state === "wrong" ? "" : "12345678";
+  }
+
+  function apply() {
+    stage.dataset.variant = prefs.variant;
+    stage.dataset.state = prefs.state;
+    stage.classList.toggle("is-phone", prefs.width === "phone");
+    if (prefs.theme === "auto") delete root.dataset.theme;
+    else root.dataset.theme = prefs.theme;
+    for (const form of document.querySelectorAll(".login form")) paint(form, prefs.state);
+    for (const b of document.querySelectorAll(".review [data-set]")) {
+      b.setAttribute("aria-pressed", String(prefs[b.dataset.set] === b.dataset.value));
+    }
+  }
+
+  for (const b of document.querySelectorAll(".review [data-set]")) {
+    b.addEventListener("click", () => {
+      prefs[b.dataset.set] = b.dataset.value;
+      apply();
+    });
+  }
+  // 设计稿里点“登录”不提交，只演示一次：登录中 1.2 秒后变成“密码不对”
+  for (const form of document.querySelectorAll(".login form")) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      prefs.state = "submitting";
+      apply();
+      setTimeout(() => { prefs.state = "wrong"; apply(); }, 1200);
+    });
+  }
+  const panel = document.querySelector(".review");
+  const minimize = panel.querySelector(".minimize");
+  function setMin(min) {
+    panel.classList.toggle("is-min", min);
+    minimize.textContent = min ? "展开" : "收起";
+  }
+  minimize.addEventListener("click", () => setMin(!panel.classList.contains("is-min")));
+  setMin(matchMedia("(max-width: 760px)").matches); // 手机上面板会挡住表单，默认收起
+  apply();
+</script>
+</body>
+</html>
