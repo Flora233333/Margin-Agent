@@ -4,8 +4,8 @@
  * 防的事故：大字比正文晚一拍“插进来”、过程区收起后满屏空白、撰写失败时什么都看不到。
  */
 
-import { expect, test } from '@playwright/test'
-import { collectErrors, firstAt, frames, itemCount, recordFrames, submit, waitSettled } from './support'
+import { expect } from '@playwright/test'
+import { collectErrors, firstAt, frames, itemCount, recordFrames, submit, test, waitSettled } from './support'
 
 interface Case {
   name: string

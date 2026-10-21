@@ -3,8 +3,8 @@
  * 每个测试防一个出过的事故（括号里是当时的修订，见 review/02_代码导读/）。
  */
 
-import { expect, type Page, test } from '@playwright/test'
-import { collectErrors, frames, itemCount, MOCK_API, recordFrames, submit, waitSettled } from './support'
+import { expect, type Page } from '@playwright/test'
+import { collectErrors, frames, itemCount, MOCK_API, recordFrames, submit, test, waitSettled } from './support'
 
 /** 等过程区里至少有 n 项（一轮会同时多出思考和工具两项，“恰好 n 项”可能被跳过） */
 async function atLeast(page: Page, n: number): Promise<void> {

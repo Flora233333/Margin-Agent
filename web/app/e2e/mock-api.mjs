@@ -10,6 +10,10 @@
  * 推流的规则和真 API 相同：先补发 after 之后已经发生的事件，再发 caught_up，之后实时推；
  * 这次执行结束（attempt_finished / attempt_failed）后关闭连接。重新生成时推下一次执行的录制（有的话）。
  *
+ * 登录（M3a）：接口、状态码、cookie 和真 API 一样，账号写死在 USERS 里（密码都是 PASSWORD）。
+ *   没登录访问 /auth/me、/runs… 都是 401；别人的题 404；已结束的题都属于 dev，实时的题属于提交它的人。
+ *   登录限流：同一个用户名最多试 10 次、锁 600 秒；test_lock 这个账号只能试 3 次、锁 2 秒，测试不用等 10 分钟。
+ *
  * 给测试用的控制接口（真 API 没有）：
  *   GET  /__ids          固定数据名 -> 已结束的题的 id
  *   POST /__stall/{id}?down_ms=N
@@ -18,11 +22,14 @@
  *   POST /__slow?name=X&batches=N&gap_ms=M
  *                        新建一道已结束的题（固定数据 X），打开时补发的历史分成 N 批、每批之间隔 M 毫秒（模拟慢网络），
  *                        返回 { id }。不出现在 /__ids 里，不影响按名字打开的其他测试
+ *   POST /__expire?username=X
+ *                        让这个用户的登录全部过期，并断开他正开着的事件流（浏览器会重连，重连时拿到 401）
  *
  * 用法：node e2e/mock-api.mjs（端口 MOCK_PORT，默认 8100）。由 playwright.config.ts 自动启动。
  */
 
 import { readdirSync, readFileSync } from 'node:fs'
+import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 
 const PORT = Number(process.env.MOCK_PORT ?? 8100)
@@ -52,10 +59,10 @@ function attemptsOf(events) {
   return segments
 }
 
-function newRun(id, name, live) {
+function newRun(id, name, live, owner = 'dev') {
   const fixture = fixtures.get(name)
   const run = {
-    id, name, fixture, live,
+    id, name, fixture, live, owner,
     segments: attemptsOf(fixture.events),
     played: 0, // 已经开始推的执行段数
     published: [], // 已经发生的持久事件
@@ -211,11 +218,68 @@ function stream(request, response, run, after) {
     }
   }
   const ping = setInterval(() => subscriber.stalled || response.write('event: ping\ndata: {}\n\n'), PING_MS)
+  subscriber.user = run.owner
+  subscriber.end = () => response.end()
   run.subscribers.add(subscriber)
   request.on('close', () => {
     clearInterval(ping)
     run.subscribers.delete(subscriber)
   })
+}
+
+// ---------------------------------------------------------------- 登录（M3a）
+
+const PASSWORD = 'e2e password'
+const USERS = new Set(['dev', 'test_b', 'test_c', 'test_lock'])
+const COOKIE = 'margin_session'
+const sessions = new Map() // 令牌 -> 用户名
+const attempts = new Map() // 用户名 -> 最近的尝试时刻（毫秒）
+
+function limitOf(username) {
+  return username === 'test_lock' ? { max: 3, ms: 2000 } : { max: 10, ms: 600_000 }
+}
+
+function tokenOf(request) {
+  return /(?:^|;\s*)margin_session=([^;]+)/.exec(request.headers.cookie ?? '')?.[1]
+}
+
+function currentUser(request) {
+  return sessions.get(tokenOf(request))
+}
+
+/** 和真 API 一样：先计数（滑动窗口）再验密码，超了 429 + Retry-After；成功清零、下发 HttpOnly cookie */
+function login(response, { username, password }) {
+  const limit = limitOf(username)
+  const now = Date.now()
+  const recent = (attempts.get(username) ?? []).filter((t) => t > now - limit.ms)
+  if (recent.length >= limit.max) {
+    response.setHeader('Retry-After', String(Math.ceil((recent[0] + limit.ms - now) / 1000)))
+    return sendJson(response, 429, { detail: '尝试次数太多' })
+  }
+  attempts.set(username, [...recent, now])
+  if (!USERS.has(username) || password !== PASSWORD) {
+    return sendJson(response, 401, { detail: '用户名或密码不对' })
+  }
+  attempts.delete(username)
+  const token = randomUUID()
+  sessions.set(token, username)
+  response.setHeader('Set-Cookie', `${COOKIE}=${token}; HttpOnly; Max-Age=604800; Path=/; SameSite=Lax`)
+  return sendJson(response, 200, { username })
+}
+
+function expire(username) {
+  for (const [token, user] of sessions) {
+    if (user === username) {
+      sessions.delete(token)
+    }
+  }
+  for (const run of runs.values()) {
+    for (const subscriber of run.subscribers) {
+      if (subscriber.user === username) {
+        subscriber.end()
+      }
+    }
+  }
 }
 
 const server = createServer(async (request, response) => {
@@ -226,8 +290,17 @@ const server = createServer(async (request, response) => {
   if (request.method === 'GET' && path === '/health') {
     return sendJson(response, 200, { ok: true })
   }
-  if (request.method === 'GET' && path === '/auth/me') {
-    return sendJson(response, 200, { username: 'dev' }) // 先当作一直登录着（M3a-6 换成真的登录）
+  if (request.method === 'POST' && path === '/auth/login') {
+    return login(response, await readBody(request))
+  }
+  if (request.method === 'POST' && path === '/auth/logout') {
+    sessions.delete(tokenOf(request))
+    response.writeHead(204, { 'Set-Cookie': `${COOKIE}=""; Max-Age=0; Path=/; HttpOnly; SameSite=Lax` })
+    return response.end()
+  }
+  if (request.method === 'POST' && path === '/__expire') {
+    expire(url.searchParams.get('username'))
+    return sendJson(response, 200, { ok: true })
   }
   if (request.method === 'GET' && path === '/__ids') {
     const ids = {}
@@ -251,8 +324,17 @@ const server = createServer(async (request, response) => {
     run.slow = { batches: Number(url.searchParams.get('batches')), gap: Number(url.searchParams.get('gap_ms')) }
     return sendJson(response, 200, { id: run.id })
   }
+  // 以下都要登录：没登录 401（前端跳登录页）
+  const user = currentUser(request)
+  if (!user && (path === '/auth/me' || path.startsWith('/runs'))) {
+    return sendJson(response, 401, { detail: '请先登录' })
+  }
+  if (request.method === 'GET' && path === '/auth/me') {
+    return sendJson(response, 200, { username: user })
+  }
   if (request.method === 'GET' && path === '/runs') {
-    const list = [...runs.values()].sort((a, b) => b.id - a.id).map((run) => {
+    const mine = [...runs.values()].filter((run) => run.owner === user)
+    const list = mine.sort((a, b) => b.id - a.id).map((run) => {
       const detail = detailOf(run)
       return { id: run.id, question: detail.question, title: detail.title, status: detail.status, created_at: detail.created_at }
     })
@@ -264,15 +346,15 @@ const server = createServer(async (request, response) => {
     if (!name) {
       return sendJson(response, 422, { detail: '假 API 没有录过这个问题' })
     }
-    const run = newRun(nextLiveId++, name, true)
+    const run = newRun(nextLiveId++, name, true, user)
     run.played = 1
     void play(run, run.segments[0])
     return sendJson(response, 202, { run_id: run.id })
   }
   if ((match = path.match(/^\/runs\/(\d+)(\/regenerate|\/events)?$/))) {
     const run = runs.get(Number(match[1]))
-    if (!run) {
-      return sendJson(response, 404, { detail: 'run 不存在' })
+    if (!run || run.owner !== user) {
+      return sendJson(response, 404, { detail: 'run 不存在' }) // 别人的题和不存在一样
     }
     if (request.method === 'GET' && !match[2]) {
       return sendJson(response, 200, detailOf(run))

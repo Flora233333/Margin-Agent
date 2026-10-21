@@ -3,8 +3,8 @@
  * 防的事故：补发的历史事件也经过“执行中”，被当成实时的，每次打开都重播收起、逐字打字。
  */
 
-import { expect, test } from '@playwright/test'
-import { collectErrors, firstAt, frames, itemCount, MOCK_API, recordFrames, replayId } from './support'
+import { expect } from '@playwright/test'
+import { collectErrors, firstAt, frames, itemCount, MOCK_API, recordFrames, replayId, test } from './support'
 
 for (const name of ['num_short', 'pct', 'text_long', 'escalated', 'compose_failed']) {
   test(`打开已结束的题（${name}）：过程区收着，结论、正文、账目行直接显示`, async ({ page }) => {

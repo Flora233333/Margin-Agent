@@ -1,11 +1,30 @@
 /*
- * 端到端测试的公共部分：读固定数据、像用户一样提交问题、记录页面随时间的变化。
+ * 端到端测试的公共部分：登录、读固定数据、像用户一样提交问题、记录页面随时间的变化。
  */
 
 import { readFileSync } from 'node:fs'
-import { expect, type Page } from '@playwright/test'
+import { test as base, expect, type Page } from '@playwright/test'
 
 export const MOCK_API = 'http://127.0.0.1:8100'
+export const PASSWORD = 'e2e password' // 假 API 里所有账号的密码（mock-api.mjs）
+
+/**
+ * 不经过页面直接登录：page.request 和浏览器共用 cookie，登录后打开页面就是已登录的状态。
+ * 走 Vite 的 /api 转发（和页面同一个地址），cookie 才记在 localhost 名下、页面请求时带得上。
+ */
+export async function loginAs(page: Page, username: string): Promise<void> {
+  const response = await page.request.post('/api/auth/login', { data: { username, password: PASSWORD } })
+  expect(response.status()).toBe(200)
+}
+
+/** 大多数测试关心的是登录之后的页面：用这个 test，每个测试开始前已经以 dev 登录（已结束的题都属于 dev） */
+export const test = base.extend({
+  // 第二个参数 Playwright 文档里叫 use；换个名字，免得 lint 把它当成 React 的 Hook
+  page: async ({ page }, provide) => {
+    await loginAs(page, 'dev')
+    await provide(page)
+  },
+})
 
 interface Fixture {
   detail: { question: string }

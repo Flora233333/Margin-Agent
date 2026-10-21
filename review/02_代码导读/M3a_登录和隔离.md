@@ -398,3 +398,48 @@ curl 不加 Origin：→ 403；加 -H 'Origin: http://localhost:5173' 并带上 
 - `App.tsx` 里 `whoRef`：401 处理函数只在启动时注册一次，函数里读的 state 会停在注册那一刻（闭包），所以“当前用户”另存一份在 ref 里。
 - `LoginPage` 的 `submit` 里三种失败各改了哪些状态；`finally` 里恢复 `submitting`。
 - `safeNext` 为什么连 `//evil.example` 也要拦（浏览器把 `//` 开头当成“同协议的另一个网站”）。
+
+### M3a-6：端到端测试——假 API 加登录；“A 看不到 B”等场景
+
+**改了什么**
+
+- 假 API [e2e/mock-api.mjs](../../web/app/e2e/mock-api.mjs)：
+  - 账号写死 [USERS](../../web/app/e2e/mock-api.mjs#L233)（`dev`、`test_b`、`test_c`、`test_lock`，密码都是 `e2e password`）；
+  - [login](../../web/app/e2e/mock-api.mjs#L251)：和真 API 一样先计数再验密码，429 带 `Retry-After`，成功下发 HttpOnly cookie；
+    `test_lock` 只能试 3 次、锁 2 秒（[limitOf](../../web/app/e2e/mock-api.mjs#L238)），测试不用等 10 分钟；
+  - `/auth/logout`、`/auth/me`；没登录访问 `/auth/me`、`/runs…` 都 401（[第 328 行](../../web/app/e2e/mock-api.mjs#L328)）；
+  - 每道题有 `owner`：已结束的题都属于 dev，实时的题属于提交它的人；历史列表只列自己的，别人的题 404（[第 356 行](../../web/app/e2e/mock-api.mjs#L356)）；
+  - 测试用的控制接口 [POST /__expire?username=X](../../web/app/e2e/mock-api.mjs#L270)：让这个人的登录全部过期，并断开他正开着的事件流。
+- [support.ts](../../web/app/e2e/support.ts#L15)：`loginAs(page, 用户名)` 用 `page.request` 直接调登录接口（和页面共用 cookie）；
+  导出一个 `test`，每个测试开始前已经以 dev 登录。原有三个 spec 改从 `./support` 导入 `test`，测试内容一行没改。
+- 新文件 [auth.spec.ts](../../web/app/e2e/auth.spec.ts) 5 个场景（下表）。
+
+**为什么**
+
+- 假 API 要“像真的一样”拒绝：只返回固定的 `dev`（M3a-5 的临时做法）的话，401 跳转、别人的题 404 这些浏览器里的行为都测不到。
+- `loginAs` 走 `/api/auth/login`（Vite 的转发）而不是直接调假 API 的 8100 端口：cookie 记在哪个域名名下，要和页面一致（`localhost:5174`），
+  否则页面的请求带不上。
+- 已有的 28 个测试关心的是登录之后的页面，所以默认登录好；登录本身的测试用 Playwright 原本的 `test`，自己决定登不登录。
+- 假 API 不检查 Origin：跨站请求只有后端能拦，已由 `test_csrf_pg.py` 覆盖；浏览器里的同源请求本来就带对的 Origin。
+
+**场景和防的事故**
+
+| 测试 | 防的事故 |
+|---|---|
+| 没登录打开一道题：跳到登录页（不提示“过期”），登录后回到这道题 | 没登录也能看到页面框架和历史；登录后被扔回首页，找不到刚才的题；从没登录过也提示“过期”（M3a-5 自查发现过） |
+| A 的题 B 看不到 | 换了人，左栏还是上一个人的历史；别人的题能打开（含正在执行的题） |
+| 密码不对 / 试太多被锁住、到点自动恢复 | 错误提示不出现、密码不清空；被锁时还能点；锁过了按钮一直灰着 |
+| 执行中登录过期 | 事件流断线后对着 401 无限重连（页面一直“正在重连”），不跳登录页 |
+| 退出 | 退出后再打开题目页还能看到内容 |
+
+**怎么验证的**
+
+- `npm run e2e`：33 个全部通过（原有 28 + 新增 5）；`npm run lint`、`npm test`（23）、类型检查通过。
+- 对照：把 `useRunStream.ts` 里新加的 `getMe().catch(() => {})` 注释掉，“执行中登录过期”失败（15 秒内地址没变成登录页），还原后通过。
+- 写的时候 lint 报了一个误报：Playwright 夹具的第二个参数文档里叫 `use`，oxlint 当成了 React 的 Hook，改名为 `provide`。
+
+**建议重点看**
+
+- `auth.spec.ts` 第二个测试用 `browser.newPage()` 开第二个人：不同的页面上下文 cookie 不共用，就像两个人各用各的浏览器。
+- `/__expire` 为什么要顺便断开事件流：真 API 只在连接时检查登录，已经连着的流会一直推到这次执行结束；
+  要测“过期后重连”这条路径，得让连接断一次（真实环境里是网络抖动、API 重启等）。
