@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M3a 阶段报告</title>
+<style>
+:root {
+  --bg: #fbfaf7; --fg: #1f2328; --muted: #656d76; --card: #ffffff; --border: #d8dee4;
+  --code-bg: #f3f2ee; --hl: #fff1b8;
+  --disp: #2563eb; --disp-bg: #e8effd;
+  --worker: #15803d; --worker-bg: #e6f4ea;
+  --mq: #c2410c; --mq-bg: #fdeee5;
+  --pg: #7c3aed; --pg-bg: #f1eafd;
+  --web: #0e7490; --web-bg: #e0f4f8;
+  --warn: #b91c1c; --warn-bg: #fdecec;
+  --old: #8a8f98; --old-bg: #f0f1f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+    --code-bg: #23272e; --hl: #4a4020;
+    --disp: #7aa7ff; --disp-bg: #1d2a44; --worker: #5fd08a; --worker-bg: #183224;
+    --mq: #ff9a63; --mq-bg: #3a2418; --pg: #b79cff; --pg-bg: #2a2140;
+    --web: #5cc8dc; --web-bg: #173238; --warn: #ff7b7b; --warn-bg: #3d1e1e;
+    --old: #9aa3ad; --old-bg: #262a30;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #16181c; --fg: #e6e6e6; --muted: #9aa3ad; --card: #1e2126; --border: #343a42;
+  --code-bg: #23272e; --hl: #4a4020;
+  --disp: #7aa7ff; --disp-bg: #1d2a44; --worker: #5fd08a; --worker-bg: #183224;
+  --mq: #ff9a63; --mq-bg: #3a2418; --pg: #b79cff; --pg-bg: #2a2140;
+  --web: #5cc8dc; --web-bg: #173238; --warn: #ff7b7b; --warn-bg: #3d1e1e;
+  --old: #9aa3ad; --old-bg: #262a30;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.75 -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 32px 16px 80px; }
+h1 { font-size: 26px; margin: 0 0 4px; }
+h2 { font-size: 21px; margin: 52px 0 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+h3 { font-size: 17px; margin: 28px 0 8px; }
+p { margin: 8px 0; }
+.sub { color: var(--muted); margin: 0 0 16px; }
+a { color: var(--disp); }
+code { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px;
+  background: var(--code-bg); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; font: 13px/1.6 "Cascadia Code", Consolas, monospace; margin: 8px 0; }
+pre .c { color: var(--muted); }
+pre .hl { background: var(--hl); }
+table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; }
+th, td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
+th { background: var(--code-bg); font-weight: 600; }
+.wrap { overflow-x: auto; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 14px 0; }
+.lead { border-left: 4px solid var(--disp); font-size: 16px; }
+.note { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+.good { background: var(--worker-bg); border-left: 4px solid var(--worker); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+.tag { display: inline-block; font-size: 12px; padding: 0 7px; border-radius: 10px; font-weight: 600; white-space: nowrap; line-height: 20px; }
+.t-disp { color: var(--disp); background: var(--disp-bg); }
+.t-worker { color: var(--worker); background: var(--worker-bg); }
+.t-mq { color: var(--mq); background: var(--mq-bg); }
+.t-pg { color: var(--pg); background: var(--pg-bg); }
+.t-web { color: var(--web); background: var(--web-bg); }
+.t-pass { color: var(--worker); background: var(--worker-bg); }
+.t-fix { color: var(--warn); background: var(--warn-bg); }
+.t-old { color: var(--old); background: var(--old-bg); }
+.toc { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 18px; font-size: 14px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin: 14px 0; }
+.stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+.stat b { display: block; font-size: 24px; line-height: 1.3; }
+.stat span { color: var(--muted); font-size: 13px; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+.cols .card { margin: 0; }
+.cols h4 { margin: 0 0 6px; font-size: 15px; }
+.flow { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.flow .s { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; background: var(--card); }
+.flow .s.bad { border-color: var(--warn); background: var(--warn-bg); }
+.flow .s.ok { border-color: var(--worker); background: var(--worker-bg); }
+.flow .arrow { color: var(--muted); text-align: center; line-height: 1; }
+.commit { display: grid; grid-template-columns: 92px 1fr; gap: 4px 14px; }
+.commit .id { font-family: "Cascadia Code", Consolas, monospace; font-size: 13px; color: var(--muted); }
+details { border: 1px solid var(--border); border-radius: 10px; background: var(--card); margin: 10px 0; }
+details > summary { cursor: pointer; padding: 10px 16px; font-weight: 600; list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::before { content: "▸"; display: inline-block; width: 16px; color: var(--muted); transition: transform .15s; }
+details[open] > summary::before { transform: rotate(90deg); }
+details .body { padding: 0 18px 12px; }
+.kv { display: grid; grid-template-columns: 64px 1fr; gap: 2px 12px; font-size: 14px; }
+.kv dt { color: var(--muted); font-weight: 600; }
+.kv dd { margin: 0; }
+figure { margin: 10px 0; }
+figure img { max-width: 100%; border: 1px solid var(--border); border-radius: 8px; display: block; }
+figcaption { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.check { display: flex; gap: 10px; align-items: flex-start; }
+.check input { margin-top: 6px; flex: none; width: 16px; height: 16px; }
+.check label { flex: 1; }
+.tcard { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; margin: 12px 0; }
+.tcard .check label { font-size: 15px; }
+.tcard .kv { grid-template-columns: 104px 1fr; margin: 8px 0 0 26px; gap: 4px 12px; }
+.tcard .kv dt:last-of-type, .tcard .kv dd:last-of-type { color: var(--worker); }
+@media (max-width: 640px) { .tcard .kv { grid-template-columns: 1fr; margin-left: 0; } .tcard .kv dd { margin-bottom: 6px; } }
+.small { font-size: 13px; color: var(--muted); }
+.theme { position: fixed; top: 12px; right: 12px; font-size: 13px; border: 1px solid var(--border);
+  background: var(--card); color: var(--fg); border-radius: 8px; padding: 4px 10px; cursor: pointer; }
+</style>
+</head>
+<body>
+<button class="theme" id="theme" type="button">深色 / 浅色</button>
+<main>
+
+<h1>M3a 阶段报告：登录和隔离</h1>
+<p class="sub">2026-10-22 完成，待作者 review。提交 <code>83d5349</code> … M3a-8（10 个）。方案见 PLAN §5.10、§5.5，D30；实现时的取舍见 D32 和第八节。
+逐个提交的代码说明、测试地图、每个实验的完整记录在 <a href="02_代码导读/M3a_登录和隔离.md">代码导读 M3a</a>。
+截图在 <code>.cache/m3a-experiments/</code>（不进仓库，换台电脑打开本页图片会缺）。</p>
+
+<div class="card lead">
+<b>一句话：</b>以前所有请求都算作开发用户 <code>dev</code>（代码里写死 <code>DEV_USER_ID = 1</code>）。现在要先用账号密码登录：
+服务端发一张随机“通行证”放进浏览器读不到的 cookie，之后每个请求凭它查出“你是谁”，别人的题一律 404。
+另加两道防线：改数据的请求检查来源网站（防跨站伪造），登录按“用户名 + IP”限次数（防暴力猜密码）。
+实验 A1～A6 在全套服务 + 真实模型上全部通过，没有发现需要改代码的问题。
+</div>
+
+<div class="stats">
+  <div class="stat"><b>10</b><span>个提交（设计稿 + 后端 4 + 前端 2 + 实验 + 测试修复 + 收尾）</span></div>
+  <div class="stat"><b>6 / 6</b><span>个实验通过（A1～A6）</span></div>
+  <div class="stat"><b>A</b><span>登录页选了“居中卡片”（另有 B、C 留在设计稿）</span></div>
+  <div class="stat"><b>+51</b><span>个自动化测试（后端 +42、前端单元 +4、端到端 +5，参数化展开后计）</span></div>
+  <div class="stat"><b>31 ms</b><span>验一次密码（argon2，故意慢）</span></div>
+  <div class="stat"><b>14</b><span>条执行中的取舍等你确认（28～41）</span></div>
+</div>
+
+<div class="card toc">
+  <div><a href="#why">一、为什么做</a></div>
+  <div><a href="#what">二、改了什么（按提交）</a></div>
+  <div><a href="#flow">三、一次登录怎么走</a></div>
+  <div><a href="#design">四、登录页：三个方案选了 A</a></div>
+  <div><a href="#exp">五、实验 A1～A6</a></div>
+  <div><a href="#bug">六、发现并修掉的问题</a></div>
+  <div><a href="#seen">七、看到了但按设计不改的</a></div>
+  <div><a href="#trade">八、等你确认的取舍</a></div>
+  <div><a href="#tests">九、测试和文档</a></div>
+  <div><a href="#next">十、下一步和 dev 怎么设密码</a></div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="why">一、为什么做</h2>
+
+<p>M3 要做配额、按用户轮流投递（M3b），前提是系统知道“这个请求是谁发的”。M3a 先把这件事做好，并保证一个人看不到另一个人的题。</p>
+
+<div class="cols">
+<div class="card">
+<h4><span class="tag t-old">M3a 之前</span></h4>
+<div class="flow">
+  <div class="s">打开网页，不用登录</div>
+  <div class="arrow">↓</div>
+  <div class="s bad">API 把每个请求都当成 <code>dev</code>（<code>owner_id = 1</code> 写死）</div>
+  <div class="arrow">↓</div>
+  <div class="s bad">谁打开网页都能看到、重新生成所有题；查询里虽然带了 <code>owner_id</code>，但永远是 1</div>
+</div>
+</div>
+<div class="card">
+<h4><span class="tag t-pass">M3a 之后</span></h4>
+<div class="flow">
+  <div class="s">没登录 → 跳登录页（登录后回到原来的页面）</div>
+  <div class="arrow">↓</div>
+  <div class="s ok">登录成功：服务端记一行 session，浏览器拿到 HttpOnly cookie</div>
+  <div class="arrow">↓</div>
+  <div class="s ok">每个请求从 cookie 查出当前用户，查询带他的 <code>owner_id</code>：别人的题 404，和不存在一样</div>
+  <div class="arrow">↓</div>
+  <div class="s ok">退出 / 过期 / 改密码 → 服务端那一行删掉或失效，cookie 立刻没用</div>
+</div>
+</div>
+</div>
+
+<p>账号用脚本建（不做注册页，D30）。为什么用服务端 session 而不用 JWT（PLAN §5.5 已定）：浏览器的 EventSource 不能带自定义请求头，
+只能靠 cookie；服务端存一行，退出时删掉就立刻作废，JWT 做不到。</p>
+
+<!-- ============================================================ -->
+<h2 id="what">二、改了什么（按提交）</h2>
+
+<div class="card commit">
+  <div class="id">83d5349<br>M3a-0</div>
+  <div><b>登录页设计稿（3 个方案）</b> <span class="tag t-web">设计</span><br>
+  <code>web/design/login.html</code>：A 居中卡片、B 左右两栏、C 页边批注；每个方案 5 种状态（正常、登录中、密码不对、尝试太多、登录已过期）×
+  深浅色 × 手机宽度。右下角评审面板切换，也能用地址参数直接打开某个组合。直接引用前端正式的 <code>tokens.css</code>。</div>
+</div>
+<div class="card commit">
+  <div class="id">960766c<br>M3a-1</div>
+  <div><b>迁移 0008：密码哈希、sessions 表；建账号脚本</b> <span class="tag t-pg">PG</span><br>
+  <code>users.password_hash</code>（可空：dev 还没设密码时登不上）；<code>sessions</code> 表只存令牌的 SHA-256，删用户时一起删。
+  <code>auth.py</code> 的密码哈希（argon2id，新依赖 <code>argon2-cffi</code>，D31）；<code>scripts/create_user.py</code> 交互输入两遍密码，
+  用户名已存在就是改密码（并让他所有已登录的地方下线）。</div>
+</div>
+<div class="card commit">
+  <div class="id">4771ff7<br>M3a-2</div>
+  <div><b>登录、退出和当前用户</b> <span class="tag t-disp">API</span><br>
+  <code>POST /auth/login</code>、<code>POST /auth/logout</code>、<code>GET /auth/me</code>；<code>DEV_USER_ID</code> 换成依赖 <code>current_user</code>（从 cookie 查 session，没有就 401）。
+  有效期 7 天，用着就顺延（一天最多写一次库）。用户名不存在和密码不对返回同一句话、花同样的时间。</div>
+</div>
+<div class="card commit">
+  <div class="id">ed74663<br>M3a-3</div>
+  <div><b>检查 Origin 头；cookie 属性</b> <span class="tag t-disp">API</span><br>
+  除 GET / HEAD / OPTIONS 外，请求的 <code>Origin</code> 必须在允许列表里（默认 <code>http://localhost:5173</code>），否则 403；
+  cookie 加 <code>SameSite=Lax</code>，配置了才加 <code>Secure</code>（本地是 http）。</div>
+</div>
+<div class="card commit">
+  <div class="id">456043b<br>M3a-4</div>
+  <div><b>登录限流（Redis 滑动窗口 + Lua）</b> <span class="tag t-mq">Redis</span><br>
+  键 <code>login:&lt;用户名&gt;:&lt;IP&gt;</code>，10 分钟最多 10 次，超了 429 + <code>Retry-After</code>。“删旧的、数一数、记一次”放进一段 Lua，
+  对照实验：拆成三条命令时 30 个线程同时抢 10 个名额，5 次里有 4 次放进来 21～25 个。</div>
+</div>
+<div class="card commit">
+  <div class="id">fe11eaa<br>M3a-5</div>
+  <div><b>前端：登录页（方案 A）、401 跳转、侧栏账号和退出</b> <span class="tag t-web">前端</span><br>
+  任何接口 401 都在 <code>api.ts</code> 一处处理：跳 <code>/login?next=原页面</code>，之前登录着的加 <code>expired=1</code> 显示“登录已过期”；
+  登录后只回本站地址（防开放重定向）；侧栏底部显示账号和“退出”；事件流断开时问一次 <code>/auth/me</code>，过期了就不再傻等重连。</div>
+</div>
+<div class="card commit">
+  <div class="id">15cfc45<br>M3a-6</div>
+  <div><b>端到端测试：假 API 加登录；“A 看不到 B”等场景</b> <span class="tag t-web">测试</span><br>
+  假 API 有了账号、session、限流和每道题的 owner；原有 28 个测试默认以 dev 登录、内容不改；新增 5 个登录场景。</div>
+</div>
+<div class="card commit">
+  <div class="id">644cd93<br>M3a-7</div>
+  <div><b>实验 A1～A6 的记录</b> <span class="tag t-pass">实验</span><br>
+  只有导读里的记录，没有代码改动（实验没发现代码问题）。</div>
+</div>
+<div class="card commit">
+  <div class="id">5bd7f0b<br>M3a-4a</div>
+  <div><b>滑动窗口测试的时间余量放宽</b> <span class="tag t-fix">测试修复</span><br>
+  收尾前重跑测试时发现，见第六节。只改测试，限流代码不变。</div>
+</div>
+<div class="card commit">
+  <div class="id">M3a-8</div>
+  <div><b>收尾</b><br>
+  导读总览、STATUS“M3a 记录”、PLAN §7 打勾、DECISIONS D32、本报告。</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="flow">三、一次登录怎么走</h2>
+
+<p>以实验里的 test_a 为例：浏览器打开 <code>http://localhost:5173/runs/196</code>，还没登录。</p>
+
+<pre><span class="c">浏览器                              API                                        PG / Redis</span>
+GET /api/auth/me（没有 cookie）  ──▶ current_user：没有 cookie → 401
+  ◀── 401：api.ts 统一处理 → 之前不知道是谁 → 不算“过期” → 替换成 /login?next=%2Fruns%2F196
+
+POST /api/auth/login               <span class="c">Origin: http://localhost:5173</span>
+                                 ──▶ ① check_origin：Origin 在允许列表里 → 放行
+                                     ② 限流计数 login:test_a:172.18.0.1 ──Lua──▶ Redis：删 10 分钟前的、数一数、没超就记一次
+                                     ③ authenticate：查 users，argon2 验密码（约 30 ms）──▶ PG
+                                     ④ create_session：32 字节随机令牌；只存它的 SHA-256；顺手删这个人过期的 ──▶ PG sessions
+                                     ⑤ 清零限流计数 ──▶ Redis DEL
+  ◀── 200 {"username":"test_a"}
+      <span class="hl">Set-Cookie: margin_session=&lt;令牌&gt;; HttpOnly; Max-Age=604800; Path=/; SameSite=lax</span>
+前端：替换成 next 里的 /runs/196
+
+GET /api/runs/196（浏览器自动带 cookie）
+                                 ──▶ current_user：SHA-256(令牌) 查 sessions ──▶ PG：没过期 → user_id = 3
+                                     get_run(196, owner_id=3)：是自己的 → 200；别人的 → 404
+GET /api/runs/196/events（EventSource 也自动带 cookie）──▶ 同上，然后照常推事件
+</pre>
+
+<div class="cols">
+<div class="card">
+<h4>cookie 每个属性防什么</h4>
+<table>
+<tr><th>属性</th><th>作用</th></tr>
+<tr><td><code>HttpOnly</code></td><td>页面脚本读不到（<code>document.cookie</code> 是空的）。万一页面被注入脚本，偷不走令牌。</td></tr>
+<tr><td><code>SameSite=Lax</code></td><td>别的网站发来的 POST 不带这个 cookie（A4 用真浏览器验证过）。从别处点链接进来（GET）仍然带，所以不影响正常打开。</td></tr>
+<tr><td><code>Max-Age=604800</code></td><td>7 天。服务端那边也记着同样的到期时间，用着就顺延。</td></tr>
+<tr><td><code>Secure</code></td><td>只走 https。本地是 http 所以默认不加，上线（M6）时配置打开。</td></tr>
+</table>
+</div>
+<div class="card">
+<h4>为什么库里只存令牌的哈希</h4>
+<p>库要是泄露（备份文件被拿走），拿到的只是哈希，算不回令牌，冒充不了任何人。
+令牌本身是 32 字节随机数，不像密码那样有“常用密码表”可以猜，所以用普通的 SHA-256 就够，不用 argon2（每个请求都要查，必须快）。</p>
+<h4>三道防线</h4>
+<p><span class="tag t-pg">PG</span> 每个查询带 <code>owner_id</code>（M1 起就有，M3a 让它变成真实的人）<br>
+<span class="tag t-disp">API</span> 改数据的请求检查 <code>Origin</code> + cookie 的 SameSite<br>
+<span class="tag t-mq">Redis</span> 登录按“用户名 + IP”限次数</p>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="design">四、登录页：三个方案选了 A</h2>
+
+<p>设计稿 <code>web/design/login.html</code> 浏览器直接打开，右下角面板切换方案 / 状态 / 深浅色 / 手机宽度。你不在，按交接写的标准自己选了 A（取舍 28）。</p>
+
+<div class="shots">
+  <figure><img src="../.cache/m3a-experiments/design_a-normal.png" alt="方案 A 正常状态"><figcaption><b>A 居中卡片（选用）</b>：卡片和网页里的输入框同一种材质</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/design_b-normal.png" alt="方案 B 正常状态"><figcaption>B 左右两栏：左边示意“带引用的回答”，最有产品特色</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/design_c-wrong.png" alt="方案 C 密码不对"><figcaption>C 页边批注：没有卡片，提示写在右侧页边（宽屏时离输入框约 400px）</figcaption></figure>
+</div>
+
+<div class="wrap">
+<table>
+<tr><th>标准（交接里定的）</th><th>A 居中卡片</th><th>B 左右两栏</th><th>C 页边批注</th></tr>
+<tr><td>和现有网页一致</td><td><b>最一致</b>：网页里唯一的框是输入框，卡片同材质、同样的聚焦样式</td><td>表单部分一致，左栏是新元素</td><td>下划线输入框是新样式</td></tr>
+<tr><td>状态清楚</td><td><b>所有提示在同一个位置</b>：密码框下、按钮上</td><td>同 A</td><td>宽屏时提示在页边，离输入框远</td></tr>
+<tr><td>窄屏（390px）</td><td><b>就是一张满宽卡片</b>，什么都不用藏</td><td>要整块藏掉左边的示意</td><td>批注要挪到每行下面</td></tr>
+</table>
+</div>
+
+<div class="shots">
+  <figure><img src="../.cache/m3a-experiments/design_a-locked.png" alt="方案 A 尝试太多"><figcaption>A · 尝试太多：按钮灰掉，“请 n 分钟后再试”</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/design_a-expired.png" alt="方案 A 登录已过期"><figcaption>A · 从别的页面跳来时顶上一条“登录已过期”</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/design_a-dark.png" alt="方案 A 深色"><figcaption>A · 深色</figcaption></figure>
+</div>
+
+<p>做进网页后的样子（真实页面，compose + Vite）：</p>
+<div class="shots">
+  <figure><img src="../.cache/m3a-experiments/ui_wrong.png" alt="网页登录页密码不对"><figcaption>密码不对：提示、密码框标红清空、焦点回到密码框</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/ui_sidebar.png" alt="侧栏账号"><figcaption>侧栏底部：头像（首字母）+ 用户名 +“退出”</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/ui_phone_expired.png" alt="手机宽度登录已过期"><figcaption>手机宽度 390px：没有横向滚动（<code>scrollWidth</code> = 390）</figcaption></figure>
+</div>
+
+<p class="small">不满意的话：在设计稿里挑 B 或 C，只要换 <code>LoginPage.tsx</code> 和 <code>login.css</code>；后端、路由、端到端测试（按标签和文字找元素）都不用改。</p>
+
+<!-- ============================================================ -->
+<h2 id="exp">五、实验 A1～A6</h2>
+
+<p>环境：compose 全套服务（迁移到 0008）+ Vite + 学校网关 DeepSeek。两个实验账号 <code>test_a</code>（id 3）、<code>test_b</code>（id 4）用脚本建，
+密码随机生成、只放在临时目录。页面用 Playwright CLI 开两个独立的浏览器会话（= 两个人），接口用 curl 直连 API。
+API 看到的客户端 IP 都是 Docker 网关 <code>172.18.0.1</code>。实际顺序 A6 → A1 → A2 → A4 → A5（开始）→ A3 → A5（10 分钟窗口过去后）。</p>
+
+<div class="wrap">
+<table>
+<tr><th>#</th><th>实验</th><th>预期（PLAN §5.10）</th><th>实际</th><th>结论</th></tr>
+<tr><td>A1</td><td>A 提交一道题，B 去打开</td><td>B 在浏览器和 curl 里都打不开：列表里没有，详情、事件流、重新生成都 404</td>
+  <td>B 的列表 <code>[]</code>；详情、事件流、重新生成都 404，和不存在的题（run 999999）返回一字不差；浏览器显示“这道题不存在，或者不属于当前账号。”；B 的重新生成没建出执行</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>A2</td><td>退出后用旧 cookie</td><td>401</td>
+  <td>退出 204、库里那一行删掉；事先抄下的旧令牌访问 <code>/auth/me</code>、<code>GET /runs</code>、<code>POST /runs</code> 全部 401</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>A3</td><td>session 手动改成过期，再操作页面</td><td>跳到登录页；登录后回到原来那道题</td>
+  <td>点“重新生成”→ 401 → <code>/login?next=%2Fruns%2F196&amp;expired=1</code>，顶上“登录已过期”→ 登录 → 回到 run 196；改过期的两行 session 被这次登录顺手删掉</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>A4</td><td>带别的网站的 Origin 提交</td><td>被拒绝，不建题</td>
+  <td>4 种错误 Origin（别的网站、不带、换端口、<code>127.0.0.1</code> 换写法）都 403，题数不变；对照组 202。真浏览器里跨站表单也 403；并且跨站 POST 浏览器根本不带 cookie</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>A5</td><td>连续输错密码</td><td>第 11 次 429；窗口过去后能再试</td>
+  <td id="a5-row">第 11 次（输的是对的密码）429、<code>Retry-After: 587</code>；页面倒计时、按钮不可点；被拒的不再计数；10 分钟窗口过去后按钮自动恢复，登录 200，限流记录清零</td><td><span class="tag t-pass">通过</span></td></tr>
+<tr><td>A6</td><td>登录后提交一道题看执行过程</td><td>事件流正常（cookie 跟着 SSE 带上），和登录前一样</td>
+  <td>run 196 用 23 秒完成 5 步；事件序列和登录前 dev 跑的同一道题（run 195）完全一样；重新生成时思考文字 543→607→699→…→1062 字一点点长</td><td><span class="tag t-pass">通过</span></td></tr>
+</table>
+</div>
+
+<details open>
+<summary>A1 · B 打不开 A 的题</summary>
+<div class="body">
+<p>A = test_a（run 196 是他的），B = test_b。curl 各自登录拿 cookie，再分别访问：</p>
+<div class="wrap"><table>
+<tr><th>请求</th><th>B（test_b）</th><th>A（test_a，对照）</th></tr>
+<tr><td><code>GET /runs</code></td><td><code>[]</code></td><td><code>[196]</code></td></tr>
+<tr><td><code>GET /runs/196</code></td><td>404</td><td>200</td></tr>
+<tr><td><code>GET /runs/196/events</code></td><td>404</td><td>200</td></tr>
+<tr><td><code>POST /runs/196/regenerate</code>（带正确 Origin）</td><td>404 <code>{"detail":"run 不存在"}</code></td><td>没试（会真的再跑一次）</td></tr>
+<tr><td><code>GET /runs/999999</code>（不存在的题）</td><td>404 <code>{"detail":"run 不存在"}</code></td><td></td></tr>
+</table></div>
+<p>别人的题和不存在的题返回一字不差：B 没法靠响应区分“有这道题但不是我的”和“没有这道题”，也就没法挨个试出别人有哪些题。</p>
+<div class="shots">
+  <figure><img src="../.cache/m3a-experiments/a1_b_home.png" alt="B 的首页"><figcaption>B 的首页：历史 0 条，底部账号 test_b</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/a1_b_404.png" alt="B 打开 run 196"><figcaption>B 直接打开 <code>/runs/196</code></figcaption></figure>
+</div>
+</div>
+</details>
+
+<details>
+<summary>A2 · 退出后用旧 cookie</summary>
+<div class="body">
+<pre>登录 → 从 cookie 文件里抄下令牌；库里按令牌的 SHA-256 能查到这一行；GET /auth/me 200
+POST /auth/logout → 204，set-cookie: margin_session=""; …; Max-Age=0     <span class="c"># 让浏览器删 cookie</span>
+库里这一行没了
+手动带上抄下的旧令牌：GET /auth/me 401 · GET /runs 401 · POST /runs 401</pre>
+<p>要点：退出删的是<b>服务端那一行</b>。浏览器删不删 cookie 无所谓——就算有人事先复制了 cookie，也立刻作废。这是选服务端 session 而不是 JWT 的原因。</p>
+</div>
+</details>
+
+<details>
+<summary>A3 · session 改成过期再操作页面</summary>
+<div class="body">
+<p>浏览器 test_a 打开 <code>/runs/196</code>；psql 执行 <code>UPDATE sessions SET expires_at = now() - interval '1 second' WHERE user_id = 3</code>（2 行）；在页面上点“重新生成”。</p>
+<div class="shots">
+  <figure><img src="../.cache/m3a-experiments/a3_expired_login.png" alt="跳到登录页"><figcaption>重新生成 401 → 跳到登录页，地址带 <code>next</code> 和 <code>expired=1</code></figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/a3_back.png" alt="登录后回到 run 196"><figcaption>登录后回到 run 196，两次执行都在</figcaption></figure>
+</div>
+<p>库里：被改过期的 session 5、8 在重新登录时被删掉，只剩新的 9；run 196 仍是 2 次执行（401 的那次重新生成没有建出执行）。手动改过期的数据因此不用另外还原。</p>
+</div>
+</details>
+
+<details>
+<summary>A4 · 别的网站发来的提交</summary>
+<div class="body">
+<p>test_a 的 cookie 有效，用 curl <code>POST /runs</code>，只改 Origin 头，前后数 test_a 有几道题：</p>
+<div class="wrap"><table>
+<tr><th>Origin</th><th>结果</th></tr>
+<tr><td><code>https://evil.example</code></td><td>403 “请求来源不在允许列表里”</td></tr>
+<tr><td>不带（curl 默认）</td><td>403（取舍 33）</td></tr>
+<tr><td><code>http://localhost:5174</code>（端口不同）</td><td>403</td></tr>
+<tr><td><code>http://127.0.0.1:5173</code>（同一台机器换个写法）</td><td>403</td></tr>
+<tr><td><code>http://localhost:5173</code>（对照）</td><td>202，建出 run 197</td></tr>
+</table></div>
+<p><b>真浏览器里试一次</b>：在 <code>127.0.0.1:8766</code> 放一个“别的网站”的页面，打开就自动提交表单到 <code>http://localhost:5173/api/runs</code>。
+浏览器发出的请求带 <code>origin: http://127.0.0.1:8766</code>，API 返回 403，库里没有这道题。</p>
+<p><b>再证明 SameSite</b>：本机 <code>localhost:8767</code> 起一个只回显“收到了哪些 cookie”的小服务（cookie 只认域名不认端口，localhost 的 cookie 会发给它）。
+从“别的网站”提交表单过去：收到 <code>无</code>；从本站页面提交过去：收到 <code>['margin_session']</code>。</p>
+<div class="good">跨站 POST 浏览器根本不带登录 cookie（第一道防线）；就算哪天带了（老浏览器、配置改了），Origin 检查也会拒绝（第二道防线）。</div>
+<figure><img src="../.cache/m3a-experiments/a4_browser_crosssite.png" alt="跨站提交被拒" style="max-width:480px"><figcaption>“别的网站”自动提交后浏览器看到的响应</figcaption></figure>
+</div>
+</details>
+
+<details>
+<summary>A5 · 连续输错密码</summary>
+<div class="body" id="a5-body">
+<pre>02:25:40  curl 连续输错 10 次（test_b）          → 10 次都 401
+          Redis：键 login:test_b:172.18.0.1，10 条记录，键 598 秒后自己过期
+02:25:53  第 11 次在浏览器里输入<b>正确</b>密码      → 429，Retry-After: 587
+          页面：“尝试次数太多，请 10 分钟后再试。”，按钮不可点
+02:27:12  再试一次                                → 429，Retry-After: 507；记录仍是 10 条（被拒的不计）
+02:27:57  页面倒计时：“请 8 分钟后再试”
+02:35:39  最早那次（02:25:39.5）滑出 10 分钟窗口
+02:35:41  页面按钮自动恢复、提示消失              <span class="c"># 前端算的 02:25:53.4 + 587 秒 = 02:35:40.4</span>
+02:36:03  点登录                                  → 200，进入首页；Redis 里的限流键被删掉（成功清零）
+</pre>
+<p>587 怎么来的：最早一次 02:25:39.54 + 600 秒 = 02:35:39.54，减去第 11 次的 02:25:53.36 是 586.2 秒，向上取整。
+被拒的请求不计数，所以锁着的时候一直试也不会越锁越久。</p>
+<div class="shots">
+  <figure><img src="../.cache/m3a-experiments/a5_locked.png" alt="被锁住"><figcaption>第 11 次：密码是对的，也被拦下</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/a5_after.png" alt="窗口过去后登录成功"><figcaption>窗口过去后：登录成功，底部账号 test_b</figcaption></figure>
+</div>
+</div>
+</details>
+
+<details>
+<summary>A6 · 登录后提交一道题看执行过程</summary>
+<div class="body">
+<p>浏览器打开 <code>/</code> → 被带到登录页 → 以 test_a 登录 → 提交“中国建筑 2024 年新签合同额是多少亿元？”。</p>
+<ul>
+  <li>第 9 秒“正在思考 · 已完成 3 步”，23 秒完成（5 步）。</li>
+  <li><code>/api/runs/196/events?after=0</code> 返回 200：这个接口不带有效 cookie 就是 401，所以 EventSource 确实带上了 cookie。</li>
+  <li>事件序列 <code>attempt_queued → attempt_started → run_understood → step ×5 → answer_written → attempt_finished</code>，和登录前 dev 跑的同一道题（run 195）完全一样。</li>
+  <li>点“重新生成”，每 250 毫秒量一次思考文字的长度：543 → 607 → 699 → 766 → … → 1062，实时片段照常推。</li>
+</ul>
+<div class="shots">
+  <figure><img src="../.cache/m3a-experiments/a6_running.png" alt="执行中"><figcaption>执行中</figcaption></figure>
+  <figure><img src="../.cache/m3a-experiments/a6_done.png" alt="完成"><figcaption>完成</figcaption></figure>
+</div>
+</div>
+</details>
+
+<p><b>还原</b>：实验账号 test_a、test_b 和它们的题（run 196、197）、session、Redis 里的限流键都已删掉；临时密码文件、cookie 文件已删；
+Vite、两个浏览器会话、WSL 保活都已关。<code>dev</code> 的密码仍是空的（等你自己设，见第十节），M2 时建的 <code>m2-other-user</code>（id 2）没动。</p>
+
+<!-- ============================================================ -->
+<h2 id="bug">六、发现并修掉的问题</h2>
+
+<p>实验 A1～A6 都一次通过，没有发现代码问题。开发途中和收尾时发现、当场修掉的：</p>
+
+<div class="wrap">
+<table>
+<tr><th>在哪</th><th>问题</th><th>怎么发现、怎么修</th></tr>
+<tr><td>M3a-4a 测试</td><td><b>限流的滑动窗口测试偶尔失败</b></td>
+  <td>收尾前重跑集成测试时失败一次。测试用 Windows 的时钟睡，窗口按 Redis 的时钟算，而本机 Redis 在 WSL 虚拟机里——
+  量了 5 次，Windows 睡 2.1 秒，Redis 只过约 2.02 秒，<b>慢约 4%</b>。原来那一步离窗口边界只留 0.1 秒，偶尔还没到。
+  改成每个判断离边界留 0.4 秒以上，连跑 5 次通过。只改测试：限流本身只认 Redis 一个时钟，不受影响。
+  CI 里测试和 Redis 在同一台机器、同一个时钟，所以 M3a-4 推送时没暴露。</td></tr>
+<tr><td>M3a-5 前端</td><td><b>从没登录过的人也看到“登录已过期”</b></td>
+  <td>浏览器自查时发现。第一版用字符串 <code>'checking'</code> 表示“正在问服务器我是谁”，判断“之前登录着”用的是 <code>typeof who === 'string'</code>，把 <code>'checking'</code> 也算进去了。
+  改成用 <code>undefined</code> 表示正在问；端到端测试“没登录打开一道题”专门检查不出现“过期”。</td></tr>
+<tr><td>M3a-0 设计稿</td><td>所有提示同时显示</td>
+  <td>截图自查时发现：提示元素自己设了 <code>display: flex</code>，压过了 <code>hidden</code> 属性。加 <code>[hidden] { display: none !important }</code>。</td></tr>
+<tr><td>M3a-6 测试</td><td>lint 误报</td>
+  <td>Playwright 夹具的第二个参数文档里叫 <code>use</code>，lint 把它当成 React 的 Hook 报错。改名 <code>provide</code>。</td></tr>
+</table>
+</div>
+
+<div class="note">
+<b>实验操作中出的一次事故（不是代码问题，已处理）</b>：做 A1 时，我把 <code>curl --noproxy * -s</code> 写进了一个没加引号的 shell 变量，
+<code>*</code> 被展开成当前目录的文件名（如 <code>README.md</code>、<code>AGENTS.md</code>），curl 把它们当成了要访问的网址，
+并经本机的 HTTP 代理把两次登录请求（请求体里有 test_a、test_b 的<b>临时</b>密码）发到了这些同名的外部网站。<br>
+<b>当场处理</b>：立刻用脚本给 test_a、test_b 换了新密码（同时让旧 session 全部下线），删掉相关 cookie 文件；之后 curl 一律写成带引号的函数。
+泄露的只是两个实验账号的随机临时密码，账号只在本机、本次实验存在，现已删除，没有影响。<code>.env</code> 里的密钥没有出现在任何命令里。
+</div>
+
+<!-- ============================================================ -->
+<h2 id="seen">七、看到了但按设计不改的</h2>
+
+<ul>
+  <li><b>已经开着的事件流不会因为过期被掐断</b>：session 只在连上时检查一次，连着的流会推到这次执行结束。断线重连时才会发现过期、跳登录页
+  （端到端测试“执行中登录过期”测的就是这条路径）。最多多看一道题的剩余过程，内容本来就是他自己的，没必要每条事件都查一次库。</li>
+  <li><b>开发环境里所有人的 IP 都一样</b>（Vite 转发、Docker 网关 <code>172.18.0.1</code>），限流靠键里的用户名区分人。上线放 Nginx 后再按真实 IP（取舍 36）。</li>
+  <li><b>手机宽度没有“退出”</b>：侧栏在这个宽度本来就整个藏掉（取舍 40）。</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="trade">八、等你确认的取舍（28～41）</h2>
+
+<p>这些是方案（PLAN §5.10）没写清、执行时由我先选了一个做法的地方。每条按同一个顺序写：
+<b>这是什么</b> → <b>我选了</b> → <b>另一种</b> → <b>代价</b> → <b>我的建议</b>。
+A 组会影响用户能感到的行为，需要你拍板；B 组是实现细节，一般直接同意就行。
+编号和 STATUS“执行中的取舍”、D32 一致。勾选框只帮你记 review 进度，存在这个浏览器里。</p>
+
+<div id="trades">
+
+<h3>A 组：需要你拍板（6 条）</h3>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t28"><label for="t28"><b>28. 登录页用方案 A“居中卡片”</b> <span class="tag t-web">前端</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>交接里说做 2～3 个方案、你不在时我自己选一个做进网页，标准：和现有网页最一致、状态最清楚、窄屏不出问题。</dd>
+  <dt>我选了</dt><dd>A：卡片和输入框同材质；所有提示在同一个位置；390px 宽时就是一张满宽卡片（第四节的对比表）。</dd>
+  <dt>另一种</dt><dd>B 左右两栏（左边示意“带引用的回答”）；C 页边批注（没有卡片，提示写在右侧页边）。</dd>
+  <dt>代价</dt><dd>最普通，登录页上看不出产品特色（B 看得出）。</dd>
+  <dt>我的建议</dt><dd><b>先用 A。</b>想要特色的话换 B，只改 <code>LoginPage.tsx</code> 和 <code>login.css</code>，半天以内。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t33"><label for="t33"><b>33. 没有 Origin 头的改数据请求也拒绝（403）</b> <span class="tag t-disp">API</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>计划只说“检查 Origin 在允许列表里”，没说不带 Origin 怎么办。现在的浏览器发 POST 一定带 Origin；不带的只会是 curl、脚本。</dd>
+  <dt>我选了</dt><dd>不带也拒绝。“缺了就放行”等于给检查留个口子（例如将来某个老客户端、或中间的代理把头去掉）。</dd>
+  <dt>另一种</dt><dd>不带就放行：curl、脚本拿不到别人的 cookie，放行也构不成跨站伪造。</dd>
+  <dt>代价</dt><dd>用 curl 调改数据的接口要自己加 <code>-H 'Origin: http://localhost:5173'</code>；M5 评测回放的脚本也要加。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b>多写一个请求头的麻烦，换一条没有例外的规则。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t35"><label for="t35"><b>35. 登录限流：每次尝试都先计数，登录成功清零</b> <span class="tag t-mq">Redis</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>计划写“10 分钟最多 10 次”，没说输对的那一次算不算、登上之后要不要清零。</dd>
+  <dt>我选了</dt><dd>验密码<b>之前</b>先计数（超了就不再算 argon2，被拦的请求很便宜）；登录成功把计数清零。</dd>
+  <dt>另一种</dt><dd>① 只数失败的（要先验密码，被锁的请求照样花 30 ms CPU）；② 成功也不清零，只等窗口滑走。</dd>
+  <dt>代价</dt><dd>清零让“猜 9 次 + 用知道的密码登一次”就能重置——但键是“用户名 + IP”，知道这个账号密码的人本来就不用猜。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t36"><label for="t36"><b>36. IP 取直接连过来的那一端，不读 X-Forwarded-For</b> <span class="tag t-mq">Redis</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>限流键里的 IP 从哪来。经过代理时，真实 IP 在 <code>X-Forwarded-For</code> 头里——但这个头客户端自己就能写。</dd>
+  <dt>我选了</dt><dd><code>request.client.host</code>。开发时都经 Vite / Docker 网关，大家 IP 一样，所以键里同时带用户名。
+  M6 放到 Nginx 后面时给 uvicorn 加 <code>--proxy-headers --forwarded-allow-ips=&lt;Nginx 地址&gt;</code>，只信任 Nginx 写的头，代码不用改。</dd>
+  <dt>另一种</dt><dd>现在就读 <code>X-Forwarded-For</code>：攻击者每次换一个假 IP，限流就失效。</dd>
+  <dt>代价</dt><dd>没做“每个 IP 总次数”（一个 IP 换着用户名猜）：计划里没有，M6 在 Nginx 上做更合适。</dd>
+  <dt>我的建议</dt><dd><b>同意</b>，M6 的计划里记一笔。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t37"><label for="t37"><b>37. Redis 连不上时登录返回 503，不放行</b> <span class="tag t-mq">Redis</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>限流记在 Redis 里。Redis 挂了，要么不让登录，要么跳过限流照常验密码。</dd>
+  <dt>我选了</dt><dd>503“服务暂时不可用”。限流是防暴力猜密码的唯一防线，失效时宁可暂时登不上；已登录的人不受影响（session 在 PG）。</dd>
+  <dt>另一种</dt><dd>跳过限流照常登录（和实时片段一样“Redis 挂了照常工作”）。</dd>
+  <dt>代价</dt><dd>Redis 挂着的那段时间新登录不了。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b>Redis 挂掉本来就要马上修，那几分钟登不上可以接受。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t40"><label for="t40"><b>40. 手机宽度（≤760px）没有“退出”入口</b> <span class="tag t-web">前端</span></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>“退出”放在侧栏底部。现有网页在手机宽度下把整个侧栏藏掉（新提问、历史也没有）。</dd>
+  <dt>我选了</dt><dd>跟着一起藏，不在 M3a 里给手机宽度另做菜单。</dd>
+  <dt>另一种</dt><dd>手机宽度加一个顶栏菜单（放历史、新提问、账号、退出）。</dd>
+  <dt>代价</dt><dd>手机上退不了（只能等 7 天过期或清浏览器数据）。</dd>
+  <dt>我的建议</dt><dd><b>同意，手机菜单另排</b>：要先出设计稿，和历史列表一起做才完整。</dd>
+</dl>
+</div>
+
+<h3>B 组：实现细节（8 条）</h3>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t29"><label for="t29"><b>29. 用户不存在时也空算一次 argon2</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>计划只说“不暴露哪个不对”。只统一提示语不够：不存在的用户名约 1 ms 就返回、存在的要 30 ms，量响应时间就能试出哪些用户名存在。</dd>
+  <dt>我选了</dt><dd>用户不存在（或 dev 还没设密码）时拿一个假哈希也验一次，两边花的时间一样。</dd>
+  <dt>另一种</dt><dd>不管，只统一提示语。</dd>
+  <dt>代价</dt><dd>每次失败的登录都花 30 ms CPU（限流挡着，最多每 10 分钟 10 次）。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t30"><label for="t30"><b>30. 顺延不加新列，按“剩余不到 6 天”判断</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>计划写“距上次顺延超过 1 天才顺延”。过期时间 = 上次顺延 + 7 天，所以“剩余不到 6 天”和它等价。</dd>
+  <dt>我选了</dt><dd>按剩余时间判断，少一列；顺延时重新下发 cookie。SSE 接口不带这个 cookie（它返回自己的流式响应），靠打开题时先发的 <code>GET /runs/{id}</code> 续。</dd>
+  <dt>另一种</dt><dd>sessions 加 <code>renewed_at</code> 列，按它判断。</dd>
+  <dt>代价</dt><dd>要想一下才看得出等价（代码注释写了）。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t31"><label for="t31"><b>31. 过期的 session 在这个人下次登录时顺手删，不做定时清理</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>过期的 session 留在表里没用，要有人删。</dd>
+  <dt>我选了</dt><dd>建新 session 时顺手删这个人过期的。每人最多留几行，查询走令牌哈希的唯一索引，不受影响。</dd>
+  <dt>另一种</dt><dd>dispatcher 每轮巡检加一句 <code>DELETE FROM sessions WHERE expires_at &lt; now()</code>。</dd>
+  <dt>代价</dt><dd>再也不登录的人，过期记录永远留着。</dd>
+  <dt>我的建议</dt><dd><b>同意</b>，用户多了再加定时清理。</dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t32"><label for="t32"><b>32. 退出不要求已登录，总是 204</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>cookie 已过期、或者连点两次“退出”，第二次该返回什么。</dd>
+  <dt>我选了</dt><dd>总是 204：退出的意思是“之后是未登录状态”，这些情况都算成功，前端不用处理错误。</dd>
+  <dt>另一种</dt><dd>没登录时退出返回 401。</dd>
+  <dt>代价</dt><dd>无。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t34"><label for="t34"><b>34. Origin 检查做成全局依赖，不用中间件；登录、退出也检查</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>Origin 检查挂在哪里。</dd>
+  <dt>我选了</dt><dd><code>FastAPI(dependencies=[Depends(check_origin)])</code>：以后新加的接口自动带上。登录、退出也检查，防止别的网站把你悄悄登进它的账号（“登录 CSRF”）。</dd>
+  <dt>另一种</dt><dd>Starlette 中间件：包着流式响应（SSE）有已知问题。</dd>
+  <dt>代价</dt><dd>无。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t38"><label for="t38"><b>38. 打开页面先问一次 /auth/me，问到之前什么都不画</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>页面一打开不知道登没登录。</dd>
+  <dt>我选了</dt><dd>先问，问到再画。API 连不上（不是 401）时照常显示页面，各请求自己报“连不上服务器”，不把登录着的人赶到登录页。</dd>
+  <dt>另一种</dt><dd>先画页面框架，再按需跳：没登录的人会先看到空框架闪一下。</dd>
+  <dt>代价</dt><dd>每次打开多一个请求（几毫秒）。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t39"><label for="t39"><b>39. 跳登录页、登录后回原页面都“替换”当前历史记录</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>浏览器的“后退”按钮会回到哪里。</dd>
+  <dt>我选了</dt><dd>替换，不新加一条。否则登录后点“后退”会回到登录页。</dd>
+  <dt>另一种</dt><dd>新加一条。</dd>
+  <dt>代价</dt><dd>无。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+<div class="tcard">
+<div class="check"><input type="checkbox" id="t41"><label for="t41"><b>41. 被锁住时前端自己倒计时，到点按钮自动恢复；已登录打开 /login 照样显示登录页</b></label></div>
+<dl class="kv">
+  <dt>这是什么</dt><dd>429 之后页面怎么表现；已登录的人打开 <code>/login</code> 怎么办。</dd>
+  <dt>我选了</dt><dd>按 <code>Retry-After</code> 倒计时，分钟数向上取整（和后端说法一致），不用反复点着试。已登录打开 <code>/login</code> 不自动跳走，换账号时用得上。</dd>
+  <dt>另一种</dt><dd>一直显示提示、让用户自己再点；已登录打开 <code>/login</code> 直接跳首页。</dd>
+  <dt>代价</dt><dd>无。</dd>
+  <dt>我的建议</dt><dd><b>同意。</b></dd>
+</dl>
+</div>
+
+</div>
+
+<!-- ============================================================ -->
+<h2 id="tests">九、测试和文档</h2>
+
+<div class="wrap">
+<table>
+<tr><th>场景</th><th>测试</th></tr>
+<tr><td>密码只存加盐哈希，只有对的密码能验过</td><td><code>test_auth.py</code> · <code>test_password_hash_is_salted_and_only_the_right_password_verifies</code></td></tr>
+<tr><td>给 dev 设密码时 id 不变、旧题仍归 dev</td><td><code>test_auth_pg.py</code> · <code>test_setting_dev_password_keeps_its_id_and_old_runs</code></td></tr>
+<tr><td>改密码后已登录的地方全部下线</td><td><code>test_auth_pg.py</code> · <code>test_changing_password_logs_out_existing_sessions</code></td></tr>
+<tr><td>cookie 是 HttpOnly、库里只有令牌的哈希</td><td><code>test_auth_api_pg.py</code> · <code>test_login_sets_httponly_cookie_and_stores_only_its_hash</code></td></tr>
+<tr><td>用户不存在 / 密码不对 / dev 没设密码，返回一模一样</td><td><code>test_auth_api_pg.py</code> · <code>test_failed_login_gets_the_same_401_and_no_cookie</code></td></tr>
+<tr><td>没 cookie、编的 cookie 访问 6 个接口都是 401</td><td><code>test_auth_api_pg.py</code> · <code>test_requests_without_a_valid_session_get_401</code></td></tr>
+<tr><td>退出后旧 cookie 立刻失效（A2）</td><td><code>test_auth_api_pg.py</code> · <code>test_logout_makes_the_old_cookie_useless</code></td></tr>
+<tr><td>过期 401，下次登录顺手清掉（A3 的后端部分）</td><td><code>test_auth_api_pg.py</code> · <code>test_expired_session_gets_401_and_next_login_cleans_it_up</code></td></tr>
+<tr><td>顺延一天最多一次</td><td><code>test_auth_api_pg.py</code> · <code>test_session_is_renewed_at_most_once_a_day</code></td></tr>
+<tr><td>别人的题 404、列表只有自己的（A1）</td><td><code>test_api_pg.py</code> · <code>test_other_users_run_returns_404</code>、<code>test_run_list_shows_only_my_runs_newest_first</code></td></tr>
+<tr><td>别的网站 / 没有 Origin 的提交被拒、不建题（A4）</td><td><code>test_csrf_pg.py</code> · <code>test_post_from_another_site_is_rejected_and_creates_nothing</code>、<code>test_every_kind_of_post_is_checked</code></td></tr>
+<tr><td>并发时限流不被冲破；窗口是滑动的</td><td><code>test_ratelimit_pg.py</code> · <code>test_concurrent_attempts_never_get_past_the_limit</code>、<code>test_window_slides_instead_of_resetting_all_at_once</code></td></tr>
+<tr><td>第 11 次 429，密码对也不放（A5）</td><td><code>test_ratelimit_pg.py</code> · <code>test_eleventh_login_attempt_gets_429_even_with_the_right_password</code></td></tr>
+<tr><td>Redis 挂了登录 503，已登录的人不受影响</td><td><code>test_ratelimit_pg.py</code> · <code>test_login_is_refused_when_redis_is_down</code></td></tr>
+<tr><td>前端：登录后只回本站页面（防开放重定向）</td><td><code>auth.test.ts:14</code></td></tr>
+<tr><td>前端：没登录跳登录页、不提示“过期”、登录后回原页面</td><td><code>e2e/auth.spec.ts:16</code></td></tr>
+<tr><td>前端：A 的题 B 看不到（含正在执行的题）</td><td><code>e2e/auth.spec.ts:29</code></td></tr>
+<tr><td>前端：密码不对 / 被锁住、到点自动恢复</td><td><code>e2e/auth.spec.ts:47</code></td></tr>
+<tr><td>前端：执行中登录过期 → 跳登录页 → 回来接着看完（A3）</td><td><code>e2e/auth.spec.ts:69</code></td></tr>
+<tr><td>前端：退出后再打开题目要重新登录</td><td><code>e2e/auth.spec.ts:83</code></td></tr>
+</table>
+</div>
+
+<p>全部通过：后端单元 71、集成 89（M3a 前 64、54），ruff 没有报错；前端单元 23、端到端 33（M3a 前 19、28），lint 没有报错。GitHub Actions 通过。</p>
+
+<p><b>文档</b>：PLAN §7 M3a 打勾；DECISIONS 新增 D31（argon2-cffi）、D32（实现时的取舍，待确认）；STATUS 写了“M3a 记录”和取舍 28～41；
+README、<a href="01_运行链路.md">运行链路</a> 补了建账号和登录；<a href="02_代码导读/M3a_登录和隔离.md">代码导读 M3a</a> 每个提交一节 + 总览。</p>
+
+<!-- ============================================================ -->
+<h2 id="next">十、下一步和 dev 怎么设密码</h2>
+
+<div class="card">
+<p><b>给 dev 设密码</b>（迁移不会给 dev 设密码，设之前 dev 登不上）：在 <code>margin-agent</code> 目录、compose 的 postgres 在跑时：</p>
+<pre>conda run -n margin --no-capture-output python scripts/create_user.py dev</pre>
+<p>按提示输两遍密码（至少 8 位，输入时不显示）。dev 的 id 还是 1，以前的题都还归他。要 <code>--no-capture-output</code>：不加的话 conda 不把键盘输入转给脚本。
+以后建新账号同一条命令换个用户名；对已有的用户名再执行一次就是改密码，并让他所有已登录的地方下线。</p>
+</div>
+
+<ol>
+  <li><b>你 review M3a</b>：看这份报告和代码导读，确认第八节的取舍 28～41（D32 定稿）；不满意登录页的话在设计稿里挑 B 或 C。</li>
+  <li><b>M3b 治理</b>（review 完再开工）：模型调用并发上限、第 1 层重试、每小时提交上限、每人同时 3 道、按用户轮流投递，实验 B1～B5。</li>
+  <li>留到以后：手机宽度的菜单（取舍 40）；上线时打开 cookie 的 <code>Secure</code>、按真实 IP 限流（M6，取舍 36）。</li>
+</ol>
+
+</main>
+
+<script>
+// review 进度：只存在这个浏览器里，读写失败就当没有
+(function trades() {
+  const KEY = 'm3a-report-trades';
+  let done = {};
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { done = {}; }
+  document.querySelectorAll('#trades input').forEach((box) => {
+    box.checked = !!done[box.id];
+    box.addEventListener('change', () => {
+      done[box.id] = box.checked;
+      try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) { /* 存不了就不存 */ }
+    });
+  });
+})();
+
+// 深色 / 浅色切换
+(function theme() {
+  const root = document.documentElement;
+  try { const t = localStorage.getItem('m3a-report-theme'); if (t) root.dataset.theme = t; } catch (e) {}
+  document.getElementById('theme').addEventListener('click', () => {
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('m3a-report-theme', root.dataset.theme); } catch (e) {}
+  });
+})();
+</script>
+</body>
+</html>

@@ -11,7 +11,92 @@
 
 ## 总览
 
-（M3a-8 收尾时补。）
+**对应提交**：`83d5349`（M3a-0）… M3a-8，按 §5.10 的拆分一个提交一件事，共 10 个：实验 A1～A6 没有发现代码问题；
+收尾前重跑测试发现限流的一个测试时间余量太小，单独修了（`5bd7f0b` M3a-4a，见 M3a-8 一节）。
+阶段报告（为什么做、一次登录怎么走、实验截图、待确认的取舍）：[../M3a_阶段报告.html](../M3a_阶段报告.html)。
+
+**改动的文件**（不含文档）：
+
+| 位置 | 文件 | 做什么 |
+|---|---|---|
+| 数据库 | [migrations/versions/0008_users_password_sessions.py](../../migrations/versions/0008_users_password_sessions.py)、[models.py](../../src/margin/models.py) | `users.password_hash`；`sessions` 表（只存令牌的 SHA-256） |
+| 后端 | [auth.py](../../src/margin/auth.py)（新） | 密码哈希、建 / 改账号、验密码、建 / 查 / 删 session |
+| 后端 | [ratelimit.py](../../src/margin/ratelimit.py)（新） | Redis 滑动窗口限流（一段 Lua） |
+| 后端 | [api.py](../../src/margin/api.py) | `/auth/login`、`/auth/logout`、`/auth/me`；`current_user` 依赖代替 `DEV_USER_ID`；全局的 Origin 检查 |
+| 后端 | [settings.py](../../src/margin/settings.py)、[.env.example](../../.env.example) | 允许的 Origin、cookie 是否 Secure、限流次数和窗口 |
+| 脚本 | [scripts/create_user.py](../../scripts/create_user.py)（新） | 建账号 / 改密码（交互输入，不进命令行历史） |
+| 前端 | [pages/LoginPage.tsx](../../web/app/src/pages/LoginPage.tsx)、[styles/login.css](../../web/app/src/styles/login.css)（新） | 登录页（设计稿方案 A） |
+| 前端 | [auth.ts](../../web/app/src/auth.ts)（新）、[api.ts](../../web/app/src/api.ts)、[App.tsx](../../web/app/src/App.tsx)、[router.ts](../../web/app/src/router.ts) | 统一处理 401、登录后回原页面、启动时问当前用户 |
+| 前端 | [Sidebar.tsx](../../web/app/src/components/Sidebar.tsx)、[useRunStream.ts](../../web/app/src/useRunStream.ts) | 侧栏账号和退出；事件流断开时查一次是否过期 |
+| 设计稿 | [web/design/login.html](../../web/design/login.html)（新） | 三个方案 × 五种状态 × 深浅色 × 窄屏 |
+| 测试 | `tests/` 5 个新文件 + `conftest.py`、`test_api_pg.py`；`web/app/e2e/` 假 API、`support.ts`、`auth.spec.ts` | 见下方测试地图 |
+
+**阅读顺序**（从里到外）：
+
+1. [auth.py](../../src/margin/auth.py) 开头的 docstring（为什么用服务端 session、为什么只存哈希），再看 `authenticate` → `create_session` → `resolve_session`。
+2. [api.py](../../src/margin/api.py#L62-L147)：`check_origin`、`set_session_cookie`、`current_user`、`get_login_limiter`；再看 [login](../../src/margin/api.py#L254) 一个函数里的先后顺序。
+3. [ratelimit.py](../../src/margin/ratelimit.py)：Lua 脚本。
+4. 前端 [api.ts](../../web/app/src/api.ts) 的 401 处理 → [App.tsx](../../web/app/src/App.tsx) 的 `who` → [LoginPage.tsx](../../web/app/src/pages/LoginPage.tsx)。
+5. 测试：先看 [test_auth_api_pg.py](../../tests/test_auth_api_pg.py) 和 [auth.spec.ts](../../web/app/e2e/auth.spec.ts)，它们把行为从外面描述了一遍。
+
+**一次登录的数据流**（compose + Vite，浏览器打开 `http://localhost:5173/runs/196`）：
+
+```text
+浏览器                         Vite(5173)            API(8000)                                   PG / Redis
+GET /api/auth/me（无 cookie） ──转发──▶ current_user：没有 cookie → 401
+  ◀── 401：api.ts 统一处理 → 之前不知道是谁 → 不算过期 → 替换成 /login?next=%2Fruns%2F196
+POST /api/auth/login {username, password}，Origin: http://localhost:5173
+                               ──转发──▶ check_origin：Origin 在允许列表里 → 放行
+                                         login：hit("login:test_a:172.18.0.1")  ──Lua──▶ Redis：删窗口外的、数一数、记一次
+                                                authenticate：查 users、argon2 验密码（约 30 ms）──▶ PG
+                                                create_session：随机令牌；存 SHA-256、删这个人过期的 ──▶ PG sessions
+                                                reset(限流键) ──▶ Redis DEL
+  ◀── 200 {username}，Set-Cookie: margin_session=<令牌>; HttpOnly; Max-Age=604800; Path=/; SameSite=lax
+前端：替换成 next=/runs/196
+GET /api/runs/196（浏览器自动带 cookie）──▶ current_user：resolve_session(SHA-256(令牌)) ──▶ PG：session 有效 → user_id=3
+                                         get_run(196, owner_id=3)：是自己的 → 200；别人的 → 404
+GET /api/runs/196/events（EventSource 也自动带 cookie）──▶ 同上，之后照常推事件
+```
+
+**测试地图**（一个测试对应一个会出事故的场景）：
+
+| 场景 | 测试 |
+|---|---|
+| 密码只存加盐哈希，只有对的密码能验过 | `test_auth.py` · `test_password_hash_is_salted_and_only_the_right_password_verifies` |
+| 不合规的用户名 / 太短的密码建不了 | `test_auth.py` · `test_bad_new_account_is_rejected_with_a_reason` |
+| 给 dev 设密码时 id 不变、旧题仍归 dev | `test_auth_pg.py` · `test_setting_dev_password_keeps_its_id_and_old_runs` |
+| 改密码后已登录的地方全部下线 | `test_auth_pg.py` · `test_changing_password_logs_out_existing_sessions` |
+| cookie 是 HttpOnly、库里只有令牌的哈希 | `test_auth_api_pg.py` · `test_login_sets_httponly_cookie_and_stores_only_its_hash` |
+| 用户不存在 / 密码不对 / 没设密码，返回一模一样 | `test_auth_api_pg.py` · `test_failed_login_gets_the_same_401_and_no_cookie` |
+| 没 cookie、乱写的 cookie 访问各接口都是 401 | `test_auth_api_pg.py` · `test_requests_without_a_valid_session_get_401` |
+| 退出后旧 cookie 立刻失效（A2 的自动化版） | `test_auth_api_pg.py` · `test_logout_makes_the_old_cookie_useless` |
+| 过期的 session 401，下次登录顺手清掉 | `test_auth_api_pg.py` · `test_expired_session_gets_401_and_next_login_cleans_it_up` |
+| 顺延一天最多一次（不是每个请求都写库） | `test_auth_api_pg.py` · `test_session_is_renewed_at_most_once_a_day` |
+| 别人的题 404、列表只有自己的（A1 的自动化版） | `test_api_pg.py` · `test_other_users_run_returns_404`、`test_run_list_shows_only_my_runs_newest_first` |
+| 别的网站 / 没有 Origin 的提交被拒、不建题（A4 的自动化版） | `test_csrf_pg.py` · `test_post_from_another_site_is_rejected_and_creates_nothing`、`test_every_kind_of_post_is_checked` |
+| cookie 是 SameSite=Lax，配置了才 Secure | `test_csrf_pg.py` · `test_session_cookie_is_samesite_lax_and_secure_only_when_configured` |
+| 并发时限流不被冲破；窗口是滑动的 | `test_ratelimit_pg.py` · `test_concurrent_attempts_never_get_past_the_limit`、`test_window_slides_instead_of_resetting_all_at_once` |
+| 第 11 次 429，密码对也不放（A5 的自动化版） | `test_ratelimit_pg.py` · `test_eleventh_login_attempt_gets_429_even_with_the_right_password` |
+| Redis 挂了登录 503，已登录的人不受影响 | `test_ratelimit_pg.py` · `test_login_is_refused_when_redis_is_down` |
+| 前端：登录后只回本站页面（防开放重定向） | `auth.test.ts` · `登录后只回本站的页面…` |
+| 前端：没登录跳登录页、登录后回原页面 | `e2e/auth.spec.ts:16` |
+| 前端：A 的题 B 看不到 | `e2e/auth.spec.ts:29` |
+| 前端：密码不对 / 被锁住、到点恢复 | `e2e/auth.spec.ts:47` |
+| 前端：执行中登录过期，跳登录页并回来接着看（A3 的自动化版） | `e2e/auth.spec.ts:69` |
+| 前端：退出 | `e2e/auth.spec.ts:83` |
+
+合计：后端单元 71、集成 89；前端单元 23、端到端 33；ruff、lint 无报错。
+
+**实验结果**（M3a-7，compose 全套服务 + 学校网关 DeepSeek，详细记录见“逐步记录”的 M3a-7 一节）：
+
+| # | 实验 | 结果 |
+|---|---|---|
+| A1 | B 打开 A 的题 | 列表 `[]`；详情、事件流、重新生成都 404，和不存在的题一模一样；浏览器显示“不属于当前账号” |
+| A2 | 退出后用旧 cookie | 退出 204、库里那一行删掉；旧令牌 `/auth/me`、`GET /runs`、`POST /runs` 全部 401 |
+| A3 | session 改成过期再操作页面 | 点“重新生成”401 → `/login?next=%2Fruns%2F196&expired=1` 带“登录已过期”提示 → 登录后回到 run 196 |
+| A4 | 别的网站的 Origin 提交 | 4 种错误 Origin（含不带、换端口、换写法）都 403、不建题；真浏览器跨站表单 403；跨站 POST 浏览器根本不带 cookie |
+| A5 | 连续输错密码 | 第 11 次（密码是对的）429、Retry-After 587；页面倒计时、按钮不可点；窗口过去后能登录，限流记录清零 |
+| A6 | 登录后提交看执行过程 | 23 秒完成，事件序列和登录前的同一道题完全一样，实时片段照常推 |
 
 ## 逐步记录
 
@@ -569,3 +654,32 @@ Docker 网关，限流靠键里的用户名区分人（取舍 36）。
   现在 `users` 只剩 `dev`（仍然没有密码，等作者自己设）和 M2 时建的 `m2-other-user`，`sessions` 0 行，最大 run id 回到 195。
 - A3 改过期的 session 已在重新登录时自动删掉；Redis 里没有 `login:*` 键。
 - 临时密码文件、cookie 文件、“别的网站”和回显小服务都已删除 / 关掉；两个浏览器会话、Vite 已关。
+
+### M3a-8：收尾
+
+**改了什么**（只有文档）
+
+- 本导读开头补“总览”：对应提交、改动文件、阅读顺序、一次登录的数据流、测试地图、实验结果表。
+- 阶段报告 [../M3a_阶段报告.html](../M3a_阶段报告.html)（本地浏览器打开）：为什么做、改了什么、一次登录怎么走、
+  登录页三个方案和选择、实验截图、发现的问题、取舍 28～41（每条“这是什么 → 我选了 → 另一种 → 代价 → 我的建议”，可以勾选记 review 进度）。
+- STATUS：“所在阶段”、“M3a 记录”、“下一步”（作者 review M3a → M3b）、“本地环境备忘”里加了给 dev 设密码的命令；交接节标为已完成。
+- PLAN §7 M3a 打勾；DECISIONS 新增 D32（实现时的取舍，待确认）。
+- README：当前阶段、`auth.py` / `ratelimit.py`、建账号命令、curl 示例改成先登录并带 `Origin`；集成测试需要 PG 和 Redis。
+- [运行链路](../01_运行链路.md)：调用链加 ⓪ 登录、① 的 Origin 检查；“Redis 挂了”补一句登录 503；服务表补 Redis 的登录限流。
+
+**怎么验证的**
+
+- 报告用 Playwright CLI 在浏览器里打开（限时的本地 http 服务），浅色、深色、手机宽度各看一遍：图片都能加载、没有横向滚动。
+- 提交前 `pytest`、`pytest -m integration`、ruff、`npm run lint`、`npm test`、`npm run e2e` 再跑一遍；推送后 GitHub Actions 通过。
+
+**收尾时发现并修掉的：限流测试偶尔失败（M3a-4a，`5bd7f0b`）**
+
+提交前重跑 `pytest -m integration`，[test_window_slides_instead_of_resetting_all_at_once](../../tests/test_ratelimit_pg.py#L55) 失败一次
+（第 2.1 秒那次本该放行，返回了“还要等 1 秒”）。查原因：测试用本机时钟 `sleep`，窗口按 Redis 的 `TIME` 算，
+而本机的 Redis 跑在 WSL 虚拟机里——量了 5 次，Windows 睡 2.1 秒，Redis 只过 2.015～2.026 秒，慢约 4%。
+原来那一步离窗口边界只留 0.1 秒，2.1 × 0.96 ≈ 2.02，再加上调用本身的抖动就可能还没到 2 秒。
+
+- 改法：那一步改到第 2.5 秒，每个判断离边界都留 0.4 秒以上（能容忍 ±5% 的时钟差）；连跑 5 次通过。限流代码不用改。
+- 为什么 CI 和 M3a-4 时没暴露：CI 里测试和 Redis 在同一台 Linux 上，同一个时钟；本机是两个时钟，偏差还会随 WSL 的时间同步变化。
+- 对真实使用的影响：限流只按 Redis 一个时钟算，不受影响。前端的倒计时用的是浏览器的时钟，两边走得不一样快时，
+  按钮可能早几秒恢复，这时点登录会再收到一个很短的 `Retry-After`、重新倒计时（A5 里按钮恢复的时刻和 Redis 算的只差 1 秒左右）。
