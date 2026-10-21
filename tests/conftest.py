@@ -118,10 +118,12 @@ def hub(database_url):
 
 @pytest.fixture
 def db(engine):
-    """每个测试开始前清空业务表（保留迁移预置的开发用户），测试之间互不影响。"""
+    """每个测试开始前清空业务表（保留迁移预置的开发用户，并把它恢复成没有密码），测试之间互不影响。"""
     with engine.begin() as conn:
-        conn.execute(text("TRUNCATE runs, attempts, steps, events, outbox, block_vectors"
+        conn.execute(text("TRUNCATE runs, attempts, steps, events, outbox, block_vectors, sessions"
                           " RESTART IDENTITY"))
+        conn.execute(text("DELETE FROM users WHERE id <> 1"))
+        conn.execute(text("UPDATE users SET password_hash = NULL"))
     return engine
 
 

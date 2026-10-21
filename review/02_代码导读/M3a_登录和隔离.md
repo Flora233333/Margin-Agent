@@ -76,3 +76,65 @@
 - 设计稿底部脚本的 `paint`：每种状态改了哪些东西（提示、按钮文字、是否禁用、输入框只读、密码框标红清空），
   M3a-5 的 React 组件照着它做。
 - “密码不对”为什么不区分用户名和密码。
+
+### M3a-1：迁移 0008——密码哈希、sessions 表；建账号脚本
+
+**改了什么**
+
+- [migrations/versions/0008_users_password_sessions.py](../../migrations/versions/0008_users_password_sessions.py)：
+  `users` 加一列 `password_hash`（可以为空），新表 `sessions`（`user_id`、`token_hash`、`created_at`、`expires_at`），
+  `user_id` 上建普通索引、外键 `ON DELETE CASCADE`。
+- [models.py:43-72](../../src/margin/models.py#L43-L72)：`User.password_hash`；新类 `LoginSession`（表名 `sessions`。
+  不叫 `Session` 是因为 SQLAlchemy 的“数据库会话”也叫 `Session`，同一个文件里两个 `Session` 会看糊涂）。
+- 新文件 [auth.py](../../src/margin/auth.py)：
+  - [hash_password / verify_password](../../src/margin/auth.py#L31-L39)：argon2id，库是新加的 `argon2-cffi`（D31）；
+  - [check_new_account](../../src/margin/auth.py#L42)：用户名只许字母数字和 `. _ -`、最长 32；密码至少 8 位；
+  - [set_password](../../src/margin/auth.py#L51)：用户名存在就换密码（同一事务删掉他的全部 session），不存在就新建。
+- 新脚本 [scripts/create_user.py](../../scripts/create_user.py)：`python scripts/create_user.py <用户名>`，密码用 `getpass`
+  输两遍（不回显）；标准输入不是终端时（实验脚本用管道传）按行读两行。
+- [tests/conftest.py](../../tests/conftest.py#L119)：每个测试前还要清 `sessions`、删掉 dev 以外的用户、把 dev 的密码清空。
+- `pyproject.toml` 加 `argon2-cffi`，DECISIONS 新增 D31。
+
+**为什么**
+
+- 密码不能明文存，也不能用 SHA-256 这种快哈希存：库泄露后，攻击者用显卡每秒算几十亿次，拿常见密码表一比就出来了。
+  argon2 每次要约 30 毫秒（本机实测 31 毫秒）、占 64MB 内存，还自带随机盐，见 auth.py 开头的注释和 D31。
+- `password_hash` 可以为空：迁移时 dev 用户已经存在，迁移脚本不能替作者编一个密码（编了就得写进仓库）。
+  空哈希 = 登录不了，作者用脚本设上密码后继续用，旧题都还归 id=1。
+- sessions 表只存令牌的 SHA-256：令牌在浏览器的 cookie 里，库被拖走时，攻击者拿到的哈希不能直接塞进 cookie 用。
+  令牌本身是 32 字节随机数（M3a-2 生成），没有“常见令牌”可以猜，所以普通的快哈希就够。
+- 改密码时删掉全部 session：会改密码通常是怀疑泄露了，只让旧密码作废、却让别人已经登录着的浏览器继续用，等于没改。
+- 用户名字符限制：用户名会拼进 M3a-4 限流的 Redis 键（`login:<用户名>:<IP>`）、也会出现在页面和日志里，不要空格和冒号。
+- 脚本支持管道输入：`getpass` 只能从终端读，实验（M3a-7）要在脚本里建 `test_a`、`test_b` 两个账号。
+  管道输入时密码同样不出现在命令行参数里（`ps` 看不到）。注意要用 `conda run --no-capture-output`，
+  不加这个参数 conda 不把标准输入传给 Python。
+
+**一个具体例子**
+
+```text
+> conda run -n margin --no-capture-output python scripts/create_user.py dev
+密码：（输入不显示）
+再输一遍：
+已改密码：dev（id=1）
+
+库里：users(1, 'dev', '$argon2id$v=19$m=65536,t=3,p=4$<22 个字符的盐>$<43 个字符的哈希>')
+```
+
+两次输得不一样 → “两次输入的密码不一样，没有修改”，退出码 1，库里不变（实测）。
+
+**怎么验证的**
+
+- 单元测试 [test_auth.py](../../tests/test_auth.py)：
+  - `test_password_hash_is_salted_and_only_the_right_password_verifies`：同一个密码两次哈希不同、哈希里没有明文、错一个字符验不过；
+  - `test_bad_new_account_is_rejected_with_a_reason`（5 种：短密码、中文、空格、空、超长用户名）和 `test_valid_new_account_passes`。
+- 集成测试 [test_auth_pg.py](../../tests/test_auth_pg.py)：
+  - `test_setting_dev_password_keeps_its_id_and_old_runs`：给 dev 设密码后 users 还是 1 行、旧题的 owner 还是 1；
+  - `test_new_username_creates_an_account`；
+  - `test_changing_password_logs_out_existing_sessions`：改 test_a 的密码后他的 session 没了，test_b 的还在。
+- 迁移：conftest 每次从空库执行到 0008；开发库 `alembic upgrade head` 后 `alembic check` 无差异。
+- `pytest`（71）、`pytest -m integration`（57）、ruff 全部通过。
+
+**建议重点看**
+
+- `set_password` 里先 `UPDATE ... RETURNING id`、没更新到再 `INSERT`：一条 UPDATE 就知道用户在不在，不用先查一次。
+- 为什么 `password_hash` 可以为空、空的时候意味着什么（M3a-2 的 `authenticate` 会处理）。

@@ -30,6 +30,8 @@ dependencies = [
     "celery>=5.4",
     # Redis 客户端：worker 把模型的思考片段 publish 出去，API 订阅后转给 SSE（M2，PLAN §5.4）
     "redis>=5.0",
+    # 密码哈希（argon2id）：登录密码只存哈希，故意算得慢、占内存，泄库后也很难暴力破解（M3a，D30）
+    "argon2-cffi>=23.1",
 ]
 
 [project.optional-dependencies]

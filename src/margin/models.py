@@ -2,8 +2,9 @@
 
 几张表的关系：
     users ─< runs ─< attempts ─< steps
-                │          └──< outbox
-                └──< events
+      │         │          └──< outbox
+      │         └──< events
+      └──< sessions（登录状态，M3a）
     block_vectors（向量检索用，和业务表无关）
 
     run      = 用户提交的一道题
@@ -40,13 +41,36 @@ class Base(DeclarativeBase):
 
 
 class User(Base):
-    """M1 只有一个开发用户（迁移里预置 id=1）；M3 加密码哈希和登录。"""
+    """账号。用 scripts/create_user.py 建，没有注册页（D30）。
+
+    迁移 0001 预置了开发用户 dev（id=1），旧题都归它。
+    """
 
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(Text, unique=True)
+    # argon2 哈希（auth.hash_password），迁移 0008 加；为空 = 还没设密码，登录不了
+    password_hash: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class LoginSession(Base):
+    """一次登录（迁移 0008）。不叫 Session，免得和 SQLAlchemy 的 Session（数据库会话）混淆。
+
+    浏览器 cookie 里是随机令牌，这里只存它的 SHA-256：库泄露了也拿不到能直接用的令牌。
+    """
+
+    __tablename__ = "sessions"
+    # 按用户找 session：改密码时全部删掉、登录时清掉已过期的
+    __table_args__ = (Index("ix_sessions_user_id", "user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    token_hash: Mapped[str] = mapped_column(Text, unique=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # 过期时间：登录时 = 现在 + 7 天；用户在用就顺延（auth.resolve_session）
+    expires_at: Mapped[datetime]
 
 
 class Run(Base):
